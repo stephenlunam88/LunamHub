@@ -1151,6 +1151,31 @@ paths:
                 required:
                   - valid
 
+  /family/{id}/avatar:
+    post:
+      operationId: setFamilyMemberAvatar
+      tags: [family]
+      summary: Persist avatar URL for a family member after object-storage upload
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvatarUrlInput"
+      responses:
+        "200":
+          description: Avatar updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyMember"
+
   /family/{id}/set-pin:
     post:
       operationId: setFamilyMemberPin
@@ -1352,6 +1377,14 @@ components:
           type: integer
         avatarUrl:
           type: ["string", "null"]
+
+    AvatarUrlInput:
+      type: object
+      required: [avatarUrl]
+      properties:
+        avatarUrl:
+          type: string
+          format: uri
 
     SetPinInput:
       type: object

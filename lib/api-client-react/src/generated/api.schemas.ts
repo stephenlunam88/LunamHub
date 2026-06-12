@@ -65,6 +65,10 @@ export interface FamilyMemberUpdate {
   avatarUrl?: string | null;
 }
 
+export interface AvatarUrlInput {
+  avatarUrl: string;
+}
+
 export interface SetPinInput {
   pin: string;
 }

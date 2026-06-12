@@ -179,6 +179,7 @@ router.post("/:id/approve", async (req, res) => {
       type: "chore_earned",
       description: `Earned for: ${chore.title}`,
       choreId: chore.id,
+      approvedByParentId: parentId,
     });
 
     const [member] = await db.select().from(familyMembersTable).where(eq(familyMembersTable.id, chore.assignedTo));
@@ -197,11 +198,11 @@ async function checkAndAwardBadges(memberId: number, lifetimePoints: number) {
     { threshold: 1000, emoji: "🥇",  title: "Gold Champion",  tier: "gold"   as const, description: "Earned 1000 lifetime points" },
   ];
 
-  // Approved-chore-count milestones
+  // Approved-chore-count milestones (only count status=approved)
   const [{ value: choreCount }] = await db
     .select({ value: count() })
     .from(choresTable)
-    .where(eq(choresTable.assignedTo, memberId));
+    .where(sql`${choresTable.assignedTo} = ${memberId} AND ${choresTable.status} = 'approved'`);
   const approvedCount = Number(choreCount ?? 0);
 
   const choreMilestones = [

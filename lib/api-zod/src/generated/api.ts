@@ -1159,6 +1159,31 @@ export const VerifyFamilyMemberPinResponse = zod.object({
 
 
 /**
+ * @summary Persist avatar URL for a family member after object-storage upload
+ */
+export const SetFamilyMemberAvatarParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SetFamilyMemberAvatarBody = zod.object({
+  "avatarUrl": zod.string().url()
+})
+
+export const SetFamilyMemberAvatarResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "role": zod.enum(['parent', 'child']),
+  "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
  * @summary Set or update a parent member's PIN
  */
 export const SetFamilyMemberPinParams = zod.object({

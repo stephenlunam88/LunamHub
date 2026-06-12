@@ -14,6 +14,7 @@ import { dashboardRouter } from "./dashboard";
 import { settingsRouter } from "./settings";
 import { badgesRouter } from "./badges";
 import { pointTransactionsRouter } from "./point-transactions";
+import { leaderboardRouter } from "./leaderboard";
 import storageRouter from "./storage";
 
 const router: IRouter = Router();
@@ -32,6 +33,7 @@ router.use("/dashboard", dashboardRouter);
 router.use("/settings", settingsRouter);
 router.use("/badges", badgesRouter);
 router.use("/point-transactions", pointTransactionsRouter);
+router.use("/leaderboard", leaderboardRouter);
 router.use(storageRouter);
 
 export default router;

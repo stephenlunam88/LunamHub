@@ -133,6 +133,7 @@ export const pointTransactionsTable = pgTable("point_transactions", {
   description: text("description").notNull(),
   choreId: integer("chore_id").references(() => choresTable.id, { onDelete: "set null" }),
   redemptionId: integer("redemption_id").references(() => redemptionsTable.id, { onDelete: "set null" }),
+  approvedByParentId: integer("approved_by_parent_id").references(() => familyMembersTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

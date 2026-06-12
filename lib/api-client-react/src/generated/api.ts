@@ -21,6 +21,7 @@ import type {
 
 import type {
   AddMealIngredientsToGrocery200,
+  AvatarUrlInput,
   Badge,
   BadgeInput,
   Chore,
@@ -4278,6 +4279,78 @@ export const useVerifyFamilyMemberPin = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getVerifyFamilyMemberPinMutationOptions(options));
+    }
+
+export const getSetFamilyMemberAvatarUrl = (id: number,) => {
+
+
+
+
+  return `/api/family/${id}/avatar`
+}
+
+/**
+ * @summary Persist avatar URL for a family member after object-storage upload
+ */
+export const setFamilyMemberAvatar = async (id: number,
+    avatarUrlInput: AvatarUrlInput, options?: RequestInit): Promise<FamilyMember> => {
+
+  return customFetch<FamilyMember>(getSetFamilyMemberAvatarUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      avatarUrlInput,)
+  }
+);}
+
+
+
+
+export const getSetFamilyMemberAvatarMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setFamilyMemberAvatar>>, TError,{id: number;data: BodyType<AvatarUrlInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setFamilyMemberAvatar>>, TError,{id: number;data: BodyType<AvatarUrlInput>}, TContext> => {
+
+const mutationKey = ['setFamilyMemberAvatar'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setFamilyMemberAvatar>>, {id: number;data: BodyType<AvatarUrlInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setFamilyMemberAvatar(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetFamilyMemberAvatarMutationResult = NonNullable<Awaited<ReturnType<typeof setFamilyMemberAvatar>>>
+    export type SetFamilyMemberAvatarMutationBody = BodyType<AvatarUrlInput>
+    export type SetFamilyMemberAvatarMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Persist avatar URL for a family member after object-storage upload
+ */
+export const useSetFamilyMemberAvatar = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setFamilyMemberAvatar>>, TError,{id: number;data: BodyType<AvatarUrlInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setFamilyMemberAvatar>>,
+        TError,
+        {id: number;data: BodyType<AvatarUrlInput>},
+        TContext
+      > => {
+      return useMutation(getSetFamilyMemberAvatarMutationOptions(options));
     }
 
 export const getSetFamilyMemberPinUrl = (id: number,) => {

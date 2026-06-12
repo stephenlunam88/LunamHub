@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   useGetSettings, useVerifyPin, useUpdateSettings,
   useCreateFamilyMember, useDeleteFamilyMember, useListFamilyMembers,
-  useSetFamilyMemberPin,
+  useSetFamilyMemberPin, useSetFamilyMemberAvatar,
+  useRequestUploadUrl,
   useListRewards, useCreateReward, useDeleteReward,
   getGetSettingsQueryKey, getListFamilyMembersQueryKey,
   getListRewardsQueryKey,
@@ -15,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Lock, Plus, Trash2, Shield, Users, Settings as SettingsIcon, Key, Gift } from "lucide-react";
+import { Lock, Plus, Trash2, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload } from "lucide-react";
 import type { FamilyMemberInput, RewardInput } from "@workspace/api-client-react";
 
 export default function Admin() {
@@ -139,6 +140,61 @@ function SetPinDialog({ memberId, memberName, memberEmoji, hasPin }: { memberId:
   );
 }
 
+function AvatarUploadButton({ memberId, currentAvatarUrl }: { memberId: number; currentAvatarUrl?: string | null }) {
+  const qc = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const requestUrl = useRequestUploadUrl();
+  const setAvatar = useSetFamilyMemberAvatar({
+    mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getListFamilyMembersQueryKey() }) }
+  });
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const { uploadURL, objectPath } = await new Promise<{ uploadURL: string; objectPath: string }>((resolve, reject) => {
+        requestUrl.mutate(
+          { data: { name: file.name, size: file.size, contentType: file.type } },
+          { onSuccess: resolve, onError: reject }
+        );
+      });
+      await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      const avatarUrl = `/api/storage/objects${objectPath}`;
+      setAvatar.mutate({ id: memberId, data: { avatarUrl } });
+    } catch {
+      setError("Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      {currentAvatarUrl && (
+        <img src={currentAvatarUrl} alt="avatar" className="w-10 h-10 rounded-full object-cover border-2 border-muted" />
+      )}
+      <Button
+        size="sm"
+        variant="outline"
+        className="rounded-xl gap-1.5"
+        disabled={uploading}
+        onClick={() => fileRef.current?.click()}
+      >
+        <Upload className="w-3.5 h-3.5" />
+        {uploading ? "Uploading…" : currentAvatarUrl ? "Change photo" : "Add photo"}
+      </Button>
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+      {error && <span className="text-xs text-red-600">{error}</span>}
+    </div>
+  );
+}
+
 function AdminPanel({ onLock }: { onLock: () => void }) {
   const qc = useQueryClient();
   const { data: settings } = useGetSettings();
@@ -181,14 +237,12 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
                   {m.role}{m.role === "child" ? ` · ${m.pointsBalance} pts · ${m.lifetimePoints ?? 0} all-time` : ""}
                 </div>
               </div>
-              {m.role === "parent" && (
-                <SetPinDialog
-                  memberId={m.id}
-                  memberName={m.name}
-                  memberEmoji={m.emoji}
-                  hasPin={m.hasPin}
-                />
-              )}
+              <div className="flex flex-col gap-1.5 items-end">
+                <AvatarUploadButton memberId={m.id} currentAvatarUrl={m.avatarUrl} />
+                {m.role === "parent" && (
+                  <SetPinDialog memberId={m.id} memberName={m.name} memberEmoji={m.emoji} hasPin={m.hasPin} />
+                )}
+              </div>
               <button onClick={() => deleteMember.mutate({ id: m.id })} className="text-muted-foreground hover:text-destructive p-2">
                 <Trash2 className="w-5 h-5" />
               </button>

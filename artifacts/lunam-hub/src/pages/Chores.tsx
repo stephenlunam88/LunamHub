@@ -312,13 +312,17 @@ export default function Chores() {
           {approved.length === 0 && <p className="text-center text-muted-foreground py-12">No completed chores yet</p>}
           {approved.map(c => {
             const member = members.find(m => m.id === c.assignedTo);
+            const approver = c.approvedByParentId ? members.find(m => m.id === c.approvedByParentId) : null;
             return (
               <Card key={c.id} className="rounded-2xl border-0 shadow-sm opacity-75">
                 <CardContent className="p-5 flex items-center gap-4">
                   <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0" />
                   <div className="flex-1">
                     <div className="font-semibold line-through text-muted-foreground">{c.title}</div>
-                    {member && <div className="text-sm text-muted-foreground">{member.emoji} {member.name}</div>}
+                    <div className="flex items-center gap-3 mt-0.5 text-sm text-muted-foreground">
+                      {member && <span>{member.emoji} {member.name}</span>}
+                      {approver && <span className="text-green-700">✓ Approved by {approver.emoji} {approver.name}</span>}
+                    </div>
                   </div>
                   <div className="text-green-700 font-bold">+{c.pointsValue} pts</div>
                 </CardContent>
