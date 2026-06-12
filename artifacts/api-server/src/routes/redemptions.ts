@@ -60,6 +60,23 @@ router.post("/", async (req, res) => {
   res.status(201).json(await formatRedemption(redemption));
 });
 
+async function verifyParentPin(parentId: number | null, pin: string | null, res: import("express").Response): Promise<{ ok: true; parent: typeof familyMembersTable.$inferSelect | null } | { ok: false }> {
+  const allParents = await db.select().from(familyMembersTable)
+    .where(eq(familyMembersTable.role, "parent"));
+  if (allParents.length > 0) {
+    if (!parentId) { res.status(403).json({ error: "A parent must approve this action" }); return { ok: false }; }
+    const parent = allParents.find(p => p.id === parentId);
+    if (!parent) { res.status(403).json({ error: "Parent not found" }); return { ok: false }; }
+    if (parent.pinHash) {
+      if (!pin) { res.status(403).json({ error: "PIN required for this parent" }); return { ok: false }; }
+      const valid = await bcrypt.compare(pin, parent.pinHash);
+      if (!valid) { res.status(403).json({ error: "Invalid PIN" }); return { ok: false }; }
+    }
+    return { ok: true, parent };
+  }
+  return { ok: true, parent: null };
+}
+
 // POST /api/redemptions/:id/approve — deducts points_balance + records transaction
 router.post("/:id/approve", async (req, res) => {
   const { id } = ApproveRedemptionParams.parse({ id: Number(req.params.id) });
@@ -67,16 +84,8 @@ router.post("/:id/approve", async (req, res) => {
   const parentId = bodyParse.success ? (bodyParse.data.parentId ?? null) : null;
   const pin = bodyParse.success ? (bodyParse.data.pin ?? null) : null;
 
-  // Server-side PIN validation
-  if (parentId) {
-    const [parent] = await db.select().from(familyMembersTable).where(eq(familyMembersTable.id, parentId));
-    if (!parent || parent.role !== "parent") { res.status(403).json({ error: "Parent not found" }); return; }
-    if (parent.pinHash) {
-      if (!pin) { res.status(403).json({ error: "PIN required for this parent" }); return; }
-      const valid = await bcrypt.compare(pin, parent.pinHash);
-      if (!valid) { res.status(403).json({ error: "Invalid PIN" }); return; }
-    }
-  }
+  const auth = await verifyParentPin(parentId, pin, res);
+  if (!auth.ok) return;
 
   const [redemption] = await db.select().from(redemptionsTable).where(eq(redemptionsTable.id, id));
   if (!redemption) { res.status(404).json({ error: "Not found" }); return; }
@@ -107,10 +116,21 @@ router.post("/:id/approve", async (req, res) => {
   res.json(await formatRedemption(updated));
 });
 
-// POST /api/redemptions/:id/reject
+// POST /api/redemptions/:id/reject — also requires parent PIN
 router.post("/:id/reject", async (req, res) => {
   const { id } = RejectRedemptionParams.parse({ id: Number(req.params.id) });
-  const [updated] = await db.update(redemptionsTable).set({ status: "rejected" }).where(eq(redemptionsTable.id, id)).returning();
+  const bodyParse = RedemptionApproveBodySchema.safeParse(req.body);
+  const parentId = bodyParse.success ? (bodyParse.data.parentId ?? null) : null;
+  const pin = bodyParse.success ? (bodyParse.data.pin ?? null) : null;
+
+  const auth = await verifyParentPin(parentId, pin, res);
+  if (!auth.ok) return;
+
+  const [updated] = await db
+    .update(redemptionsTable)
+    .set({ status: "rejected", approvedByParentId: parentId })
+    .where(eq(redemptionsTable.id, id))
+    .returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
   res.json(await formatRedemption(updated));
 });

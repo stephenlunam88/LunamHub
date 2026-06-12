@@ -2024,14 +2024,16 @@ export const getRejectRedemptionUrl = (id: number,) => {
 /**
  * @summary Reject a redemption request (parent action)
  */
-export const rejectRedemption = async (id: number, options?: RequestInit): Promise<Redemption> => {
+export const rejectRedemption = async (id: number,
+    redemptionApproveBody?: RedemptionApproveBody, options?: RequestInit): Promise<Redemption> => {
 
   return customFetch<Redemption>(getRejectRedemptionUrl(id),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      redemptionApproveBody,)
   }
 );}
 
@@ -2039,8 +2041,8 @@ export const rejectRedemption = async (id: number, options?: RequestInit): Promi
 
 
 export const getRejectRedemptionMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectRedemption>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof rejectRedemption>>, TError,{id: number}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectRedemption>>, TError,{id: number;data?: BodyType<RedemptionApproveBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rejectRedemption>>, TError,{id: number;data?: BodyType<RedemptionApproveBody>}, TContext> => {
 
 const mutationKey = ['rejectRedemption'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -2052,10 +2054,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rejectRedemption>>, {id: number}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rejectRedemption>>, {id: number;data?: BodyType<RedemptionApproveBody>}> = (props) => {
+          const {id,data} = props ?? {};
 
-          return  rejectRedemption(id,requestOptions)
+          return  rejectRedemption(id,data,requestOptions)
         }
 
 
@@ -2066,18 +2068,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type RejectRedemptionMutationResult = NonNullable<Awaited<ReturnType<typeof rejectRedemption>>>
-
+    export type RejectRedemptionMutationBody = BodyType<RedemptionApproveBody> | undefined
     export type RejectRedemptionMutationError = ErrorType<unknown>
 
     /**
  * @summary Reject a redemption request (parent action)
  */
 export const useRejectRedemption = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectRedemption>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectRedemption>>, TError,{id: number;data?: BodyType<RedemptionApproveBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof rejectRedemption>>,
         TError,
-        {id: number},
+        {id: number;data?: BodyType<RedemptionApproveBody>},
         TContext
       > => {
       return useMutation(getRejectRedemptionMutationOptions(options));

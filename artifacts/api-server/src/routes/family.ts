@@ -75,6 +75,19 @@ router.delete("/:id", async (req, res) => {
   res.status(204).send();
 });
 
+// POST /api/family/:id/avatar — persist avatar URL after object-storage upload
+router.post("/:id/avatar", async (req, res) => {
+  const { id } = IdParams.parse({ id: Number(req.params.id) });
+  const { avatarUrl } = z.object({ avatarUrl: z.string().url() }).parse(req.body);
+  const [member] = await db
+    .update(familyMembersTable)
+    .set({ avatarUrl })
+    .where(eq(familyMembersTable.id, id))
+    .returning();
+  if (!member) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(formatMember(member));
+});
+
 // GET /api/family/:id/badges — list badges earned by a family member
 router.get("/:id/badges", async (req, res) => {
   const { id } = IdParams.parse({ id: Number(req.params.id) });

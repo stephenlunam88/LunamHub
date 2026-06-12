@@ -588,6 +588,11 @@ export const RejectRedemptionParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const RejectRedemptionBody = zod.object({
+  "parentId": zod.number().optional(),
+  "pin": zod.string().optional()
+})
+
 export const RejectRedemptionResponse = zod.object({
   "id": zod.number(),
   "rewardId": zod.number(),

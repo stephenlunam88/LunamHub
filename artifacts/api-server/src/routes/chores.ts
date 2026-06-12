@@ -4,7 +4,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { choresTable, familyMembersTable, pointTransactionsTable, badgesTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, count } from "drizzle-orm";
 import {
   CreateChoreBody,
   UpdateChoreBody,
@@ -140,10 +140,13 @@ router.post("/:id/approve", async (req, res) => {
   const parentId = bodyParse.success ? (bodyParse.data.parentId ?? null) : null;
   const pin = bodyParse.success ? (bodyParse.data.pin ?? null) : null;
 
-  // Server-side PIN validation: if parentId given, check parent's PIN if they have one set
-  if (parentId) {
-    const [parent] = await db.select().from(familyMembersTable).where(eq(familyMembersTable.id, parentId));
-    if (!parent || parent.role !== "parent") { res.status(403).json({ error: "Parent not found" }); return; }
+  // Mandatory parent gating: if any parents exist in the family, parentId is required
+  const allParents = await db.select().from(familyMembersTable)
+    .where(eq(familyMembersTable.role, "parent"));
+  if (allParents.length > 0) {
+    if (!parentId) { res.status(403).json({ error: "A parent must approve this action" }); return; }
+    const parent = allParents.find(p => p.id === parentId);
+    if (!parent) { res.status(403).json({ error: "Parent not found" }); return; }
     if (parent.pinHash) {
       if (!pin) { res.status(403).json({ error: "PIN required for this parent" }); return; }
       const valid = await bcrypt.compare(pin, parent.pinHash);
@@ -186,19 +189,39 @@ router.post("/:id/approve", async (req, res) => {
 });
 
 async function checkAndAwardBadges(memberId: number, lifetimePoints: number) {
-  const milestones = [
+  // Lifetime-points milestones
+  const pointMilestones = [
     { threshold: 50,   emoji: "⭐",  title: "First Steps",    tier: "bronze" as const, description: "Earned 50 lifetime points" },
-    { threshold: 100,  emoji: "🌟",  title: "Star Chorer",    tier: "bronze" as const, description: "Earned 100 lifetime points" },
-    { threshold: 250,  emoji: "🥈",  title: "Silver Streak",  tier: "silver" as const, description: "Earned 250 lifetime points" },
-    { threshold: 500,  emoji: "🥇",  title: "Gold Champion",  tier: "gold"   as const, description: "Earned 500 lifetime points" },
-    { threshold: 1000, emoji: "💎",  title: "Diamond Legend", tier: "gold"   as const, description: "Earned 1000 lifetime points" },
+    { threshold: 100,  emoji: "🌟",  title: "Point Collector", tier: "bronze" as const, description: "Earned 100 lifetime points" },
+    { threshold: 500,  emoji: "🥈",  title: "Silver Earner",  tier: "silver" as const, description: "Earned 500 lifetime points" },
+    { threshold: 1000, emoji: "🥇",  title: "Gold Champion",  tier: "gold"   as const, description: "Earned 1000 lifetime points" },
+  ];
+
+  // Approved-chore-count milestones
+  const [{ value: choreCount }] = await db
+    .select({ value: count() })
+    .from(choresTable)
+    .where(eq(choresTable.assignedTo, memberId));
+  const approvedCount = Number(choreCount ?? 0);
+
+  const choreMilestones = [
+    { threshold: 1,  emoji: "🎯", title: "First Chore",    tier: "bronze" as const, description: "Completed first chore" },
+    { threshold: 5,  emoji: "🔥", title: "Chore Streak",   tier: "bronze" as const, description: "Approved 5 chores" },
+    { threshold: 10, emoji: "💪", title: "Hard Worker",    tier: "silver" as const, description: "Approved 10 chores" },
+    { threshold: 25, emoji: "🏆", title: "Chore Champion", tier: "gold"   as const, description: "Approved 25 chores" },
+    { threshold: 50, emoji: "👑", title: "Chore Legend",   tier: "gold"   as const, description: "Approved 50 chores" },
   ];
 
   const existing = await db.select().from(badgesTable).where(eq(badgesTable.memberId, memberId));
   const existingTitles = new Set(existing.map((b) => b.title));
 
-  for (const m of milestones) {
+  for (const m of pointMilestones) {
     if (lifetimePoints >= m.threshold && !existingTitles.has(m.title)) {
+      await db.insert(badgesTable).values({ memberId, title: m.title, description: m.description, emoji: m.emoji, tier: m.tier });
+    }
+  }
+  for (const m of choreMilestones) {
+    if (approvedCount >= m.threshold && !existingTitles.has(m.title)) {
       await db.insert(badgesTable).values({ memberId, title: m.title, description: m.description, emoji: m.emoji, tier: m.tier });
     }
   }

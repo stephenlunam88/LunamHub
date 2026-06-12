@@ -210,7 +210,7 @@ export default function Rewards() {
                       title="Reject Reward"
                       description={`Reject "${r.reward?.title}" request from ${r.member?.name}?`}
                       parents={parents}
-                      onConfirm={(parentId, pin) => rejectRedemption.mutate({ id: r.id })}
+                      onConfirm={(parentId, pin) => rejectRedemption.mutate({ id: r.id, data: { parentId, pin } })}
                       isPending={rejectRedemption.isPending}
                       errorFromParent={rejectErrors[r.id]}
                       clearError={() => setRejectErrors(prev => { const n = { ...prev }; delete n[r.id]; return n; })}

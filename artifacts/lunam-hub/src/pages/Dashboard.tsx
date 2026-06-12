@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trophy } from "lucide-react";
 
 export default function Dashboard() {
@@ -22,6 +23,9 @@ export default function Dashboard() {
 
   const children = summary.familyMembers.filter(m => m.role === "child");
   const sortedChildren = [...children].sort((a, b) => (b.lifetimePoints ?? 0) - (a.lifetimePoints ?? 0));
+
+  type WeeklyEntry = { memberId: number; name: string; emoji: string; weeklyPoints: number };
+  const weeklyLeaderboard: WeeklyEntry[] = ((summary as unknown as Record<string, unknown>).weeklyLeaderboard as WeeklyEntry[] | undefined) ?? [];
 
   return (
     <div className="space-y-8 animate-in fade-in zoom-in duration-500">
@@ -86,33 +90,52 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-3">
-              {sortedChildren.map((m, i) => (
-                <li key={m.id} className="bg-background rounded-xl p-4 shadow-sm flex items-center gap-4">
-                  <div className="text-2xl font-bold text-muted-foreground w-6 text-center">
-                    {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}
-                  </div>
-                  <div className="text-3xl" style={{ textShadow: `0 0 10px ${m.color}40` }}>{m.emoji}</div>
-                  <div className="flex-1">
-                    <div className="font-bold text-lg">{m.name}</div>
-                    <div className="text-xs text-muted-foreground">{m.pointsBalance} pts available</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xl font-bold text-amber-600">{m.lifetimePoints ?? 0}</div>
-                    <div className="text-xs text-muted-foreground">all-time</div>
-                  </div>
-                </li>
-              ))}
-              {summary.familyMembers.filter(m => m.role === "parent").map(m => (
-                <li key={m.id} className="bg-background rounded-xl p-4 shadow-sm flex items-center gap-4 opacity-70">
-                  <div className="text-3xl">{m.emoji}</div>
-                  <div className="flex-1">
-                    <div className="font-bold text-lg">{m.name}</div>
-                    <div className="text-xs text-muted-foreground capitalize">{m.role}</div>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <Tabs defaultValue="alltime">
+              <TabsList className="w-full rounded-xl mb-4">
+                <TabsTrigger value="alltime" className="flex-1 rounded-lg">All-Time</TabsTrigger>
+                <TabsTrigger value="weekly" className="flex-1 rounded-lg">This Week</TabsTrigger>
+              </TabsList>
+              <TabsContent value="alltime">
+                <ul className="space-y-3">
+                  {sortedChildren.map((m, i) => (
+                    <li key={m.id} className="bg-background rounded-xl p-4 shadow-sm flex items-center gap-3">
+                      <div className="text-xl w-6 text-center">{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}</div>
+                      <div className="text-3xl">{m.emoji}</div>
+                      <div className="flex-1">
+                        <div className="font-bold">{m.name}</div>
+                        <div className="text-xs text-muted-foreground">{m.pointsBalance} pts available</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xl font-bold text-amber-600">{m.lifetimePoints ?? 0}</div>
+                        <div className="text-xs text-muted-foreground">all-time</div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </TabsContent>
+              <TabsContent value="weekly">
+                {weeklyLeaderboard.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">No points earned this week yet</p>
+                ) : (
+                  <ul className="space-y-3">
+                    {weeklyLeaderboard.map((entry, i) => (
+                      <li key={entry.memberId} className="bg-background rounded-xl p-4 shadow-sm flex items-center gap-3">
+                        <div className="text-xl w-6 text-center">{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}</div>
+                        <div className="text-3xl">{entry.emoji}</div>
+                        <div className="flex-1">
+                          <div className="font-bold">{entry.name}</div>
+                          <div className="text-xs text-muted-foreground">this week</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xl font-bold text-green-600">+{entry.weeklyPoints}</div>
+                          <div className="text-xs text-muted-foreground">pts</div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>

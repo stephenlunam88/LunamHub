@@ -539,6 +539,12 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RedemptionApproveBody"
       responses:
         "200":
           description: Rejected
