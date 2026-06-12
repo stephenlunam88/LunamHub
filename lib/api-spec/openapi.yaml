@@ -3,20 +3,38 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: LunamHub Family Command Centre API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: family
+    description: Family member management
+  - name: events
+    description: Calendar events
+  - name: chores
+    description: Chore management
+  - name: rewards
+    description: Reward store management
+  - name: lists
+    description: Shared lists
+  - name: meals
+    description: Meal planner
+  - name: routines
+    description: Daily routines
+  - name: dashboard
+    description: Dashboard aggregates
+  - name: settings
+    description: App settings
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +42,1060 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Family Members ──────────────────────────────────────────────────────────
+  /family:
+    get:
+      operationId: listFamilyMembers
+      tags: [family]
+      summary: List all family members
+      responses:
+        "200":
+          description: List of family members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FamilyMember"
+    post:
+      operationId: createFamilyMember
+      tags: [family]
+      summary: Create a family member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FamilyMemberInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyMember"
+
+  /family/{id}:
+    get:
+      operationId: getFamilyMember
+      tags: [family]
+      summary: Get a family member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Family member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyMember"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateFamilyMember
+      tags: [family]
+      summary: Update a family member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FamilyMemberUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyMember"
+    delete:
+      operationId: deleteFamilyMember
+      tags: [family]
+      summary: Delete a family member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Calendar Events ──────────────────────────────────────────────────────────
+  /events:
+    get:
+      operationId: listEvents
+      tags: [events]
+      summary: List calendar events
+      parameters:
+        - name: startDate
+          in: query
+          schema:
+            type: string
+        - name: endDate
+          in: query
+          schema:
+            type: string
+        - name: memberId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Events list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Event"
+    post:
+      operationId: createEvent
+      tags: [events]
+      summary: Create a calendar event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+
+  /events/{id}:
+    get:
+      operationId: getEvent
+      tags: [events]
+      summary: Get an event
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateEvent
+      tags: [events]
+      summary: Update an event
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+    delete:
+      operationId: deleteEvent
+      tags: [events]
+      summary: Delete an event
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Chores ───────────────────────────────────────────────────────────────────
+  /chores:
+    get:
+      operationId: listChores
+      tags: [chores]
+      summary: List chores
+      parameters:
+        - name: assignedTo
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: status
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Chores list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Chore"
+    post:
+      operationId: createChore
+      tags: [chores]
+      summary: Create a chore
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChoreInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chore"
+
+  /chores/{id}:
+    get:
+      operationId: getChore
+      tags: [chores]
+      summary: Get a chore
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Chore
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chore"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateChore
+      tags: [chores]
+      summary: Update a chore
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChoreUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chore"
+    delete:
+      operationId: deleteChore
+      tags: [chores]
+      summary: Delete a chore
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /chores/{id}/complete:
+    post:
+      operationId: completeChore
+      tags: [chores]
+      summary: Mark a chore as completed (child action)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chore"
+
+  /chores/{id}/approve:
+    post:
+      operationId: approveChore
+      tags: [chores]
+      summary: Approve a completed chore (parent action, awards points)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chore"
+
+  /chores/summary:
+    get:
+      operationId: getChoresSummary
+      tags: [chores]
+      summary: Get chores summary grouped by family member
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChoreSummary"
+
+  # ── Rewards ──────────────────────────────────────────────────────────────────
+  /rewards:
+    get:
+      operationId: listRewards
+      tags: [rewards]
+      summary: List reward items
+      responses:
+        "200":
+          description: Rewards list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Reward"
+    post:
+      operationId: createReward
+      tags: [rewards]
+      summary: Create a reward
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RewardInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reward"
+
+  /rewards/{id}:
+    patch:
+      operationId: updateReward
+      tags: [rewards]
+      summary: Update a reward
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RewardUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reward"
+    delete:
+      operationId: deleteReward
+      tags: [rewards]
+      summary: Delete a reward
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /redemptions:
+    get:
+      operationId: listRedemptions
+      tags: [rewards]
+      summary: List reward redemption requests
+      responses:
+        "200":
+          description: Redemptions list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Redemption"
+    post:
+      operationId: requestRedemption
+      tags: [rewards]
+      summary: Request to redeem a reward (child action)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RedemptionInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Redemption"
+
+  /redemptions/{id}/approve:
+    post:
+      operationId: approveRedemption
+      tags: [rewards]
+      summary: Approve a redemption request (parent action, deducts points)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Redemption"
+
+  /redemptions/{id}/reject:
+    post:
+      operationId: rejectRedemption
+      tags: [rewards]
+      summary: Reject a redemption request (parent action)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Redemption"
+
+  # ── Lists ─────────────────────────────────────────────────────────────────────
+  /lists:
+    get:
+      operationId: listLists
+      tags: [lists]
+      summary: List all shared lists
+      responses:
+        "200":
+          description: Lists
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SharedList"
+    post:
+      operationId: createList
+      tags: [lists]
+      summary: Create a shared list
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SharedListInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharedList"
+
+  /lists/{id}:
+    get:
+      operationId: getList
+      tags: [lists]
+      summary: Get a list with its items
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List with items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharedListWithItems"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateList
+      tags: [lists]
+      summary: Update a list
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SharedListUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharedList"
+    delete:
+      operationId: deleteList
+      tags: [lists]
+      summary: Delete a list
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /lists/{listId}/items:
+    post:
+      operationId: createListItem
+      tags: [lists]
+      summary: Add an item to a list
+      parameters:
+        - name: listId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ListItemInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListItem"
+
+  /lists/{listId}/items/{itemId}:
+    patch:
+      operationId: updateListItem
+      tags: [lists]
+      summary: Update a list item
+      parameters:
+        - name: listId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ListItemUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListItem"
+    delete:
+      operationId: deleteListItem
+      tags: [lists]
+      summary: Delete a list item
+      parameters:
+        - name: listId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Meals ─────────────────────────────────────────────────────────────────────
+  /meals:
+    get:
+      operationId: listMeals
+      tags: [meals]
+      summary: List saved meals
+      responses:
+        "200":
+          description: Meals list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Meal"
+    post:
+      operationId: createMeal
+      tags: [meals]
+      summary: Create a meal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MealInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meal"
+
+  /meals/{id}:
+    patch:
+      operationId: updateMeal
+      tags: [meals]
+      summary: Update a meal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MealUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meal"
+    delete:
+      operationId: deleteMeal
+      tags: [meals]
+      summary: Delete a meal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /meal-plan:
+    get:
+      operationId: getMealPlan
+      tags: [meals]
+      summary: Get meal plan for a week
+      parameters:
+        - name: weekStart
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Meal plan entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MealPlanEntry"
+    post:
+      operationId: addMealPlanEntry
+      tags: [meals]
+      summary: Add a meal to the plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MealPlanEntryInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealPlanEntry"
+
+  /meal-plan/{id}:
+    delete:
+      operationId: deleteMealPlanEntry
+      tags: [meals]
+      summary: Remove a meal plan entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /meal-plan/{id}/add-to-grocery:
+    post:
+      operationId: addMealIngredientsToGrocery
+      tags: [meals]
+      summary: Add meal ingredients to grocery list
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Ingredients added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  added:
+                    type: integer
+                required:
+                  - added
+
+  # ── Routines ──────────────────────────────────────────────────────────────────
+  /routines:
+    get:
+      operationId: listRoutines
+      tags: [routines]
+      summary: List routines
+      responses:
+        "200":
+          description: Routines list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Routine"
+    post:
+      operationId: createRoutine
+      tags: [routines]
+      summary: Create a routine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoutineInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Routine"
+
+  /routines/{id}:
+    get:
+      operationId: getRoutine
+      tags: [routines]
+      summary: Get a routine with items
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Routine with items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutineWithItems"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateRoutine
+      tags: [routines]
+      summary: Update a routine
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoutineUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Routine"
+    delete:
+      operationId: deleteRoutine
+      tags: [routines]
+      summary: Delete a routine
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /routines/{id}/items:
+    post:
+      operationId: createRoutineItem
+      tags: [routines]
+      summary: Add an item to a routine
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoutineItemInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutineItem"
+
+  /routines/{id}/items/{itemId}:
+    patch:
+      operationId: updateRoutineItem
+      tags: [routines]
+      summary: Update a routine item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoutineItemUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutineItem"
+    delete:
+      operationId: deleteRoutineItem
+      tags: [routines]
+      summary: Delete a routine item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /routines/{id}/complete:
+    post:
+      operationId: completeRoutineItem
+      tags: [routines]
+      summary: Mark a routine item as complete for today
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoutineCompletionInput"
+      responses:
+        "200":
+          description: Completion recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutineCompletion"
+
+  # ── Dashboard ──────────────────────────────────────────────────────────────────
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get all today's data for the main dashboard
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  # ── Settings ───────────────────────────────────────────────────────────────────
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get app settings
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+    patch:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update app settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+
+  /settings/verify-pin:
+    post:
+      operationId: verifyPin
+      tags: [settings]
+      summary: Verify parent PIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PinInput"
+      responses:
+        "200":
+          description: Result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                required:
+                  - valid
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +1106,743 @@ components:
       required:
         - status
 
+    # ── Family Members ────────────────────────────────────────────────────────
+    FamilyMember:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        emoji:
+          type: string
+        color:
+          type: string
+        role:
+          type: string
+          enum: [parent, child]
+        pointsBalance:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - emoji
+        - color
+        - role
+        - pointsBalance
+        - createdAt
+
+    FamilyMemberInput:
+      type: object
+      properties:
+        name:
+          type: string
+        emoji:
+          type: string
+        color:
+          type: string
+        role:
+          type: string
+          enum: [parent, child]
+      required:
+        - name
+        - emoji
+        - color
+        - role
+
+    FamilyMemberUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        emoji:
+          type: string
+        color:
+          type: string
+        role:
+          type: string
+          enum: [parent, child]
+        pointsBalance:
+          type: integer
+
+    # ── Events ────────────────────────────────────────────────────────────────
+    Event:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        date:
+          type: string
+        startTime:
+          type: ["string", "null"]
+        endTime:
+          type: ["string", "null"]
+        allDay:
+          type: boolean
+        category:
+          type: string
+          enum: [school, sport, appointment, birthday, family, other]
+        assignedMembers:
+          type: array
+          items:
+            type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - title
+        - date
+        - allDay
+        - category
+        - assignedMembers
+        - createdAt
+
+    EventInput:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        date:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        allDay:
+          type: boolean
+        category:
+          type: string
+          enum: [school, sport, appointment, birthday, family, other]
+        assignedMembers:
+          type: array
+          items:
+            type: integer
+      required:
+        - title
+        - date
+        - category
+
+    EventUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        date:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        allDay:
+          type: boolean
+        category:
+          type: string
+          enum: [school, sport, appointment, birthday, family, other]
+        assignedMembers:
+          type: array
+          items:
+            type: integer
+
+    # ── Chores ────────────────────────────────────────────────────────────────
+    Chore:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        assignedTo:
+          type: ["integer", "null"]
+        assignedMember:
+          $ref: "#/components/schemas/FamilyMember"
+        dueDate:
+          type: ["string", "null"]
+        repeatType:
+          type: string
+          enum: [once, daily, weekly]
+        pointsValue:
+          type: integer
+        status:
+          type: string
+          enum: [pending, completed, approved, missed]
+        createdAt:
+          type: string
+      required:
+        - id
+        - title
+        - repeatType
+        - pointsValue
+        - status
+        - createdAt
+
+    ChoreInput:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        assignedTo:
+          type: integer
+        dueDate:
+          type: string
+        repeatType:
+          type: string
+          enum: [once, daily, weekly]
+        pointsValue:
+          type: integer
+      required:
+        - title
+        - repeatType
+        - pointsValue
+
+    ChoreUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        assignedTo:
+          type: ["integer", "null"]
+        dueDate:
+          type: ["string", "null"]
+        repeatType:
+          type: string
+          enum: [once, daily, weekly]
+        pointsValue:
+          type: integer
+        status:
+          type: string
+          enum: [pending, completed, approved, missed]
+
+    ChoreSummary:
+      type: object
+      properties:
+        memberId:
+          type: integer
+        memberName:
+          type: string
+        memberColor:
+          type: string
+        memberEmoji:
+          type: string
+        pending:
+          type: integer
+        completed:
+          type: integer
+        approved:
+          type: integer
+        missed:
+          type: integer
+        totalPoints:
+          type: integer
+      required:
+        - memberId
+        - memberName
+        - memberColor
+        - memberEmoji
+        - pending
+        - completed
+        - approved
+        - missed
+        - totalPoints
+
+    # ── Rewards ───────────────────────────────────────────────────────────────
+    Reward:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        pointsCost:
+          type: integer
+        active:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - title
+        - pointsCost
+        - active
+        - createdAt
+
+    RewardInput:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        pointsCost:
+          type: integer
+        active:
+          type: boolean
+      required:
+        - title
+        - pointsCost
+
+    RewardUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        pointsCost:
+          type: integer
+        active:
+          type: boolean
+
+    Redemption:
+      type: object
+      properties:
+        id:
+          type: integer
+        rewardId:
+          type: integer
+        reward:
+          $ref: "#/components/schemas/Reward"
+        memberId:
+          type: integer
+        member:
+          $ref: "#/components/schemas/FamilyMember"
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        createdAt:
+          type: string
+      required:
+        - id
+        - rewardId
+        - memberId
+        - status
+        - createdAt
+
+    RedemptionInput:
+      type: object
+      properties:
+        rewardId:
+          type: integer
+        memberId:
+          type: integer
+      required:
+        - rewardId
+        - memberId
+
+    # ── Lists ─────────────────────────────────────────────────────────────────
+    SharedList:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+          enum: [grocery, packing, school, reminders, other]
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - category
+        - createdAt
+
+    SharedListInput:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+          enum: [grocery, packing, school, reminders, other]
+      required:
+        - name
+        - category
+
+    SharedListUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+          enum: [grocery, packing, school, reminders, other]
+
+    SharedListWithItems:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+        createdAt:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ListItem"
+      required:
+        - id
+        - name
+        - category
+        - createdAt
+        - items
+
+    ListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        listId:
+          type: integer
+        text:
+          type: string
+        completed:
+          type: boolean
+        assignedTo:
+          type: ["integer", "null"]
+        category:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - listId
+        - text
+        - completed
+        - createdAt
+
+    ListItemInput:
+      type: object
+      properties:
+        text:
+          type: string
+        assignedTo:
+          type: integer
+        category:
+          type: string
+      required:
+        - text
+
+    ListItemUpdate:
+      type: object
+      properties:
+        text:
+          type: string
+        completed:
+          type: boolean
+        assignedTo:
+          type: ["integer", "null"]
+        category:
+          type: ["string", "null"]
+
+    # ── Meals ─────────────────────────────────────────────────────────────────
+    Meal:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        notes:
+          type: ["string", "null"]
+        ingredients:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - createdAt
+
+    MealInput:
+      type: object
+      properties:
+        name:
+          type: string
+        notes:
+          type: string
+        ingredients:
+          type: string
+      required:
+        - name
+
+    MealUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        notes:
+          type: string
+        ingredients:
+          type: string
+
+    MealPlanEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        mealId:
+          type: integer
+        meal:
+          $ref: "#/components/schemas/Meal"
+        date:
+          type: string
+        mealType:
+          type: string
+          enum: [breakfast, lunch, dinner, snack]
+      required:
+        - id
+        - mealId
+        - date
+        - mealType
+
+    MealPlanEntryInput:
+      type: object
+      properties:
+        mealId:
+          type: integer
+        date:
+          type: string
+        mealType:
+          type: string
+          enum: [breakfast, lunch, dinner, snack]
+      required:
+        - mealId
+        - date
+        - mealType
+
+    # ── Routines ──────────────────────────────────────────────────────────────
+    Routine:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        assignedTo:
+          type: ["integer", "null"]
+        assignedMember:
+          $ref: "#/components/schemas/FamilyMember"
+        timeOfDay:
+          type: string
+          enum: [morning, afternoon, evening, bedtime]
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - timeOfDay
+        - createdAt
+
+    RoutineInput:
+      type: object
+      properties:
+        name:
+          type: string
+        assignedTo:
+          type: integer
+        timeOfDay:
+          type: string
+          enum: [morning, afternoon, evening, bedtime]
+      required:
+        - name
+        - timeOfDay
+
+    RoutineUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        assignedTo:
+          type: ["integer", "null"]
+        timeOfDay:
+          type: string
+          enum: [morning, afternoon, evening, bedtime]
+
+    RoutineItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        routineId:
+          type: integer
+        text:
+          type: string
+        order:
+          type: integer
+      required:
+        - id
+        - routineId
+        - text
+        - order
+
+    RoutineItemInput:
+      type: object
+      properties:
+        text:
+          type: string
+        order:
+          type: integer
+      required:
+        - text
+
+    RoutineItemUpdate:
+      type: object
+      properties:
+        text:
+          type: string
+        order:
+          type: integer
+
+    RoutineWithItems:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        assignedTo:
+          type: ["integer", "null"]
+        timeOfDay:
+          type: string
+        createdAt:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoutineItem"
+        completionsToday:
+          type: array
+          items:
+            type: integer
+      required:
+        - id
+        - name
+        - timeOfDay
+        - createdAt
+        - items
+        - completionsToday
+
+    RoutineCompletion:
+      type: object
+      properties:
+        id:
+          type: integer
+        routineId:
+          type: integer
+        routineItemId:
+          type: integer
+        completedAt:
+          type: string
+      required:
+        - id
+        - routineId
+        - routineItemId
+        - completedAt
+
+    RoutineCompletionInput:
+      type: object
+      properties:
+        routineItemId:
+          type: integer
+      required:
+        - routineItemId
+
+    # ── Dashboard ─────────────────────────────────────────────────────────────
+    DashboardSummary:
+      type: object
+      properties:
+        todayEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+        upcomingEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+        todayChores:
+          type: array
+          items:
+            $ref: "#/components/schemas/Chore"
+        pendingApprovals:
+          type: integer
+        familyMembers:
+          type: array
+          items:
+            $ref: "#/components/schemas/FamilyMember"
+        todayMeals:
+          type: array
+          items:
+            $ref: "#/components/schemas/MealPlanEntry"
+        pendingRedemptions:
+          type: integer
+      required:
+        - todayEvents
+        - upcomingEvents
+        - todayChores
+        - pendingApprovals
+        - familyMembers
+        - todayMeals
+        - pendingRedemptions
+
+    # ── Settings ──────────────────────────────────────────────────────────────
+    Settings:
+      type: object
+      properties:
+        id:
+          type: integer
+        parentPin:
+          type: string
+        appName:
+          type: string
+        timezone:
+          type: string
+        displayMode:
+          type: boolean
+      required:
+        - id
+        - parentPin
+        - appName
+        - timezone
+        - displayMode
+
+    SettingsUpdate:
+      type: object
+      properties:
+        parentPin:
+          type: string
+        appName:
+          type: string
+        timezone:
+          type: string
+        displayMode:
+          type: boolean
+
+    PinInput:
+      type: object
+      properties:
+        pin:
+          type: string
+      required:
+        - pin

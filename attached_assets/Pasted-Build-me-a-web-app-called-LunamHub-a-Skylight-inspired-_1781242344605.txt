@@ -1,0 +1,152 @@
+Build me a web app called LunamHub, a Skylight-inspired family command centre for a wall-mounted tablet or Raspberry Pi touchscreen.
+
+Do not copy Skylight branding, names, colours, icons, layouts, or proprietary design. Build an original family dashboard with similar general functionality.
+
+Tech stack:
+
+* React frontend
+* Node/Express backend
+* SQLite or PostgreSQL database
+* Responsive design
+* Touchscreen-friendly UI
+* Works well in full-screen kiosk mode on a 10–15 inch display
+* Clean modern design with large cards, big buttons, and colour-coded family members
+
+Core screens:
+
+1. Home Dashboard
+2. Calendar
+3. Chores
+4. Rewards Store
+5. Lists
+6. Meal Planner
+7. Routines
+8. Parent Admin
+9. Settings
+10. Full-screen Display Mode
+
+Main features:
+
+Family members:
+
+* Add/edit/delete family members
+* Each member has name, avatar/emoji, colour, role: parent or child
+* Children have points balance
+
+Calendar:
+
+* Day, week, and month views
+* Add/edit/delete events
+* Assign events to one or more family members
+* Colour-code events by person
+* Event fields: title, description, date, start time, end time, all-day toggle, category, assigned family members
+* Categories: school, sport, appointment, birthday, family, other
+* Today panel on dashboard
+* Upcoming events panel
+
+Chores:
+
+* Create chores
+* Assign chore to child
+* Repeat options: once, daily, weekly
+* Chore fields: title, description, assigned child, due date, repeat type, points value, status
+* Statuses: pending, completed, approved, missed
+* Children can mark chores as completed
+* Parents can approve chores
+* Approved chores add points to the child balance
+* Show progress by child
+* Show daily chore checklist
+
+Rewards Store:
+
+* Parents can create reward items
+* Reward fields: title, description, points cost, active/inactive
+* Children can request to redeem a reward
+* Parent can approve or reject redemption
+* Approved redemption subtracts points from the child balance
+* Show redemption history
+
+Lists:
+
+* Create shared lists such as grocery, packing, school, reminders
+* Add/edit/delete list items
+* Mark items complete
+* Assign list items to family members
+* List item fields: text, completed, assigned member, category
+
+Meal Planner:
+
+* Weekly meal plan view
+* Add meals to days of the week
+* Save favourite meals
+* Meal fields: name, notes, ingredients
+* Button to add ingredients to grocery list
+
+Routines:
+
+* Create routines such as Morning, After School, Bedtime
+* Add checklist items to routines
+* Assign routine to child
+* Track routine completion for the day
+
+Parent Admin:
+
+* PIN-protected parent area
+* Manage family members
+* Approve chores
+* Approve reward redemptions
+* Manage chores, rewards, lists, meals, and routines
+
+Display Mode:
+
+* Full-screen dashboard
+* Large readable text
+* Shows today’s date, time, weather placeholder, upcoming events, chores due today, meal plan, and family points
+* Auto-refresh data every 30 seconds
+* Idle mode placeholder for photo frame/screensaver
+
+Database tables:
+
+* users/family_members
+* events
+* chores
+* chore_completions
+* rewards
+* reward_redemptions
+* lists
+* list_items
+* meals
+* meal_plan
+* routines
+* routine_items
+* routine_completions
+* settings
+
+Seed data:
+Create a sample family with two parents and four children.
+Create sample chores, rewards, events, grocery list, and meal plan.
+
+Design requirements:
+
+* Use a clean card-based layout
+* Big buttons suitable for touch
+* Colour-coded family members
+* Simple navigation sidebar or bottom nav
+* Dashboard should look good on a wall display
+* Mobile admin should also work
+
+First deliverable:
+Build a working MVP with:
+
+* Family member management
+* Dashboard
+* Calendar CRUD
+* Chore CRUD
+* Chore completion and parent approval
+* Points balance
+* Reward store and redemption requests
+* Shared lists
+* Basic meal planner
+* Full-screen display mode
+
+Add comments in the code explaining the structure.
