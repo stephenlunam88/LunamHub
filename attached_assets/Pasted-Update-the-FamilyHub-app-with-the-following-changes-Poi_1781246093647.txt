@@ -1,0 +1,160 @@
+Update the FamilyHub app with the following changes.
+
+Points and achievements:
+- Each child should have two separate point values:
+  1. points_balance: spendable points used in the rewards store
+  2. lifetime_points: total achievement score that never decreases
+- When a child completes an approved chore, add the chore points to both points_balance and lifetime_points.
+- When a child redeems a reward, subtract the reward cost from points_balance only.
+- Do not reduce lifetime_points when rewards are redeemed.
+- Add a leaderboard showing children ranked by lifetime_points.
+- Add a weekly leaderboard showing points earned this week.
+- Add badges for milestones such as:
+  - 100 lifetime points
+  - 500 lifetime points
+  - 1,000 lifetime points
+  - 7-day streak
+  - 30-day streak
+  - 50 completed chores
+  - 100 completed chores
+- Dashboard should show:
+  - Store Balance / spendable points
+  - Achievement Score / lifetime points
+  - Weekly points
+  - Current rank
+
+Chores page changes:
+- Add selectable child tiles at the top of the chores page.
+- Each child tile should show:
+  - child avatar
+  - name
+  - points balance
+  - lifetime achievement score
+  - chore count
+- When a child tile is selected, filter the chores list to only show chores assigned to that child.
+- Add an “All Children” tile to clear the filter and show all chores.
+- Clearly highlight the selected child tile.
+
+Chore approval changes:
+- Chore approval must require an admin/parent PIN.
+- Each parent must have their own PIN code.
+- Parent PIN is created when adding a parent family member.
+- When approving a chore, show a PIN modal.
+- The approving parent must be selected or identified.
+- Validate the PIN against that specific parent.
+- Store the approving parent against the chore approval record.
+- Show “Approved by [Parent Name]” on completed/approved chores.
+- Do not allow children to approve chores.
+
+Parent setup:
+- When creating a parent family member, require a PIN code.
+- Parent PIN should be stored securely. Do not store plain text if possible.
+- Allow parent PIN to be changed in the admin settings area.
+
+Adding chores:
+- When adding a new chore, allow selecting multiple children.
+- If multiple children are selected, create a separate chore instance for each child.
+- Example: if “Make bed” is assigned to Honor, Child 2, and Child 3, create three separate chores so each child can complete their own one.
+- Each generated chore should keep the same:
+  - title
+  - description
+  - due date
+  - repeat settings
+  - points value
+- Each generated chore should have a different assigned_child_id.
+
+Child avatar:
+- When adding or editing a child, allow uploading an image to use as their avatar.
+- Store and display the uploaded avatar image.
+- If no image is uploaded, allow an emoji or initials fallback.
+- Show the avatar on:
+  - child tiles
+  - chore cards
+  - dashboard cards
+  - leaderboard
+  - reward redemption requests
+
+Dashboard chores tile:
+- Update the dashboard chores tile so every chore clearly shows who it is assigned to.
+- Display the assigned child’s avatar, name, and colour on each chore.
+- Do not show chore cards without the assigned child visible.
+- Dashboard should make it obvious which chores belong to which child.
+
+Rewards admin:
+- Move “Add Reward” behind the admin page only.
+- Children should be able to view available rewards and request redemption.
+- Only parents/admins should be able to:
+  - create rewards
+  - edit rewards
+  - activate rewards
+  - deactivate rewards
+  - delete rewards
+- Reward management should sit inside the protected parent/admin area.
+- Reward redemption approval should require parent PIN validation.
+- Store which parent approved the redemption.
+
+Database/model updates:
+- family_members:
+  - id
+  - name
+  - role: parent or child
+  - colour
+  - avatar_url
+  - pin_hash for parents only
+  - points_balance for children
+  - lifetime_points for children
+  - created_at
+  - updated_at
+
+- chores:
+  - id
+  - title
+  - description
+  - assigned_child_id
+  - due_date
+  - repeat_type
+  - points_value
+  - status
+  - completed_at
+  - approved_at
+  - approved_by_parent_id
+  - created_at
+  - updated_at
+
+- point_transactions:
+  - id
+  - child_id
+  - amount
+  - transaction_type: chore_earned, reward_spent, manual_adjustment
+  - description
+  - related_chore_id
+  - related_reward_redemption_id
+  - approved_by_parent_id
+  - created_at
+
+- reward_redemptions:
+  - id
+  - reward_id
+  - child_id
+  - points_cost
+  - status: requested, approved, rejected
+  - requested_at
+  - approved_at
+  - approved_by_parent_id
+
+- badges:
+  - id
+  - child_id
+  - badge_type
+  - badge_name
+  - awarded_at
+
+Important business rules:
+- points_balance can go up and down.
+- lifetime_points can only increase.
+- Reward redemptions subtract from points_balance only.
+- Leaderboards use lifetime_points, not points_balance.
+- Weekly leaderboard should calculate points from point_transactions where transaction_type = chore_earned and created_at is within the current week.
+- Parent/admin actions must require PIN validation.
+- Children can complete chores and request rewards.
+- Parents approve chores, approve rewards, and manage reward store items.
