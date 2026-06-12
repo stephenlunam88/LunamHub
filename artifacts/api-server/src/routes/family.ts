@@ -72,11 +72,17 @@ router.get("/:id", async (req, res) => {
   res.json(formatMember(member));
 });
 
-// PATCH /api/family/:id — update a family member
+// PATCH /api/family/:id — update a family member (supports optional `pin` for parents)
 router.patch("/:id", async (req, res) => {
   const { id } = UpdateFamilyMemberParams.parse({ id: Number(req.params.id) });
   const body = UpdateFamilyMemberBody.parse(req.body);
-  const [member] = await db.update(familyMembersTable).set(body).where(eq(familyMembersTable.id, id)).returning();
+  const pinParse = z.object({ pin: z.string().min(4).regex(/^\d+$/).optional() }).safeParse(req.body);
+  const pin = pinParse.success ? pinParse.data.pin : undefined;
+  const updateFields: Record<string, unknown> = { ...body };
+  if (pin) {
+    updateFields.pinHash = await bcrypt.hash(pin, BCRYPT_ROUNDS);
+  }
+  const [member] = await db.update(familyMembersTable).set(updateFields).where(eq(familyMembersTable.id, id)).returning();
   if (!member) { res.status(404).json({ error: "Not found" }); return; }
   res.json(formatMember(member));
 });
@@ -112,7 +118,7 @@ router.get("/:id/badges", async (req, res) => {
     description: b.description ?? null,
     emoji: b.emoji,
     tier: b.tier,
-    earnedAt: b.awardedAt.toISOString(),
+    awardedAt: b.awardedAt.toISOString(),
   })));
 });
 

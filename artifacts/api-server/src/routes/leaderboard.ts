@@ -45,7 +45,7 @@ router.get("/weekly", async (_req, res) => {
 
   const weeklyByMember: Record<number, number> = {};
   for (const tx of txns) {
-    if (tx.amount > 0) {
+    if (tx.type === "chore_earned") {
       weeklyByMember[tx.memberId] = (weeklyByMember[tx.memberId] ?? 0) + tx.amount;
     }
   }

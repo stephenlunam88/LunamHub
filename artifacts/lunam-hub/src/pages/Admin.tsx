@@ -4,7 +4,7 @@ import {
   useCreateFamilyMember, useDeleteFamilyMember, useListFamilyMembers,
   useSetFamilyMemberPin, useSetFamilyMemberAvatar,
   useRequestUploadUrl,
-  useListRewards, useCreateReward, useDeleteReward,
+  useListRewards, useCreateReward, useUpdateReward, useDeleteReward,
   getGetSettingsQueryKey, getListFamilyMembersQueryKey,
   getListRewardsQueryKey,
 } from "@workspace/api-client-react";
@@ -16,8 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Lock, Plus, Trash2, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload } from "lucide-react";
-import type { FamilyMemberInput, RewardInput } from "@workspace/api-client-react";
+import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload } from "lucide-react";
+import type { FamilyMemberInput, RewardInput, RewardUpdate, Reward } from "@workspace/api-client-react";
 
 export default function Admin() {
   const [pin, setPin] = useState("");
@@ -204,12 +204,23 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
   const [memberForm, setMemberForm] = useState<FamilyMemberInput>({ name: "", emoji: "😊", color: "#6366f1", role: "child" });
   const [rewardOpen, setRewardOpen] = useState(false);
   const [rewardForm, setRewardForm] = useState<RewardInput>({ title: "", pointsCost: 100 });
+  const [editRewardOpen, setEditRewardOpen] = useState(false);
+  const [editRewardTarget, setEditRewardTarget] = useState<Reward | null>(null);
+  const [editRewardForm, setEditRewardForm] = useState<RewardUpdate>({ title: "", pointsCost: 100 });
 
+  const invalidateRewards = () => qc.invalidateQueries({ queryKey: getListRewardsQueryKey() });
   const updateSettings = useUpdateSettings({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getGetSettingsQueryKey() }) } });
   const createMember = useCreateFamilyMember({ mutation: { onSuccess: () => { qc.invalidateQueries({ queryKey: getListFamilyMembersQueryKey() }); setMemberForm({ name: "", emoji: "😊", color: "#6366f1", role: "child" }); } } });
   const deleteMember = useDeleteFamilyMember({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getListFamilyMembersQueryKey() }) } });
-  const createReward = useCreateReward({ mutation: { onSuccess: () => { qc.invalidateQueries({ queryKey: getListRewardsQueryKey() }); setRewardOpen(false); setRewardForm({ title: "", pointsCost: 100 }); } } });
-  const deleteReward = useDeleteReward({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getListRewardsQueryKey() }) } });
+  const createReward = useCreateReward({ mutation: { onSuccess: () => { invalidateRewards(); setRewardOpen(false); setRewardForm({ title: "", pointsCost: 100 }); } } });
+  const updateReward = useUpdateReward({ mutation: { onSuccess: () => { invalidateRewards(); setEditRewardOpen(false); setEditRewardTarget(null); } } });
+  const deleteReward = useDeleteReward({ mutation: { onSuccess: invalidateRewards } });
+
+  function openEditReward(r: Reward) {
+    setEditRewardTarget(r);
+    setEditRewardForm({ title: r.title, description: r.description ?? undefined, pointsCost: r.pointsCost, active: r.active });
+    setEditRewardOpen(true);
+  }
 
   const parents = members.filter(m => m.role === "parent");
 
@@ -314,24 +325,65 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {rewards.filter(r => r.active).length === 0 && (
+          {rewards.length === 0 && (
             <p className="text-muted-foreground text-sm">No rewards yet — add some for your family!</p>
           )}
-          {rewards.filter(r => r.active).map(r => (
-            <div key={r.id} className="flex items-center gap-4 bg-muted rounded-2xl p-4">
+          {rewards.map(r => (
+            <div key={r.id} className={`flex items-center gap-4 rounded-2xl p-4 ${r.active ? "bg-muted" : "bg-muted/40 opacity-60"}`}>
               <div className="text-2xl">🎁</div>
               <div className="flex-1">
-                <div className="font-bold">{r.title}</div>
+                <div className="font-bold flex items-center gap-2">
+                  {r.title}
+                  {!r.active && <span className="text-xs bg-muted-foreground/20 text-muted-foreground px-2 py-0.5 rounded-full">Inactive</span>}
+                </div>
                 {r.description && <div className="text-sm text-muted-foreground">{r.description}</div>}
               </div>
               <div className="bg-primary text-primary-foreground px-3 py-1.5 rounded-xl font-bold text-sm">{r.pointsCost} pts</div>
-              <button onClick={() => deleteReward.mutate({ id: r.id })} className="text-muted-foreground hover:text-destructive p-2">
+              <button
+                onClick={() => updateReward.mutate({ id: r.id, data: { ...r, description: r.description ?? undefined, active: !r.active } })}
+                className="text-muted-foreground hover:text-foreground p-2"
+                title={r.active ? "Deactivate" : "Activate"}
+              >
+                {r.active ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+              <button onClick={() => openEditReward(r)} className="text-muted-foreground hover:text-foreground p-2" title="Edit">
+                <Pencil className="w-4 h-4" />
+              </button>
+              <button onClick={() => deleteReward.mutate({ id: r.id })} className="text-muted-foreground hover:text-destructive p-2" title="Delete">
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
           ))}
         </CardContent>
       </Card>
+
+      <Dialog open={editRewardOpen} onOpenChange={setEditRewardOpen}>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader><DialogTitle className="text-xl font-serif">Edit Reward</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div><Label>Title</Label><Input value={editRewardForm.title ?? ""} onChange={e => setEditRewardForm(f => ({ ...f, title: e.target.value }))} className="rounded-xl h-12" /></div>
+            <div><Label>Description</Label><Input value={editRewardForm.description ?? ""} onChange={e => setEditRewardForm(f => ({ ...f, description: e.target.value }))} className="rounded-xl h-12" /></div>
+            <div><Label>Points Cost</Label><Input type="number" value={editRewardForm.pointsCost ?? 100} onChange={e => setEditRewardForm(f => ({ ...f, pointsCost: Number(e.target.value) }))} className="rounded-xl h-12" /></div>
+            <div className="flex items-center gap-3">
+              <Label>Active in store</Label>
+              <button
+                type="button"
+                onClick={() => setEditRewardForm(f => ({ ...f, active: !f.active }))}
+                className={`w-12 h-6 rounded-full transition-colors ${editRewardForm.active ? "bg-primary" : "bg-muted-foreground/30"}`}
+              >
+                <span className={`block w-5 h-5 rounded-full bg-white shadow transition-transform mx-0.5 ${editRewardForm.active ? "translate-x-6" : "translate-x-0"}`} />
+              </button>
+            </div>
+            <Button
+              className="w-full h-12 rounded-xl"
+              onClick={() => editRewardTarget && updateReward.mutate({ id: editRewardTarget.id, data: editRewardForm })}
+              disabled={!editRewardForm.title || updateReward.isPending}
+            >
+              {updateReward.isPending ? "Saving…" : "Save Changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Card className="rounded-3xl border-0 shadow-sm">
         <CardHeader><CardTitle className="flex items-center gap-2"><SettingsIcon className="w-5 h-5" /> App Settings</CardTitle></CardHeader>
