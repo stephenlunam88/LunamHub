@@ -130,18 +130,21 @@ function PinApproveDialog({ choreId, choreTitle, parents, onSuccess }: PinApprov
 
 export default function Chores() {
   const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<ChoreFormState>({ title: "", pointsValue: 10, repeatType: "once" });
+  const [filterChildId, setFilterChildId] = useState<number | null>(null);
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: getListChoresQueryKey() });
     qc.invalidateQueries({ queryKey: getGetChoresSummaryQueryKey() });
     qc.invalidateQueries({ queryKey: getListFamilyMembersQueryKey() });
   };
 
-  const { data: chores = [] } = useListChores();
+  const { data: chores = [] } = useListChores(
+    filterChildId ? { assignedTo: filterChildId } : undefined
+  );
   const { data: members = [] } = useListFamilyMembers();
   const { data: summary = [] } = useGetChoresSummary();
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<ChoreFormState>({ title: "", pointsValue: 10, repeatType: "once" });
-  const [filterChildId, setFilterChildId] = useState<number | null>(null);
 
   const createChore = useCreateChore({ mutation: { onSuccess: () => { invalidate(); setOpen(false); setForm({ title: "", pointsValue: 10, repeatType: "once", assignedToMany: [] }); } } });
   const completeChore = useCompleteChore({ mutation: { onSuccess: invalidate } });
@@ -151,13 +154,9 @@ export default function Chores() {
   const children = members.filter(m => m.role === "child");
   const parents = members.filter(m => m.role === "parent") as ParentInfo[];
 
-  const filteredChores = filterChildId
-    ? chores.filter(c => c.assignedTo === filterChildId)
-    : chores;
-
-  const pending = filteredChores.filter(c => c.status === "pending");
-  const needsApproval = filteredChores.filter(c => c.status === "completed");
-  const approved = filteredChores.filter(c => c.status === "approved");
+  const pending = chores.filter(c => c.status === "pending");
+  const needsApproval = chores.filter(c => c.status === "completed");
+  const approved = chores.filter(c => c.status === "approved");
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
