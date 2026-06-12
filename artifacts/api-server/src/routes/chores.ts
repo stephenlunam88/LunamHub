@@ -16,8 +16,12 @@ import {
   ListChoresQueryParams,
 } from "@workspace/api-zod";
 import { z } from "zod";
+import bcrypt from "bcrypt";
 
-const ChoreApproveBodySchema = z.object({ parentId: z.number().int().positive().optional() });
+const ChoreApproveBodySchema = z.object({
+  parentId: z.number().int().positive().optional(),
+  pin: z.string().optional(),
+});
 
 const router = Router();
 
@@ -134,6 +138,18 @@ router.post("/:id/approve", async (req, res) => {
   const { id } = ApproveChoreParams.parse({ id: Number(req.params.id) });
   const bodyParse = ChoreApproveBodySchema.safeParse(req.body);
   const parentId = bodyParse.success ? (bodyParse.data.parentId ?? null) : null;
+  const pin = bodyParse.success ? (bodyParse.data.pin ?? null) : null;
+
+  // Server-side PIN validation: if parentId given, check parent's PIN if they have one set
+  if (parentId) {
+    const [parent] = await db.select().from(familyMembersTable).where(eq(familyMembersTable.id, parentId));
+    if (!parent || parent.role !== "parent") { res.status(403).json({ error: "Parent not found" }); return; }
+    if (parent.pinHash) {
+      if (!pin) { res.status(403).json({ error: "PIN required for this parent" }); return; }
+      const valid = await bcrypt.compare(pin, parent.pinHash);
+      if (!valid) { res.status(403).json({ error: "Invalid PIN" }); return; }
+    }
+  }
 
   const [chore] = await db.select().from(choresTable).where(eq(choresTable.id, id));
   if (!chore) { res.status(404).json({ error: "Not found" }); return; }

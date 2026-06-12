@@ -190,6 +190,7 @@ export interface Chore {
 
 export interface ChoreApproveBody {
   parentId?: number;
+  pin?: string;
 }
 
 export type ChoreInputRepeatType = typeof ChoreInputRepeatType[keyof typeof ChoreInputRepeatType];
@@ -308,6 +309,7 @@ export interface RedemptionInput {
 
 export interface RedemptionApproveBody {
   parentId?: number;
+  pin?: string;
 }
 
 export type BadgeTier = typeof BadgeTier[keyof typeof BadgeTier];

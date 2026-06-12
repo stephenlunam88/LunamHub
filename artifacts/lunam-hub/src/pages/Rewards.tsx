@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   useListRewards, useListRedemptions, useListFamilyMembers,
   useRequestRedemption, useApproveRedemption, useRejectRedemption,
-  useVerifyFamilyMemberPin,
   getListRewardsQueryKey, getListRedemptionsQueryKey, getListFamilyMembersQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -15,67 +14,60 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Gift, Check, X, Star, Lock } from "lucide-react";
 import type { RedemptionInput } from "@workspace/api-client-react";
 
+interface ParentInfo {
+  id: number;
+  name: string;
+  emoji: string;
+  hasPin?: boolean;
+}
+
 interface PinActionDialogProps {
-  triggerLabel: string;
   triggerIcon: React.ReactNode;
   triggerClassName: string;
   title: string;
   description: string;
-  parents: Array<{ id: number; name: string; emoji: string; hasPin?: boolean }>;
-  onConfirm: (parentId: number) => void;
+  parents: ParentInfo[];
+  onConfirm: (parentId: number, pin?: string) => void;
+  onError?: (msg: string) => void;
   isPending: boolean;
+  errorFromParent?: string | null;
+  clearError?: () => void;
 }
 
-function PinActionDialog({ triggerLabel, triggerIcon, triggerClassName, title, description, parents, onConfirm, isPending }: PinActionDialogProps) {
+function PinActionDialog({ triggerIcon, triggerClassName, title, description, parents, onConfirm, isPending, errorFromParent, clearError }: PinActionDialogProps) {
   const [open, setOpen] = useState(false);
   const [selectedParentId, setSelectedParentId] = useState<number>(parents[0]?.id ?? 0);
   const [pin, setPin] = useState("");
-  const [error, setError] = useState(false);
-  const [verified, setVerified] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
-  const verifyPin = useVerifyFamilyMemberPin({
-    mutation: {
-      onSuccess: (data) => {
-        if (data.valid) {
-          setVerified(true);
-          onConfirm(selectedParentId);
-          setOpen(false);
-          setPin(""); setError(false); setVerified(false);
-        } else {
-          setError(true);
-          setPin("");
-        }
-      }
-    }
-  });
-
+  const error = errorFromParent ?? localError;
   const selectedParent = parents.find(p => p.id === selectedParentId);
 
+  const reset = () => { setPin(""); setLocalError(null); clearError?.(); };
+
   const handleConfirm = () => {
-    setError(false);
-    if (!selectedParent?.hasPin) {
-      onConfirm(selectedParentId);
-      setOpen(false);
-      return;
-    }
-    verifyPin.mutate({ id: selectedParentId, data: { pin } });
+    setLocalError(null);
+    clearError?.();
+    onConfirm(selectedParentId, selectedParent?.hasPin ? pin : undefined);
   };
 
   return (
-    <Dialog open={open} onOpenChange={o => { setOpen(o); setPin(""); setError(false); setVerified(false); }}>
+    <Dialog open={open} onOpenChange={o => { setOpen(o); reset(); }}>
       <DialogTrigger asChild>
         <Button size="icon" className={triggerClassName} disabled={isPending}>
           {triggerIcon}
         </Button>
       </DialogTrigger>
       <DialogContent className="rounded-3xl max-w-sm">
-        <DialogHeader><DialogTitle className="text-xl font-serif flex items-center gap-2"><Lock className="w-5 h-5" /> {title}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle className="text-xl font-serif flex items-center gap-2"><Lock className="w-5 h-5" /> {title}</DialogTitle>
+        </DialogHeader>
         <div className="space-y-4">
           <p className="text-muted-foreground text-sm">{description}</p>
           {parents.length > 1 && (
             <div>
               <Label>Approving as</Label>
-              <Select value={selectedParentId.toString()} onValueChange={v => { setSelectedParentId(Number(v)); setPin(""); setError(false); }}>
+              <Select value={selectedParentId.toString()} onValueChange={v => { setSelectedParentId(Number(v)); reset(); }}>
                 <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>{parents.map(p => <SelectItem key={p.id} value={p.id.toString()}>{p.emoji} {p.name}</SelectItem>)}</SelectContent>
               </Select>
@@ -88,20 +80,22 @@ function PinActionDialog({ triggerLabel, triggerIcon, triggerClassName, title, d
                 type="password"
                 inputMode="numeric"
                 value={pin}
-                onChange={e => { setPin(e.target.value); setError(false); }}
+                onChange={e => { setPin(e.target.value); setLocalError(null); clearError?.(); }}
                 onKeyDown={e => { if (e.key === "Enter") handleConfirm(); }}
                 placeholder="••••"
                 className={`rounded-xl h-12 text-center tracking-[0.4em] text-xl mt-1 ${error ? "border-red-500 bg-red-50" : ""}`}
+                autoFocus
               />
-              {error && <p className="text-red-600 text-sm mt-1">Incorrect PIN</p>}
+              {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
             </div>
           )}
+          {!selectedParent?.hasPin && error && <p className="text-red-600 text-sm">{error}</p>}
           <Button
             className="w-full h-12 rounded-xl"
             onClick={handleConfirm}
-            disabled={(selectedParent?.hasPin ? !pin : false) || verifyPin.isPending || verified}
+            disabled={(selectedParent?.hasPin ? !pin : false) || isPending}
           >
-            {verifyPin.isPending ? "Verifying…" : "Confirm"}
+            {isPending ? "Processing…" : "Confirm"}
           </Button>
         </div>
       </DialogContent>
@@ -121,14 +115,36 @@ export default function Rewards() {
   const { data: redemptions = [] } = useListRedemptions();
   const { data: members = [] } = useListFamilyMembers();
   const children = members.filter(m => m.role === "child");
-  const parents = members.filter(m => m.role === "parent");
+  const parents = members.filter(m => m.role === "parent") as ParentInfo[];
 
   const [redeemOpen, setRedeemOpen] = useState(false);
   const [redeemForm, setRedeemForm] = useState<RedemptionInput>({ rewardId: 0, memberId: 0 });
+  const [approveErrors, setApproveErrors] = useState<Record<number, string>>({});
+  const [rejectErrors, setRejectErrors] = useState<Record<number, string>>({});
 
   const requestRedemption = useRequestRedemption({ mutation: { onSuccess: () => { invalidateAll(); setRedeemOpen(false); setRedeemForm({ rewardId: 0, memberId: 0 }); } } });
-  const approveRedemption = useApproveRedemption({ mutation: { onSuccess: invalidateAll } });
-  const rejectRedemption = useRejectRedemption({ mutation: { onSuccess: invalidateAll } });
+  const approveRedemption = useApproveRedemption({
+    mutation: {
+      onSuccess: invalidateAll,
+      onError: (err: unknown, variables) => {
+        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "";
+        if (msg.includes("PIN") || msg.includes("Invalid")) {
+          setApproveErrors(prev => ({ ...prev, [variables.id]: "Incorrect PIN — try again" }));
+        }
+      }
+    }
+  });
+  const rejectRedemption = useRejectRedemption({
+    mutation: {
+      onSuccess: invalidateAll,
+      onError: (err: unknown, variables) => {
+        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "";
+        if (msg.includes("PIN") || msg.includes("Invalid")) {
+          setRejectErrors(prev => ({ ...prev, [variables.id]: "Incorrect PIN — try again" }));
+        }
+      }
+    }
+  });
 
   const pending = redemptions.filter(r => r.status === "pending");
 
@@ -178,24 +194,26 @@ export default function Rewards() {
                 {parents.length > 0 ? (
                   <>
                     <PinActionDialog
-                      triggerLabel="Approve"
                       triggerIcon={<Check className="w-5 h-5" />}
                       triggerClassName="rounded-xl h-12 w-12 bg-green-600 hover:bg-green-700"
                       title="Approve Reward"
                       description={`Approve "${r.reward?.title}" for ${r.member?.name}?`}
-                      parents={parents.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, hasPin: p.hasPin }))}
-                      onConfirm={(parentId) => approveRedemption.mutate({ id: r.id })}
+                      parents={parents}
+                      onConfirm={(parentId, pin) => approveRedemption.mutate({ id: r.id, data: { parentId, pin } })}
                       isPending={approveRedemption.isPending}
+                      errorFromParent={approveErrors[r.id]}
+                      clearError={() => setApproveErrors(prev => { const n = { ...prev }; delete n[r.id]; return n; })}
                     />
                     <PinActionDialog
-                      triggerLabel="Reject"
                       triggerIcon={<X className="w-5 h-5" />}
-                      triggerClassName="rounded-xl h-12 w-12 border border-input bg-background hover:bg-accent"
+                      triggerClassName="rounded-xl h-12 w-12 border border-input bg-background hover:bg-accent text-foreground"
                       title="Reject Reward"
                       description={`Reject "${r.reward?.title}" request from ${r.member?.name}?`}
-                      parents={parents.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, hasPin: p.hasPin }))}
-                      onConfirm={(parentId) => rejectRedemption.mutate({ id: r.id })}
+                      parents={parents}
+                      onConfirm={(parentId, pin) => rejectRedemption.mutate({ id: r.id })}
                       isPending={rejectRedemption.isPending}
+                      errorFromParent={rejectErrors[r.id]}
+                      clearError={() => setRejectErrors(prev => { const n = { ...prev }; delete n[r.id]; return n; })}
                     />
                   </>
                 ) : (
@@ -218,13 +236,9 @@ export default function Rewards() {
         {rewards.filter(r => r.active).map(r => (
           <Card key={r.id} className="rounded-3xl border-0 shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-6">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="text-4xl mb-3">🎁</div>
-                  <div className="font-bold text-xl">{r.title}</div>
-                  {r.description && <div className="text-muted-foreground text-sm mt-1">{r.description}</div>}
-                </div>
-              </div>
+              <div className="text-4xl mb-3">🎁</div>
+              <div className="font-bold text-xl">{r.title}</div>
+              {r.description && <div className="text-muted-foreground text-sm mt-1">{r.description}</div>}
               <div className="mt-4 flex items-center justify-between">
                 <div className="bg-primary text-primary-foreground px-4 py-2 rounded-2xl font-bold text-lg">{r.pointsCost} pts</div>
                 <div className="text-sm text-muted-foreground">

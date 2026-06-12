@@ -8,4 +8,5 @@
 
 export interface ChoreApproveBody {
   parentId?: number;
+  pin?: string;
 }

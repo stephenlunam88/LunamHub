@@ -1494,6 +1494,8 @@ components:
       properties:
         parentId:
           type: integer
+        pin:
+          type: string
 
     ChoreInput:
       type: object
@@ -1666,6 +1668,8 @@ components:
       properties:
         parentId:
           type: integer
+        pin:
+          type: string
 
     # ── Badges ────────────────────────────────────────────────────────────────
     Badge:

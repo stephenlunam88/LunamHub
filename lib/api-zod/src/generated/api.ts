@@ -386,7 +386,8 @@ export const ApproveChoreParams = zod.object({
 })
 
 export const ApproveChoreBody = zod.object({
-  "parentId": zod.number().optional()
+  "parentId": zod.number().optional(),
+  "pin": zod.string().optional()
 })
 
 export const ApproveChoreResponse = zod.object({
@@ -544,7 +545,8 @@ export const ApproveRedemptionParams = zod.object({
 })
 
 export const ApproveRedemptionBody = zod.object({
-  "parentId": zod.number().optional()
+  "parentId": zod.number().optional(),
+  "pin": zod.string().optional()
 })
 
 export const ApproveRedemptionResponse = zod.object({

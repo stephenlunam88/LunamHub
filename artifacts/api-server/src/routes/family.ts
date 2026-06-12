@@ -13,13 +13,14 @@ import {
   UpdateFamilyMemberParams,
   DeleteFamilyMemberParams,
 } from "@workspace/api-zod";
+import { badgesTable } from "@workspace/db";
 import { z } from "zod";
 
 const router = Router();
 
 const BCRYPT_ROUNDS = 10;
 const IdParams = z.object({ id: z.number().int().positive() });
-const SetPinSchema = z.object({ pin: z.string().min(1) });
+const SetPinSchema = z.object({ pin: z.string().min(4).regex(/^\d+$/, "PIN must be digits only") });
 const VerifyPinSchema = z.object({ pin: z.string().min(1) });
 
 export function formatMember(m: typeof familyMembersTable.$inferSelect) {
@@ -72,6 +73,21 @@ router.delete("/:id", async (req, res) => {
   const { id } = DeleteFamilyMemberParams.parse({ id: Number(req.params.id) });
   await db.delete(familyMembersTable).where(eq(familyMembersTable.id, id));
   res.status(204).send();
+});
+
+// GET /api/family/:id/badges — list badges earned by a family member
+router.get("/:id/badges", async (req, res) => {
+  const { id } = IdParams.parse({ id: Number(req.params.id) });
+  const badges = await db.select().from(badgesTable).where(eq(badgesTable.memberId, id));
+  res.json(badges.map(b => ({
+    id: b.id,
+    memberId: b.memberId,
+    title: b.title,
+    description: b.description ?? null,
+    emoji: b.emoji,
+    tier: b.tier,
+    earnedAt: b.awardedAt.toISOString(),
+  })));
 });
 
 // POST /api/family/:id/set-pin — set or update per-parent PIN (bcrypt hashed)

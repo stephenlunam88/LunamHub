@@ -8,4 +8,5 @@
 
 export interface RedemptionApproveBody {
   parentId?: number;
+  pin?: string;
 }

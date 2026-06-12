@@ -12,7 +12,8 @@ import {
   mealsTable,
   redemptionsTable,
 } from "@workspace/db";
-import { eq, gte, lte, inArray } from "drizzle-orm";
+import { eq, gte, lte, inArray, and } from "drizzle-orm";
+import { pointTransactionsTable } from "@workspace/db";
 
 const router = Router();
 
@@ -92,7 +93,7 @@ router.get("/summary", async (_req, res) => {
   const completedChores = await db.select().from(choresTable);
   const pendingApprovals = completedChores.filter((c) => c.status === "completed").length;
 
-  // Family members
+  // Family members — include all fields needed by Dashboard + Leaderboard
   const familyMembers = await db.select().from(familyMembersTable).orderBy(familyMembersTable.id);
   const formattedMembers = familyMembers.map((m) => ({
     id: m.id,
@@ -101,8 +102,33 @@ router.get("/summary", async (_req, res) => {
     color: m.color,
     role: m.role,
     pointsBalance: m.pointsBalance,
+    lifetimePoints: m.lifetimePoints,
+    avatarUrl: m.avatarUrl ?? null,
+    hasPin: !!m.pinHash,
     createdAt: m.createdAt.toISOString(),
   }));
+
+  // Weekly leaderboard — sum points earned this week (Mon–Sun)
+  const weekStart = new Date();
+  weekStart.setHours(0, 0, 0, 0);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + (weekStart.getDay() === 0 ? -6 : 1)); // Mon
+  const weeklyTx = await db
+    .select()
+    .from(pointTransactionsTable)
+    .where(and(
+      gte(pointTransactionsTable.createdAt, weekStart),
+      // only positive transactions (earned, not spent)
+    ));
+  const weeklyByMember: Record<number, number> = {};
+  for (const tx of weeklyTx) {
+    if (tx.amount > 0) {
+      weeklyByMember[tx.memberId] = (weeklyByMember[tx.memberId] ?? 0) + tx.amount;
+    }
+  }
+  const weeklyLeaderboard = familyMembers
+    .filter((m) => m.role === "child")
+    .map((m) => ({ memberId: m.id, name: m.name, emoji: m.emoji, weeklyPoints: weeklyByMember[m.id] ?? 0 }))
+    .sort((a, b) => b.weeklyPoints - a.weeklyPoints);
 
   // Today's meals from meal plan
   const todayMealPlan = await db.select().from(mealPlanTable).where(eq(mealPlanTable.date, todayStr));
@@ -133,6 +159,7 @@ router.get("/summary", async (_req, res) => {
     familyMembers: formattedMembers,
     todayMeals,
     pendingRedemptions,
+    weeklyLeaderboard,
   });
 });
 
