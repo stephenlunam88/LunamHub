@@ -624,6 +624,18 @@ export interface RoutineCompletionInput {
   routineItemId: number;
 }
 
+export interface AllTimeLeaderboardEntry {
+  rank: number;
+  memberId: number;
+  name: string;
+  emoji: string;
+  color: string;
+  /** @nullable */
+  avatarUrl?: string | null;
+  lifetimePoints: number;
+  pointsBalance: number;
+}
+
 export interface LeaderboardEntry {
   memberId: number;
   name: string;

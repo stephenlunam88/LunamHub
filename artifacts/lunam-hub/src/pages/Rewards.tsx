@@ -187,7 +187,11 @@ export default function Rewards() {
           <CardContent className="space-y-3">
             {pending.map(r => (
               <div key={r.id} className="bg-white rounded-2xl p-4 flex items-center gap-4">
-                <div className="text-3xl">{r.member?.emoji}</div>
+                <div className="shrink-0">
+                  {r.member?.avatarUrl
+                    ? <img src={r.member.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover border border-muted" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                    : <span className="text-3xl">{r.member?.emoji}</span>}
+                </div>
                 <div className="flex-1">
                   <div className="font-bold">{r.member?.name}</div>
                   <div className="text-muted-foreground">{r.reward?.title} — {r.reward?.pointsCost} pts</div>

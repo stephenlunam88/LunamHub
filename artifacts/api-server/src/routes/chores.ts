@@ -111,8 +111,8 @@ router.post("/", async (req, res) => {
       .insert(choresTable)
       .values(assignedToMany.map(childId => ({ ...baseData, assignedTo: childId })))
       .returning();
-    const formatted = await Promise.all(rows.map(c => formatChore(c, getMemberById(c.assignedTo))));
-    res.status(201).json(await Promise.all(formatted));
+    const formatted = await Promise.all(rows.map(async c => formatChore(c, await getMemberById(c.assignedTo))));
+    res.status(201).json(formatted);
     return;
   }
 
@@ -172,11 +172,13 @@ router.post("/:id/approve", async (req, res) => {
     if (!parentId) { res.status(403).json({ error: "A parent must approve this action" }); return; }
     const parent = allParents.find(p => p.id === parentId);
     if (!parent) { res.status(403).json({ error: "Parent not found" }); return; }
-    if (parent.pinHash) {
-      if (!pin) { res.status(403).json({ error: "PIN required for this parent" }); return; }
-      const valid = await bcrypt.compare(pin, parent.pinHash);
-      if (!valid) { res.status(403).json({ error: "Invalid PIN" }); return; }
+    if (!parent.pinHash) {
+      res.status(403).json({ error: "This parent has no PIN configured. Set a PIN in Admin before approving." });
+      return;
     }
+    if (!pin) { res.status(403).json({ error: "PIN required for this parent" }); return; }
+    const valid = await bcrypt.compare(pin, parent.pinHash);
+    if (!valid) { res.status(403).json({ error: "Invalid PIN" }); return; }
   }
 
   const [chore] = await db.select().from(choresTable).where(eq(choresTable.id, id));

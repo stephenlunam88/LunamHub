@@ -21,6 +21,7 @@ import type {
 
 import type {
   AddMealIngredientsToGrocery200,
+  AllTimeLeaderboardEntry,
   AvatarUrlInput,
   Badge,
   BadgeInput,
@@ -38,6 +39,7 @@ import type {
   FamilyMemberUpdate,
   GetMealPlanParams,
   HealthStatus,
+  LeaderboardEntry,
   ListBadgesParams,
   ListChoresParams,
   ListEventsParams,
@@ -4425,6 +4427,83 @@ export const useSetFamilyMemberPin = <TError = ErrorType<unknown>,
       return useMutation(getSetFamilyMemberPinMutationOptions(options));
     }
 
+export const getGetFamilyMemberBadgesUrl = (id: number,) => {
+
+
+
+
+  return `/api/family/${id}/badges`
+}
+
+/**
+ * @summary Get badges earned by a family member
+ */
+export const getFamilyMemberBadges = async (id: number, options?: RequestInit): Promise<Badge[]> => {
+
+  return customFetch<Badge[]>(getGetFamilyMemberBadgesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetFamilyMemberBadgesQueryKey = (id: number,) => {
+    return [
+    `/api/family/${id}/badges`
+    ] as const;
+    }
+
+
+export const getGetFamilyMemberBadgesQueryOptions = <TData = Awaited<ReturnType<typeof getFamilyMemberBadges>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFamilyMemberBadges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFamilyMemberBadgesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFamilyMemberBadges>>> = ({ signal }) => getFamilyMemberBadges(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFamilyMemberBadges>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetFamilyMemberBadgesQueryResult = NonNullable<Awaited<ReturnType<typeof getFamilyMemberBadges>>>
+export type GetFamilyMemberBadgesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get badges earned by a family member
+ */
+
+export function useGetFamilyMemberBadges<TData = Awaited<ReturnType<typeof getFamilyMemberBadges>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFamilyMemberBadges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetFamilyMemberBadgesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
 export const getListBadgesUrl = (params?: ListBadgesParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -4649,6 +4728,160 @@ export const useDeleteBadge = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getDeleteBadgeMutationOptions(options));
     }
+
+export const getGetLeaderboardUrl = () => {
+
+
+
+
+  return `/api/leaderboard`
+}
+
+/**
+ * @summary All-time leaderboard for children
+ */
+export const getLeaderboard = async ( options?: RequestInit): Promise<AllTimeLeaderboardEntry[]> => {
+
+  return customFetch<AllTimeLeaderboardEntry[]>(getGetLeaderboardUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLeaderboardQueryKey = () => {
+    return [
+    `/api/leaderboard`
+    ] as const;
+    }
+
+
+export const getGetLeaderboardQueryOptions = <TData = Awaited<ReturnType<typeof getLeaderboard>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLeaderboardQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLeaderboard>>> = ({ signal }) => getLeaderboard({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLeaderboardQueryResult = NonNullable<Awaited<ReturnType<typeof getLeaderboard>>>
+export type GetLeaderboardQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary All-time leaderboard for children
+ */
+
+export function useGetLeaderboard<TData = Awaited<ReturnType<typeof getLeaderboard>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLeaderboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLeaderboardQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetWeeklyLeaderboardUrl = () => {
+
+
+
+
+  return `/api/leaderboard/weekly`
+}
+
+/**
+ * @summary This-week leaderboard for children
+ */
+export const getWeeklyLeaderboard = async ( options?: RequestInit): Promise<LeaderboardEntry[]> => {
+
+  return customFetch<LeaderboardEntry[]>(getGetWeeklyLeaderboardUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWeeklyLeaderboardQueryKey = () => {
+    return [
+    `/api/leaderboard/weekly`
+    ] as const;
+    }
+
+
+export const getGetWeeklyLeaderboardQueryOptions = <TData = Awaited<ReturnType<typeof getWeeklyLeaderboard>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWeeklyLeaderboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWeeklyLeaderboardQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWeeklyLeaderboard>>> = ({ signal }) => getWeeklyLeaderboard({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWeeklyLeaderboard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWeeklyLeaderboardQueryResult = NonNullable<Awaited<ReturnType<typeof getWeeklyLeaderboard>>>
+export type GetWeeklyLeaderboardQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary This-week leaderboard for children
+ */
+
+export function useGetWeeklyLeaderboard<TData = Awaited<ReturnType<typeof getWeeklyLeaderboard>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWeeklyLeaderboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWeeklyLeaderboardQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getListPointTransactionsUrl = (params?: ListPointTransactionsParams,) => {
   const normalizedParams = new URLSearchParams();

@@ -1203,6 +1203,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/FamilyMember"
 
+  /family/{id}/badges:
+    get:
+      operationId: getFamilyMemberBadges
+      tags: [family]
+      summary: Get badges earned by a family member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Member badges
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Badge"
+
   # ── Badges ──────────────────────────────────────────────────────────────────
   /badges:
     get:
@@ -1255,6 +1276,37 @@ paths:
       responses:
         "204":
           description: Deleted
+
+  # ── Leaderboard ─────────────────────────────────────────────────────────────
+  /leaderboard:
+    get:
+      operationId: getLeaderboard
+      tags: [leaderboard]
+      summary: All-time leaderboard for children
+      responses:
+        "200":
+          description: Ranked all-time leaderboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AllTimeLeaderboardEntry"
+
+  /leaderboard/weekly:
+    get:
+      operationId: getWeeklyLeaderboard
+      tags: [leaderboard]
+      summary: This-week leaderboard for children
+      responses:
+        "200":
+          description: Ranked weekly leaderboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaderboardEntry"
 
   # ── Point Transactions ──────────────────────────────────────────────────────
   /point-transactions:
@@ -2144,6 +2196,34 @@ components:
         - routineItemId
 
     # ── Dashboard ─────────────────────────────────────────────────────────────
+    AllTimeLeaderboardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        memberId:
+          type: integer
+        name:
+          type: string
+        emoji:
+          type: string
+        color:
+          type: string
+        avatarUrl:
+          type: ["string", "null"]
+        lifetimePoints:
+          type: integer
+        pointsBalance:
+          type: integer
+      required:
+        - rank
+        - memberId
+        - name
+        - emoji
+        - color
+        - lifetimePoints
+        - pointsBalance
+
     LeaderboardEntry:
       type: object
       properties:

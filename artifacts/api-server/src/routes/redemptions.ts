@@ -67,11 +67,13 @@ async function verifyParentPin(parentId: number | null, pin: string | null, res:
     if (!parentId) { res.status(403).json({ error: "A parent must approve this action" }); return { ok: false }; }
     const parent = allParents.find(p => p.id === parentId);
     if (!parent) { res.status(403).json({ error: "Parent not found" }); return { ok: false }; }
-    if (parent.pinHash) {
-      if (!pin) { res.status(403).json({ error: "PIN required for this parent" }); return { ok: false }; }
-      const valid = await bcrypt.compare(pin, parent.pinHash);
-      if (!valid) { res.status(403).json({ error: "Invalid PIN" }); return { ok: false }; }
+    if (!parent.pinHash) {
+      res.status(403).json({ error: "This parent has no PIN configured. Set a PIN in Admin before approving." });
+      return { ok: false };
     }
+    if (!pin) { res.status(403).json({ error: "PIN required for this parent" }); return { ok: false }; }
+    const valid = await bcrypt.compare(pin, parent.pinHash);
+    if (!valid) { res.status(403).json({ error: "Invalid PIN" }); return { ok: false }; }
     return { ok: true, parent };
   }
   return { ok: true, parent: null };

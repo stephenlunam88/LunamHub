@@ -1220,6 +1220,25 @@ export const SetFamilyMemberPinResponse = zod.object({
 
 
 /**
+ * @summary Get badges earned by a family member
+ */
+export const GetFamilyMemberBadgesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetFamilyMemberBadgesResponseItem = zod.object({
+  "id": zod.number(),
+  "memberId": zod.number(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "emoji": zod.string(),
+  "tier": zod.enum(['bronze', 'silver', 'gold']),
+  "awardedAt": zod.string()
+})
+export const GetFamilyMemberBadgesResponse = zod.array(GetFamilyMemberBadgesResponseItem)
+
+
+/**
  * @summary List all badges (optionally filter by member)
  */
 export const ListBadgesQueryParams = zod.object({
@@ -1256,6 +1275,37 @@ export const CreateBadgeBody = zod.object({
 export const DeleteBadgeParams = zod.object({
   "id": zod.coerce.number()
 })
+
+
+/**
+ * @summary All-time leaderboard for children
+ */
+export const GetLeaderboardResponseItem = zod.object({
+  "rank": zod.number(),
+  "memberId": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "avatarUrl": zod.string().nullish(),
+  "lifetimePoints": zod.number(),
+  "pointsBalance": zod.number()
+})
+export const GetLeaderboardResponse = zod.array(GetLeaderboardResponseItem)
+
+
+/**
+ * @summary This-week leaderboard for children
+ */
+export const GetWeeklyLeaderboardResponseItem = zod.object({
+  "memberId": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "avatarUrl": zod.string().nullish(),
+  "weeklyPoints": zod.number(),
+  "rank": zod.number()
+})
+export const GetWeeklyLeaderboardResponse = zod.array(GetWeeklyLeaderboardResponseItem)
 
 
 /**

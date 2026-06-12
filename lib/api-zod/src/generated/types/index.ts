@@ -7,6 +7,7 @@
  */
 
 export * from './addMealIngredientsToGrocery200';
+export * from './allTimeLeaderboardEntry';
 export * from './avatarUrlInput';
 export * from './badge';
 export * from './badgeInput';

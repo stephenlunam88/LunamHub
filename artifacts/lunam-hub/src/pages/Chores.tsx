@@ -143,7 +143,7 @@ export default function Chores() {
   const [form, setForm] = useState<ChoreFormState>({ title: "", pointsValue: 10, repeatType: "once" });
   const [filterChildId, setFilterChildId] = useState<number | null>(null);
 
-  const createChore = useCreateChore({ mutation: { onSuccess: () => { invalidate(); setOpen(false); setForm({ title: "", pointsValue: 10, repeatType: "once" }); } } });
+  const createChore = useCreateChore({ mutation: { onSuccess: () => { invalidate(); setOpen(false); setForm({ title: "", pointsValue: 10, repeatType: "once", assignedToMany: [] }); } } });
   const completeChore = useCompleteChore({ mutation: { onSuccess: invalidate } });
   const approveChore = useApproveChore({ mutation: { onSuccess: invalidate } });
   const deleteChore = useDeleteChore({ mutation: { onSuccess: invalidate } });
@@ -236,7 +236,12 @@ export default function Chores() {
               onClick={() => setFilterChildId(isActive ? null : m.id)}
             >
               <CardContent className="pt-6 pb-5">
-                <div className="text-4xl mb-2">{m.emoji}</div>
+                <div className="mb-2 flex justify-center">
+                  {m.avatarUrl
+                    ? <img src={m.avatarUrl} alt={m.name} className="w-12 h-12 rounded-full object-cover border-2 border-muted" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; (e.currentTarget.nextSibling as HTMLElement | null)?.removeAttribute("style"); }} />
+                    : null}
+                  <span className="text-4xl" style={m.avatarUrl ? { display: "none" } : undefined}>{m.emoji}</span>
+                </div>
                 <div className="font-bold text-lg">{m.name}</div>
                 <div className="text-3xl font-bold text-primary mt-1">{m.pointsBalance}</div>
                 <div className="text-xs text-muted-foreground">pts available</div>

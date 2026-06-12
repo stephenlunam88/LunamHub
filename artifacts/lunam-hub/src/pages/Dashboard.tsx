@@ -1,10 +1,37 @@
-import { useGetDashboardSummary } from "@workspace/api-client-react";
+import { useGetDashboardSummary, useGetFamilyMemberBadges } from "@workspace/api-client-react";
 import { format } from "date-fns";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trophy } from "lucide-react";
+
+function AvatarOrEmoji({ avatarUrl, emoji, sizeCls = "w-12 h-12 text-4xl" }: { avatarUrl?: string | null; emoji: string; sizeCls?: string }) {
+  const [failed, setFailed] = useState(false);
+  if (avatarUrl && !failed) {
+    return (
+      <img
+        src={avatarUrl}
+        alt=""
+        className={`${sizeCls} rounded-full object-cover border-2 border-muted`}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  return <span className={sizeCls.split(" ").find(c => c.startsWith("text-")) ?? "text-4xl"}>{emoji}</span>;
+}
+
+function ChildBadgeIcons({ memberId }: { memberId: number }) {
+  const { data: badges = [] } = useGetFamilyMemberBadges(memberId, {
+    query: { queryKey: ["badges", memberId] }
+  });
+  const latest = badges.slice(-4);
+  if (latest.length === 0) return null;
+  return (
+    <span className="ml-1 text-base" title={latest.map(b => b.title).join(", ")}>
+      {latest.map(b => b.emoji).join("")}
+    </span>
+  );
+}
 
 export default function Dashboard() {
   const { data: summary, isLoading } = useGetDashboardSummary();
@@ -24,6 +51,7 @@ export default function Dashboard() {
   const children = summary.familyMembers.filter(m => m.role === "child");
   const sortedChildren = [...children].sort((a, b) => (b.lifetimePoints ?? 0) - (a.lifetimePoints ?? 0));
   const weeklyLeaderboard = summary.weeklyLeaderboard;
+  const rankMedal = (i: number) => i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`;
 
   return (
     <div className="space-y-8 animate-in fade-in zoom-in duration-500">
@@ -38,7 +66,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="rounded-3xl shadow-sm border-0 bg-primary/10">
           <CardHeader>
             <CardTitle className="text-xl">Today's Events</CardTitle>
@@ -80,63 +108,50 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
+      </div>
 
-        <Card className="rounded-3xl shadow-sm border-0 bg-muted">
+      {children.length > 0 && (
+        <Card className="rounded-3xl shadow-sm border-0 bg-muted/40">
           <CardHeader>
             <CardTitle className="text-xl flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-amber-500" /> Leaderboard
+              <Trophy className="w-5 h-5 text-amber-500" /> Points Leaderboard
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="alltime">
-              <TabsList className="w-full rounded-xl mb-4">
-                <TabsTrigger value="alltime" className="flex-1 rounded-lg">All-Time</TabsTrigger>
-                <TabsTrigger value="weekly" className="flex-1 rounded-lg">This Week</TabsTrigger>
-              </TabsList>
-              <TabsContent value="alltime">
-                <ul className="space-y-3">
-                  {sortedChildren.map((m, i) => (
-                    <li key={m.id} className="bg-background rounded-xl p-4 shadow-sm flex items-center gap-3">
-                      <div className="text-xl w-6 text-center">{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}</div>
-                      <div className="text-3xl">{m.emoji}</div>
-                      <div className="flex-1">
-                        <div className="font-bold">{m.name}</div>
-                        <div className="text-xs text-muted-foreground">{m.pointsBalance} pts available</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-xl font-bold text-amber-600">{m.lifetimePoints ?? 0}</div>
-                        <div className="text-xs text-muted-foreground">all-time</div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </TabsContent>
-              <TabsContent value="weekly">
-                {weeklyLeaderboard.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-4">No points earned this week yet</p>
-                ) : (
-                  <ul className="space-y-3">
-                    {weeklyLeaderboard.map((entry, i) => (
-                      <li key={entry.memberId} className="bg-background rounded-xl p-4 shadow-sm flex items-center gap-3">
-                        <div className="text-xl w-6 text-center">{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}</div>
-                        <div className="text-3xl">{entry.emoji}</div>
-                        <div className="flex-1">
-                          <div className="font-bold">{entry.name}</div>
-                          <div className="text-xs text-muted-foreground">this week</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-xl font-bold text-green-600">+{entry.weeklyPoints}</div>
-                          <div className="text-xs text-muted-foreground">pts</div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </TabsContent>
-            </Tabs>
+          <CardContent className="space-y-3">
+            {sortedChildren.map((m, i) => {
+              const weekly = weeklyLeaderboard.find(w => w.memberId === m.id);
+              return (
+                <div key={m.id} className="bg-background rounded-2xl p-4 flex items-center gap-4">
+                  <div className="text-2xl w-8 text-center font-bold shrink-0">{rankMedal(i)}</div>
+                  <div className="shrink-0">
+                    <AvatarOrEmoji avatarUrl={m.avatarUrl} emoji={m.emoji} sizeCls="w-12 h-12 text-4xl" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-lg flex items-center">
+                      {m.name}
+                      <ChildBadgeIcons memberId={m.id} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 text-center shrink-0">
+                    <div>
+                      <div className="text-lg font-bold">{m.pointsBalance}</div>
+                      <div className="text-xs text-muted-foreground">Store Balance</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-amber-600">{m.lifetimePoints ?? 0}</div>
+                      <div className="text-xs text-muted-foreground">Achievement</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-green-600">+{weekly?.weeklyPoints ?? 0}</div>
+                      <div className="text-xs text-muted-foreground">This Week</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
-      </div>
+      )}
     </div>
   );
 }
