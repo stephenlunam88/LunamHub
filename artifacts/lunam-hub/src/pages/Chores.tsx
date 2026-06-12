@@ -244,8 +244,9 @@ export default function Chores() {
                 </div>
                 <div className="font-bold text-lg">{m.name}</div>
                 <div className="text-3xl font-bold text-primary mt-1">{m.pointsBalance}</div>
-                <div className="text-xs text-muted-foreground">pts available</div>
-                {s && <div className="text-xs text-muted-foreground mt-2">{s.approved} done · {s.pending} pending</div>}
+                <div className="text-xs text-muted-foreground">store balance</div>
+                <div className="text-sm font-semibold text-amber-600 mt-0.5">{m.lifetimePoints ?? 0} all-time</div>
+                {s && <div className="text-xs text-muted-foreground mt-1">{s.approved} done · {s.pending} pending</div>}
               </CardContent>
             </Card>
           );
@@ -283,7 +284,14 @@ export default function Chores() {
                   <div className="flex-1">
                     <div className="font-semibold text-lg">{c.title}</div>
                     <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                      {member && <span>{member.emoji} {member.name}</span>}
+                      {member && (
+                        <span className="flex items-center gap-1.5">
+                          {member.avatarUrl
+                            ? <img src={member.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                            : <span>{member.emoji}</span>}
+                          {member.name}
+                        </span>
+                      )}
                       {c.dueDate && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{c.dueDate}</span>}
                       {c.repeatType !== "once" && <Badge variant="outline" className="text-xs">{c.repeatType}</Badge>}
                     </div>
@@ -314,7 +322,14 @@ export default function Chores() {
                 <CardContent className="p-5 flex items-center gap-4">
                   <div className="flex-1">
                     <div className="font-semibold text-lg">{c.title}</div>
-                    {member && <div className="text-sm text-muted-foreground mt-1">{member.emoji} {member.name} completed this</div>}
+                    {member && (
+                      <div className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
+                        {member.avatarUrl
+                          ? <img src={member.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                          : <span>{member.emoji}</span>}
+                        {member.name} completed this
+                      </div>
+                    )}
                   </div>
                   <div className="bg-primary/10 text-primary font-bold px-4 py-2 rounded-2xl">{c.pointsValue} pts</div>
                   {parents.length > 0 ? (
@@ -351,8 +366,23 @@ export default function Chores() {
                   <div className="flex-1">
                     <div className="font-semibold line-through text-muted-foreground">{c.title}</div>
                     <div className="flex items-center gap-3 mt-0.5 text-sm text-muted-foreground">
-                      {member && <span>{member.emoji} {member.name}</span>}
-                      {approver && <span className="text-green-700">✓ Approved by {approver.emoji} {approver.name}</span>}
+                      {member && (
+                        <span className="flex items-center gap-1.5">
+                          {member.avatarUrl
+                            ? <img src={member.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                            : <span>{member.emoji}</span>}
+                          {member.name}
+                        </span>
+                      )}
+                      {approver && (
+                        <span className="flex items-center gap-1.5 text-green-700">
+                          ✓ Approved by
+                          {approver.avatarUrl
+                            ? <img src={approver.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                            : <span>{approver.emoji}</span>}
+                          {approver.name}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="text-green-700 font-bold">+{c.pointsValue} pts</div>

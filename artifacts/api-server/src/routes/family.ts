@@ -51,11 +51,19 @@ const CreateMemberWithPinSchema = z.object({
   role: z.enum(["parent", "child"]),
   avatarUrl: z.string().optional(),
   pin: z.string().min(4).regex(/^\d+$/, "PIN must be digits only").optional(),
-});
+}).refine(
+  data => data.role !== "parent" || (!!data.pin && data.pin.length >= 4),
+  { message: "A PIN (4+ digits) is required when adding a parent", path: ["pin"] }
+);
 
 // POST /api/family — create a new family member
 router.post("/", async (req, res) => {
-  const { pin, ...memberData } = CreateMemberWithPinSchema.parse(req.body);
+  const parsed = CreateMemberWithPinSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.errors[0]?.message ?? "Validation error" });
+    return;
+  }
+  const { pin, ...memberData } = parsed.data;
   let pinHash: string | undefined;
   if (pin && memberData.role === "parent") {
     pinHash = await bcrypt.hash(pin, BCRYPT_ROUNDS);

@@ -202,6 +202,7 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
   const { data: rewards = [] } = useListRewards();
   const [newPin, setNewPin] = useState("");
   const [memberForm, setMemberForm] = useState<FamilyMemberInput>({ name: "", emoji: "😊", color: "#6366f1", role: "child" });
+  const [newMemberPin, setNewMemberPin] = useState("");
   const [rewardOpen, setRewardOpen] = useState(false);
   const [rewardForm, setRewardForm] = useState<RewardInput>({ title: "", pointsCost: 100 });
   const [editRewardOpen, setEditRewardOpen] = useState(false);
@@ -276,7 +277,31 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
               </div>
               <div><Label>Colour</Label><Input type="color" value={memberForm.color ?? "#6366f1"} onChange={e => setMemberForm(f => ({ ...f, color: e.target.value }))} className="rounded-xl h-12 p-1" /></div>
             </div>
-            <Button className="w-full h-12 rounded-xl gap-2" onClick={() => createMember.mutate({ data: memberForm })} disabled={!memberForm.name || createMember.isPending}>
+            {memberForm.role === "parent" && (
+              <div>
+                <Label className="flex items-center gap-1.5"><Key className="w-3.5 h-3.5" /> PIN (required for parents, min 4 digits)</Label>
+                <Input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={8}
+                  placeholder="e.g. 1234"
+                  value={newMemberPin}
+                  onChange={e => setNewMemberPin(e.target.value.replace(/\D/g, ""))}
+                  className="rounded-xl h-12 mt-1 font-mono tracking-widest"
+                />
+              </div>
+            )}
+            <Button
+              className="w-full h-12 rounded-xl gap-2"
+              onClick={() => {
+                const data = memberForm.role === "parent"
+                  ? { ...memberForm, pin: newMemberPin } as Parameters<typeof createMember.mutate>[0]["data"]
+                  : memberForm;
+                createMember.mutate({ data });
+                setNewMemberPin("");
+              }}
+              disabled={!memberForm.name || (memberForm.role === "parent" && newMemberPin.length < 4) || createMember.isPending}
+            >
               <Plus className="w-4 h-4" /> {createMember.isPending ? "Adding…" : "Add Member"}
             </Button>
           </div>
