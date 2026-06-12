@@ -1,11 +1,11 @@
 import { useState } from "react";
 import {
   useListChores, useListFamilyMembers, useCreateChore, useCompleteChore,
-  useApproveChore, useDeleteChore, useGetChoresSummary,
+  useApproveChore, useDeleteChore, useGetChoresSummary, useListBadges,
   getListChoresQueryKey, getGetChoresSummaryQueryKey, getListFamilyMembersQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -13,8 +13,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, Plus, Trash2, Star, Clock, Lock } from "lucide-react";
+import { CheckCircle2, Plus, Trash2, Star, Clock, Lock, Medal } from "lucide-react";
 import type { ChoreInput } from "@workspace/api-client-react";
+
+const TIER_STYLES = {
+  bronze: { bg: "bg-amber-100", text: "text-amber-800", border: "border-amber-300", ring: "ring-amber-400" },
+  silver: { bg: "bg-slate-100", text: "text-slate-700", border: "border-slate-300", ring: "ring-slate-400" },
+  gold:   { bg: "bg-yellow-100", text: "text-yellow-800", border: "border-yellow-300", ring: "ring-yellow-400" },
+} as const;
 
 type ChoreFormState = Omit<ChoreInput, "status"> & { assignedToMany?: number[] };
 
@@ -145,6 +151,7 @@ export default function Chores() {
   );
   const { data: members = [] } = useListFamilyMembers();
   const { data: summary = [] } = useGetChoresSummary();
+  const { data: allBadges = [] } = useListBadges();
 
   const createChore = useCreateChore({ mutation: { onSuccess: () => { invalidate(); setOpen(false); setForm({ title: "", pointsValue: 10, repeatType: "once", assignedToMany: [] }); } } });
   const completeChore = useCompleteChore({ mutation: { onSuccess: invalidate } });
@@ -228,6 +235,12 @@ export default function Chores() {
         {children.map(m => {
           const s = summary.find(s => s.memberId === m.id);
           const isActive = filterChildId === m.id;
+          const memberBadges = allBadges.filter(b => b.memberId === m.id);
+          const badgeCount = memberBadges.length;
+          const topTier = memberBadges.some(b => b.tier === "gold") ? "gold"
+            : memberBadges.some(b => b.tier === "silver") ? "silver"
+            : memberBadges.length > 0 ? "bronze"
+            : null;
           return (
             <Card
               key={m.id}
@@ -246,11 +259,67 @@ export default function Chores() {
                 <div className="text-xs text-muted-foreground">store balance</div>
                 <div className="text-sm font-semibold text-amber-600 mt-0.5">{m.lifetimePoints ?? 0} all-time</div>
                 {s && <div className="text-xs text-muted-foreground mt-1">{s.approved} done · {s.pending} pending</div>}
+                {badgeCount > 0 && topTier && (
+                  <div className={`inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-xs font-semibold border ${TIER_STYLES[topTier].bg} ${TIER_STYLES[topTier].text} ${TIER_STYLES[topTier].border}`}>
+                    <Medal className="w-3 h-3" />
+                    {badgeCount} badge{badgeCount !== 1 ? "s" : ""}
+                  </div>
+                )}
               </CardContent>
             </Card>
           );
         })}
       </div>
+
+      {children.length > 0 && allBadges.length > 0 && (
+        <Card className="rounded-3xl border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Medal className="w-5 h-5 text-amber-500" /> My Badges
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-5">
+              {children
+                .filter(m => !filterChildId || m.id === filterChildId)
+                .map(m => {
+                  const memberBadges = allBadges.filter(b => b.memberId === m.id);
+                  if (memberBadges.length === 0) return null;
+                  return (
+                    <div key={m.id}>
+                      <div className="flex items-center gap-2 mb-2">
+                        {m.avatarUrl
+                          ? <img src={m.avatarUrl} alt={m.name} className="w-6 h-6 rounded-full object-cover border border-muted" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                          : <span className="text-lg">{m.emoji}</span>}
+                        <span className="font-semibold text-sm">{m.name}</span>
+                        <span className="text-xs text-muted-foreground">— {memberBadges.length} badge{memberBadges.length !== 1 ? "s" : ""}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {memberBadges.map(badge => {
+                          const tier = (badge.tier ?? "bronze") as keyof typeof TIER_STYLES;
+                          const styles = TIER_STYLES[tier] ?? TIER_STYLES.bronze;
+                          return (
+                            <div
+                              key={badge.id}
+                              title={badge.description ?? badge.title}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-semibold ${styles.bg} ${styles.text} ${styles.border}`}
+                            >
+                              <span className="text-base leading-none">{badge.emoji}</span>
+                              <div>
+                                <div>{badge.title}</div>
+                                <div className={`text-[10px] font-normal capitalize ${styles.text} opacity-70`}>{tier}</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {filterChildId && (
         <div className="flex items-center gap-2">
