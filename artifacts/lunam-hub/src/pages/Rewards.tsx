@@ -147,6 +147,7 @@ export default function Rewards() {
   });
 
   const pending = redemptions.filter(r => r.status === "pending");
+  const settled = redemptions.filter(r => r.status === "approved" || r.status === "rejected");
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -255,6 +256,34 @@ export default function Rewards() {
           <Gift className="w-16 h-16 mx-auto mb-4 opacity-30" />
           <p className="text-xl">No rewards yet — add some in Admin!</p>
         </div>
+      )}
+
+      {settled.length > 0 && (
+        <Card className="rounded-3xl border-0 shadow-sm bg-muted/50">
+          <CardHeader><CardTitle className="text-base text-muted-foreground">Recent Decisions</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {settled.slice(0, 10).map(r => {
+              const approver = r.approvedByParentId ? members.find(m => m.id === r.approvedByParentId) : null;
+              return (
+                <div key={r.id} className="bg-background rounded-2xl px-4 py-3 flex items-center gap-3">
+                  <div className="text-2xl">{r.member?.emoji}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{r.reward?.title}</div>
+                    <div className="text-xs text-muted-foreground">for {r.member?.name}</div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className={`text-xs font-semibold px-2 py-0.5 rounded-full ${r.status === "approved" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                      {r.status === "approved" ? "Approved" : "Rejected"}
+                    </div>
+                    {approver && (
+                      <div className="text-xs text-muted-foreground mt-0.5">by {approver.emoji} {approver.name}</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
       )}
     </div>
   );

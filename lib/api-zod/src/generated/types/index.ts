@@ -37,6 +37,7 @@ export * from './familyMemberUpdate';
 export * from './familyMemberUpdateRole';
 export * from './getMealPlanParams';
 export * from './healthStatus';
+export * from './leaderboardEntry';
 export * from './listBadgesParams';
 export * from './listChoresParams';
 export * from './listEventsParams';

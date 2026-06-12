@@ -164,7 +164,7 @@ function AvatarUploadButton({ memberId, currentAvatarUrl }: { memberId: number; 
         );
       });
       await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-      const avatarUrl = `/api/storage/objects${objectPath}`;
+      const avatarUrl = `/api/storage${objectPath}`;
       setAvatar.mutate({ id: memberId, data: { avatarUrl } });
     } catch {
       setError("Upload failed");

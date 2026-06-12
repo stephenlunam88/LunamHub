@@ -44,10 +44,23 @@ router.get("/", async (_req, res) => {
   res.json(members.map(formatMember));
 });
 
+const CreateMemberWithPinSchema = z.object({
+  name: z.string(),
+  emoji: z.string(),
+  color: z.string(),
+  role: z.enum(["parent", "child"]),
+  avatarUrl: z.string().optional(),
+  pin: z.string().min(4).regex(/^\d+$/, "PIN must be digits only").optional(),
+});
+
 // POST /api/family — create a new family member
 router.post("/", async (req, res) => {
-  const body = CreateFamilyMemberBody.parse(req.body);
-  const [member] = await db.insert(familyMembersTable).values(body).returning();
+  const { pin, ...memberData } = CreateMemberWithPinSchema.parse(req.body);
+  let pinHash: string | undefined;
+  if (pin && memberData.role === "parent") {
+    pinHash = await bcrypt.hash(pin, BCRYPT_ROUNDS);
+  }
+  const [member] = await db.insert(familyMembersTable).values({ ...memberData, ...(pinHash ? { pinHash } : {}) }).returning();
   res.status(201).json(formatMember(member));
 });
 
@@ -78,7 +91,7 @@ router.delete("/:id", async (req, res) => {
 // POST /api/family/:id/avatar — persist avatar URL after object-storage upload
 router.post("/:id/avatar", async (req, res) => {
   const { id } = IdParams.parse({ id: Number(req.params.id) });
-  const { avatarUrl } = z.object({ avatarUrl: z.string().url() }).parse(req.body);
+  const { avatarUrl } = z.object({ avatarUrl: z.string().min(1) }).parse(req.body);
   const [member] = await db
     .update(familyMembersTable)
     .set({ avatarUrl })

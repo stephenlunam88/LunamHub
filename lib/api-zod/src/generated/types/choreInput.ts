@@ -11,6 +11,8 @@ export interface ChoreInput {
   title: string;
   description?: string;
   assignedTo?: number;
+  /** Assign to multiple children at once (creates one chore per child) */
+  assignedToMany?: number[];
   dueDate?: string;
   repeatType: ChoreInputRepeatType;
   pointsValue: number;

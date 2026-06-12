@@ -1006,9 +1006,9 @@ export const getCreateChoreUrl = () => {
 /**
  * @summary Create a chore
  */
-export const createChore = async (choreInput: ChoreInput, options?: RequestInit): Promise<Chore> => {
+export const createChore = async (choreInput: ChoreInput, options?: RequestInit): Promise<Chore[]> => {
 
-  return customFetch<Chore>(getCreateChoreUrl(),
+  return customFetch<Chore[]>(getCreateChoreUrl(),
   {
     ...options,
     method: 'POST',

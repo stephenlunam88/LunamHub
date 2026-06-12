@@ -8,6 +8,7 @@
 import type { Chore } from './chore';
 import type { Event } from './event';
 import type { FamilyMember } from './familyMember';
+import type { LeaderboardEntry } from './leaderboardEntry';
 import type { MealPlanEntry } from './mealPlanEntry';
 
 export interface DashboardSummary {
@@ -18,4 +19,5 @@ export interface DashboardSummary {
   familyMembers: FamilyMember[];
   todayMeals: MealPlanEntry[];
   pendingRedemptions: number;
+  weeklyLeaderboard: LeaderboardEntry[];
 }

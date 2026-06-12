@@ -127,8 +127,9 @@ router.get("/summary", async (_req, res) => {
   }
   const weeklyLeaderboard = familyMembers
     .filter((m) => m.role === "child")
-    .map((m) => ({ memberId: m.id, name: m.name, emoji: m.emoji, weeklyPoints: weeklyByMember[m.id] ?? 0 }))
-    .sort((a, b) => b.weeklyPoints - a.weeklyPoints);
+    .map((m) => ({ memberId: m.id, name: m.name, emoji: m.emoji, color: m.color, avatarUrl: m.avatarUrl ?? null, weeklyPoints: weeklyByMember[m.id] ?? 0 }))
+    .sort((a, b) => b.weeklyPoints - a.weeklyPoints)
+    .map((entry, i) => ({ ...entry, rank: i + 1 }));
 
   // Today's meals from meal plan
   const todayMealPlan = await db.select().from(mealPlanTable).where(eq(mealPlanTable.date, todayStr));

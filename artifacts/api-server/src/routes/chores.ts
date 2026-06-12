@@ -17,6 +17,7 @@ import {
 } from "@workspace/api-zod";
 import { z } from "zod";
 import bcrypt from "bcrypt";
+import { and, gte } from "drizzle-orm";
 
 const ChoreApproveBodySchema = z.object({
   parentId: z.number().int().positive().optional(),
@@ -90,11 +91,35 @@ router.get("/", async (req, res) => {
   res.json(result);
 });
 
+const CreateChoreExtended = z.object({
+  title: z.string(),
+  description: z.string().optional(),
+  assignedTo: z.number().int().positive().optional(),
+  assignedToMany: z.array(z.number().int().positive()).optional(),
+  dueDate: z.string().optional(),
+  repeatType: z.enum(["once", "daily", "weekly"]),
+  pointsValue: z.number().int(),
+});
+
 // POST /api/chores
 router.post("/", async (req, res) => {
+  const { assignedToMany, ...baseData } = CreateChoreExtended.parse(req.body);
+
+  // Multi-child: create one row per child
+  if (assignedToMany && assignedToMany.length > 0) {
+    const rows = await db
+      .insert(choresTable)
+      .values(assignedToMany.map(childId => ({ ...baseData, assignedTo: childId })))
+      .returning();
+    const formatted = await Promise.all(rows.map(c => formatChore(c, getMemberById(c.assignedTo))));
+    res.status(201).json(await Promise.all(formatted));
+    return;
+  }
+
+  // Single-child or unassigned
   const body = CreateChoreBody.parse(req.body);
   const [chore] = await db.insert(choresTable).values(body).returning();
-  res.status(201).json(formatChore(chore, await getMemberById(chore.assignedTo)));
+  res.status(201).json([formatChore(chore, await getMemberById(chore.assignedTo))]);
 });
 
 // GET /api/chores/:id
@@ -189,6 +214,24 @@ router.post("/:id/approve", async (req, res) => {
   res.json(formatChore(updated, await getMemberById(updated.assignedTo)));
 });
 
+function maxConsecutiveDays(sortedDates: string[]): number {
+  if (sortedDates.length === 0) return 0;
+  let maxStreak = 1;
+  let streak = 1;
+  for (let i = 1; i < sortedDates.length; i++) {
+    const prev = new Date(sortedDates[i - 1] + "T12:00:00Z").getTime();
+    const curr = new Date(sortedDates[i] + "T12:00:00Z").getTime();
+    const diffDays = Math.round((curr - prev) / 86400000);
+    if (diffDays === 1) {
+      streak++;
+      if (streak > maxStreak) maxStreak = streak;
+    } else if (diffDays > 1) {
+      streak = 1;
+    }
+  }
+  return maxStreak;
+}
+
 async function checkAndAwardBadges(memberId: number, lifetimePoints: number) {
   // Lifetime-points milestones
   const pointMilestones = [
@@ -198,7 +241,7 @@ async function checkAndAwardBadges(memberId: number, lifetimePoints: number) {
     { threshold: 1000, emoji: "🥇",  title: "Gold Champion",  tier: "gold"   as const, description: "Earned 1000 lifetime points" },
   ];
 
-  // Approved-chore-count milestones (only count status=approved)
+  // Approved-chore-count milestones
   const [{ value: choreCount }] = await db
     .select({ value: count() })
     .from(choresTable)
@@ -206,11 +249,24 @@ async function checkAndAwardBadges(memberId: number, lifetimePoints: number) {
   const approvedCount = Number(choreCount ?? 0);
 
   const choreMilestones = [
-    { threshold: 1,  emoji: "🎯", title: "First Chore",    tier: "bronze" as const, description: "Completed first chore" },
-    { threshold: 5,  emoji: "🔥", title: "Chore Streak",   tier: "bronze" as const, description: "Approved 5 chores" },
-    { threshold: 10, emoji: "💪", title: "Hard Worker",    tier: "silver" as const, description: "Approved 10 chores" },
-    { threshold: 25, emoji: "🏆", title: "Chore Champion", tier: "gold"   as const, description: "Approved 25 chores" },
-    { threshold: 50, emoji: "👑", title: "Chore Legend",   tier: "gold"   as const, description: "Approved 50 chores" },
+    { threshold: 1,   emoji: "🎯", title: "First Chore",    tier: "bronze" as const, description: "Completed first chore" },
+    { threshold: 10,  emoji: "💪", title: "Hard Worker",    tier: "silver" as const, description: "Approved 10 chores" },
+    { threshold: 25,  emoji: "🏆", title: "Chore Champion", tier: "gold"   as const, description: "Approved 25 chores" },
+    { threshold: 50,  emoji: "👑", title: "Chore Legend",   tier: "gold"   as const, description: "Approved 50 chores" },
+    { threshold: 100, emoji: "🌠", title: "Century Hero",   tier: "gold"   as const, description: "Approved 100 chores" },
+  ];
+
+  // Streak badges: check consecutive days with chore_earned transactions
+  const txDates = await db
+    .select({ earnedOn: sql<string>`DATE(${pointTransactionsTable.createdAt})` })
+    .from(pointTransactionsTable)
+    .where(sql`${pointTransactionsTable.memberId} = ${memberId} AND ${pointTransactionsTable.amount} > 0 AND ${pointTransactionsTable.type} = 'chore_earned'`);
+  const uniqueDates = [...new Set(txDates.map(t => t.earnedOn))].sort();
+  const longestStreak = maxConsecutiveDays(uniqueDates);
+
+  const streakMilestones = [
+    { threshold: 7,  emoji: "🔥", title: "7-Day Streak",  tier: "silver" as const, description: "Earned chores 7 days in a row" },
+    { threshold: 30, emoji: "🌋", title: "30-Day Streak", tier: "gold"   as const, description: "Earned chores 30 days in a row" },
   ];
 
   const existing = await db.select().from(badgesTable).where(eq(badgesTable.memberId, memberId));
@@ -223,6 +279,11 @@ async function checkAndAwardBadges(memberId: number, lifetimePoints: number) {
   }
   for (const m of choreMilestones) {
     if (approvedCount >= m.threshold && !existingTitles.has(m.title)) {
+      await db.insert(badgesTable).values({ memberId, title: m.title, description: m.description, emoji: m.emoji, tier: m.tier });
+    }
+  }
+  for (const m of streakMilestones) {
+    if (longestStreak >= m.threshold && !existingTitles.has(m.title)) {
       await db.insert(badgesTable).values({ memberId, title: m.title, description: m.description, emoji: m.emoji, tier: m.tier });
     }
   }

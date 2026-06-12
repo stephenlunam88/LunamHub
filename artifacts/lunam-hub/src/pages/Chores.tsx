@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle2, Plus, Trash2, Star, Clock, Lock } from "lucide-react";
 import type { ChoreInput } from "@workspace/api-client-react";
 
-type ChoreFormState = Omit<ChoreInput, "status">;
+type ChoreFormState = Omit<ChoreInput, "status"> & { assignedToMany?: number[] };
 
 interface ParentInfo {
   id: number;
@@ -171,11 +171,34 @@ export default function Chores() {
             <DialogHeader><DialogTitle className="text-xl font-serif">New Chore</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div><Label>Title</Label><Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="rounded-xl h-12" /></div>
-              <div><Label>Assign to</Label>
-                <Select value={form.assignedTo?.toString() ?? ""} onValueChange={v => setForm(f => ({ ...f, assignedTo: v ? Number(v) : undefined }))}>
-                  <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Any child" /></SelectTrigger>
-                  <SelectContent>{children.map(m => <SelectItem key={m.id} value={m.id.toString()}>{m.emoji} {m.name}</SelectItem>)}</SelectContent>
-                </Select>
+              <div>
+                <Label>Assign to</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {children.map(m => {
+                    const many = form.assignedToMany ?? [];
+                    const selected = many.includes(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => {
+                          const next = selected ? many.filter(id => id !== m.id) : [...many, m.id];
+                          setForm(f => ({ ...f, assignedToMany: next, assignedTo: next.length === 1 ? next[0] : undefined }));
+                        }}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all ${selected ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground hover:border-primary/40"}`}
+                      >
+                        <span>{m.emoji}</span>
+                        <span>{m.name}</span>
+                      </button>
+                    );
+                  })}
+                  {children.length === 0 && <span className="text-muted-foreground text-sm">No children added yet</span>}
+                </div>
+                {(form.assignedToMany?.length ?? 0) > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {(form.assignedToMany?.length ?? 0) > 1 ? `Creates ${form.assignedToMany?.length} separate chores` : ""}
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Points</Label><Input type="number" value={form.pointsValue} onChange={e => setForm(f => ({ ...f, pointsValue: Number(e.target.value) }))} className="rounded-xl h-12" /></div>
@@ -191,7 +214,10 @@ export default function Chores() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button className="w-full h-12 rounded-xl" onClick={() => createChore.mutate({ data: form })} disabled={!form.title || createChore.isPending}>
+              <Button className="w-full h-12 rounded-xl" onClick={() => {
+                const { assignedToMany, ...base } = form;
+                createChore.mutate({ data: assignedToMany && assignedToMany.length > 0 ? { ...base, assignedToMany } : base });
+              }} disabled={!form.title || createChore.isPending}>
                 {createChore.isPending ? "Adding…" : "Add Chore"}
               </Button>
             </div>

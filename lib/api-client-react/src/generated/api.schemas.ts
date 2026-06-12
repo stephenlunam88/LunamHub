@@ -45,6 +45,8 @@ export interface FamilyMemberInput {
   color: string;
   role: FamilyMemberInputRole;
   avatarUrl?: string;
+  /** Optional initial PIN for parent accounts (4+ digits, digits only) */
+  pin?: string;
 }
 
 export type FamilyMemberUpdateRole = typeof FamilyMemberUpdateRole[keyof typeof FamilyMemberUpdateRole];
@@ -210,6 +212,8 @@ export interface ChoreInput {
   title: string;
   description?: string;
   assignedTo?: number;
+  /** Assign to multiple children at once (creates one chore per child) */
+  assignedToMany?: number[];
   dueDate?: string;
   repeatType: ChoreInputRepeatType;
   pointsValue: number;
@@ -620,6 +624,17 @@ export interface RoutineCompletionInput {
   routineItemId: number;
 }
 
+export interface LeaderboardEntry {
+  memberId: number;
+  name: string;
+  emoji: string;
+  color: string;
+  /** @nullable */
+  avatarUrl?: string | null;
+  weeklyPoints: number;
+  rank: number;
+}
+
 export interface DashboardSummary {
   todayEvents: Event[];
   upcomingEvents: Event[];
@@ -628,6 +643,7 @@ export interface DashboardSummary {
   familyMembers: FamilyMember[];
   todayMeals: MealPlanEntry[];
   pendingRedemptions: number;
+  weeklyLeaderboard: LeaderboardEntry[];
 }
 
 export interface Settings {

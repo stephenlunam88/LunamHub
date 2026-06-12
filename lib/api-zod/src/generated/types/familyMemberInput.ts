@@ -13,4 +13,6 @@ export interface FamilyMemberInput {
   color: string;
   role: FamilyMemberInputRole;
   avatarUrl?: string;
+  /** Optional initial PIN for parent accounts (4+ digits, digits only) */
+  pin?: string;
 }

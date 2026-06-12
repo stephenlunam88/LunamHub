@@ -278,11 +278,13 @@ paths:
               $ref: "#/components/schemas/ChoreInput"
       responses:
         "201":
-          description: Created
+          description: Created (array — one entry per child when assignedToMany is used)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Chore"
+                type: array
+                items:
+                  $ref: "#/components/schemas/Chore"
 
   /chores/{id}:
     get:
@@ -1355,6 +1357,9 @@ components:
           enum: [parent, child]
         avatarUrl:
           type: string
+        pin:
+          type: string
+          description: Optional initial PIN for parent accounts (4+ digits, digits only)
       required:
         - name
         - emoji
@@ -1545,6 +1550,11 @@ components:
           type: string
         assignedTo:
           type: integer
+        assignedToMany:
+          type: array
+          items:
+            type: integer
+          description: Assign to multiple children at once (creates one chore per child)
         dueDate:
           type: string
         repeatType:
@@ -2134,6 +2144,31 @@ components:
         - routineItemId
 
     # ── Dashboard ─────────────────────────────────────────────────────────────
+    LeaderboardEntry:
+      type: object
+      properties:
+        memberId:
+          type: integer
+        name:
+          type: string
+        emoji:
+          type: string
+        color:
+          type: string
+        avatarUrl:
+          type: ["string", "null"]
+        weeklyPoints:
+          type: integer
+        rank:
+          type: integer
+      required:
+        - memberId
+        - name
+        - emoji
+        - color
+        - weeklyPoints
+        - rank
+
     DashboardSummary:
       type: object
       properties:
@@ -2161,6 +2196,10 @@ components:
             $ref: "#/components/schemas/MealPlanEntry"
         pendingRedemptions:
           type: integer
+        weeklyLeaderboard:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeaderboardEntry"
       required:
         - todayEvents
         - upcomingEvents
@@ -2169,6 +2208,7 @@ components:
         - familyMembers
         - todayMeals
         - pendingRedemptions
+        - weeklyLeaderboard
 
     # ── Settings ──────────────────────────────────────────────────────────────
     Settings:

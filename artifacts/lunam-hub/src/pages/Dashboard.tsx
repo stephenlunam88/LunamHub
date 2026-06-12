@@ -23,9 +23,7 @@ export default function Dashboard() {
 
   const children = summary.familyMembers.filter(m => m.role === "child");
   const sortedChildren = [...children].sort((a, b) => (b.lifetimePoints ?? 0) - (a.lifetimePoints ?? 0));
-
-  type WeeklyEntry = { memberId: number; name: string; emoji: string; weeklyPoints: number };
-  const weeklyLeaderboard: WeeklyEntry[] = ((summary as unknown as Record<string, unknown>).weeklyLeaderboard as WeeklyEntry[] | undefined) ?? [];
+  const weeklyLeaderboard = summary.weeklyLeaderboard;
 
   return (
     <div className="space-y-8 animate-in fade-in zoom-in duration-500">

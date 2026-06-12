@@ -42,7 +42,8 @@ export const CreateFamilyMemberBody = zod.object({
   "emoji": zod.string(),
   "color": zod.string(),
   "role": zod.enum(['parent', 'child']),
-  "avatarUrl": zod.string().optional()
+  "avatarUrl": zod.string().optional(),
+  "pin": zod.string().optional().describe('Optional initial PIN for parent accounts (4+ digits, digits only)')
 })
 
 
@@ -249,6 +250,7 @@ export const CreateChoreBody = zod.object({
   "title": zod.string(),
   "description": zod.string().optional(),
   "assignedTo": zod.number().optional(),
+  "assignedToMany": zod.array(zod.number()).optional().describe('Assign to multiple children at once (creates one chore per child)'),
   "dueDate": zod.string().optional(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
   "pointsValue": zod.number()
@@ -1095,7 +1097,16 @@ export const GetDashboardSummaryResponse = zod.object({
   "date": zod.string(),
   "mealType": zod.enum(['breakfast', 'lunch', 'dinner', 'snack'])
 })),
-  "pendingRedemptions": zod.number()
+  "pendingRedemptions": zod.number(),
+  "weeklyLeaderboard": zod.array(zod.object({
+  "memberId": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "avatarUrl": zod.string().nullish(),
+  "weeklyPoints": zod.number(),
+  "rank": zod.number()
+}))
 })
 
 
