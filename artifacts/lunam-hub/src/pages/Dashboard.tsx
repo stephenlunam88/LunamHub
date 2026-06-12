@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Trophy } from "lucide-react";
 
 export default function Dashboard() {
   const { data: summary, isLoading } = useGetDashboardSummary();
@@ -18,6 +19,9 @@ export default function Dashboard() {
   }
 
   if (!summary) return <div>Failed to load dashboard</div>;
+
+  const children = summary.familyMembers.filter(m => m.role === "child");
+  const sortedChildren = [...children].sort((a, b) => (b.lifetimePoints ?? 0) - (a.lifetimePoints ?? 0));
 
   return (
     <div className="space-y-8 animate-in fade-in zoom-in duration-500">
@@ -77,21 +81,35 @@ export default function Dashboard() {
 
         <Card className="rounded-3xl shadow-sm border-0 bg-muted">
           <CardHeader>
-            <CardTitle className="text-xl">Family Status</CardTitle>
+            <CardTitle className="text-xl flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-amber-500" /> Leaderboard
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="space-y-3">
-              {summary.familyMembers.map(m => (
+              {sortedChildren.map((m, i) => (
                 <li key={m.id} className="bg-background rounded-xl p-4 shadow-sm flex items-center gap-4">
+                  <div className="text-2xl font-bold text-muted-foreground w-6 text-center">
+                    {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}
+                  </div>
                   <div className="text-3xl" style={{ textShadow: `0 0 10px ${m.color}40` }}>{m.emoji}</div>
                   <div className="flex-1">
                     <div className="font-bold text-lg">{m.name}</div>
+                    <div className="text-xs text-muted-foreground">{m.pointsBalance} pts available</div>
                   </div>
-                  {m.role === 'child' && (
-                    <div className="text-xl font-bold bg-primary text-primary-foreground px-4 py-2 rounded-2xl">
-                      {m.pointsBalance}
-                    </div>
-                  )}
+                  <div className="text-right">
+                    <div className="text-xl font-bold text-amber-600">{m.lifetimePoints ?? 0}</div>
+                    <div className="text-xs text-muted-foreground">all-time</div>
+                  </div>
+                </li>
+              ))}
+              {summary.familyMembers.filter(m => m.role === "parent").map(m => (
+                <li key={m.id} className="bg-background rounded-xl p-4 shadow-sm flex items-center gap-4 opacity-70">
+                  <div className="text-3xl">{m.emoji}</div>
+                  <div className="flex-1">
+                    <div className="font-bold text-lg">{m.name}</div>
+                    <div className="text-xs text-muted-foreground capitalize">{m.role}</div>
+                  </div>
                 </li>
               ))}
             </ul>

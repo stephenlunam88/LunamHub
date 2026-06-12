@@ -15,6 +15,11 @@ export interface Redemption {
   reward?: Reward;
   memberId: number;
   member?: FamilyMember;
+  pointsCost: number;
   status: RedemptionStatus;
+  /** @nullable */
+  approvedByParentId?: number | null;
+  /** @nullable */
+  approvedAt?: string | null;
   createdAt: string;
 }

@@ -12,6 +12,9 @@ import { mealPlanRouter } from "./mealplan";
 import { routinesRouter } from "./routines";
 import { dashboardRouter } from "./dashboard";
 import { settingsRouter } from "./settings";
+import { badgesRouter } from "./badges";
+import { pointTransactionsRouter } from "./point-transactions";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
@@ -27,5 +30,8 @@ router.use("/meal-plan", mealPlanRouter);
 router.use("/routines", routinesRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/settings", settingsRouter);
+router.use("/badges", badgesRouter);
+router.use("/point-transactions", pointTransactionsRouter);
+router.use(storageRouter);
 
 export default router;

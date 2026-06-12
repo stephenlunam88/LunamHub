@@ -26,6 +26,9 @@ export const ListFamilyMembersResponseItem = zod.object({
   "color": zod.string(),
   "role": zod.enum(['parent', 'child']),
   "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
   "createdAt": zod.string()
 })
 export const ListFamilyMembersResponse = zod.array(ListFamilyMembersResponseItem)
@@ -38,7 +41,8 @@ export const CreateFamilyMemberBody = zod.object({
   "name": zod.string(),
   "emoji": zod.string(),
   "color": zod.string(),
-  "role": zod.enum(['parent', 'child'])
+  "role": zod.enum(['parent', 'child']),
+  "avatarUrl": zod.string().optional()
 })
 
 
@@ -56,6 +60,9 @@ export const GetFamilyMemberResponse = zod.object({
   "color": zod.string(),
   "role": zod.enum(['parent', 'child']),
   "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
   "createdAt": zod.string()
 })
 
@@ -72,7 +79,8 @@ export const UpdateFamilyMemberBody = zod.object({
   "emoji": zod.string().optional(),
   "color": zod.string().optional(),
   "role": zod.enum(['parent', 'child']).optional(),
-  "pointsBalance": zod.number().optional()
+  "pointsBalance": zod.number().optional(),
+  "avatarUrl": zod.string().nullish()
 })
 
 export const UpdateFamilyMemberResponse = zod.object({
@@ -82,6 +90,9 @@ export const UpdateFamilyMemberResponse = zod.object({
   "color": zod.string(),
   "role": zod.enum(['parent', 'child']),
   "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
   "createdAt": zod.string()
 })
 
@@ -214,12 +225,18 @@ export const ListChoresResponseItem = zod.object({
   "color": zod.string(),
   "role": zod.enum(['parent', 'child']),
   "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
   "pointsValue": zod.number(),
   "status": zod.enum(['pending', 'completed', 'approved', 'missed']),
+  "completedAt": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "approvedByParentId": zod.number().nullish(),
   "createdAt": zod.string()
 })
 export const ListChoresResponse = zod.array(ListChoresResponseItem)
@@ -257,12 +274,18 @@ export const GetChoreResponse = zod.object({
   "color": zod.string(),
   "role": zod.enum(['parent', 'child']),
   "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
   "pointsValue": zod.number(),
   "status": zod.enum(['pending', 'completed', 'approved', 'missed']),
+  "completedAt": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "approvedByParentId": zod.number().nullish(),
   "createdAt": zod.string()
 })
 
@@ -296,12 +319,18 @@ export const UpdateChoreResponse = zod.object({
   "color": zod.string(),
   "role": zod.enum(['parent', 'child']),
   "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
   "pointsValue": zod.number(),
   "status": zod.enum(['pending', 'completed', 'approved', 'missed']),
+  "completedAt": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "approvedByParentId": zod.number().nullish(),
   "createdAt": zod.string()
 })
 
@@ -333,12 +362,18 @@ export const CompleteChoreResponse = zod.object({
   "color": zod.string(),
   "role": zod.enum(['parent', 'child']),
   "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
   "pointsValue": zod.number(),
   "status": zod.enum(['pending', 'completed', 'approved', 'missed']),
+  "completedAt": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "approvedByParentId": zod.number().nullish(),
   "createdAt": zod.string()
 })
 
@@ -348,6 +383,10 @@ export const CompleteChoreResponse = zod.object({
  */
 export const ApproveChoreParams = zod.object({
   "id": zod.coerce.number()
+})
+
+export const ApproveChoreBody = zod.object({
+  "parentId": zod.number().optional()
 })
 
 export const ApproveChoreResponse = zod.object({
@@ -362,12 +401,18 @@ export const ApproveChoreResponse = zod.object({
   "color": zod.string(),
   "role": zod.enum(['parent', 'child']),
   "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
   "pointsValue": zod.number(),
   "status": zod.enum(['pending', 'completed', 'approved', 'missed']),
+  "completedAt": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "approvedByParentId": zod.number().nullish(),
   "createdAt": zod.string()
 })
 
@@ -468,9 +513,15 @@ export const ListRedemptionsResponseItem = zod.object({
   "color": zod.string(),
   "role": zod.enum(['parent', 'child']),
   "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
+  "pointsCost": zod.number(),
   "status": zod.enum(['pending', 'approved', 'rejected']),
+  "approvedByParentId": zod.number().nullish(),
+  "approvedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 export const ListRedemptionsResponse = zod.array(ListRedemptionsResponseItem)
@@ -492,6 +543,10 @@ export const ApproveRedemptionParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const ApproveRedemptionBody = zod.object({
+  "parentId": zod.number().optional()
+})
+
 export const ApproveRedemptionResponse = zod.object({
   "id": zod.number(),
   "rewardId": zod.number(),
@@ -511,9 +566,15 @@ export const ApproveRedemptionResponse = zod.object({
   "color": zod.string(),
   "role": zod.enum(['parent', 'child']),
   "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
+  "pointsCost": zod.number(),
   "status": zod.enum(['pending', 'approved', 'rejected']),
+  "approvedByParentId": zod.number().nullish(),
+  "approvedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -544,9 +605,15 @@ export const RejectRedemptionResponse = zod.object({
   "color": zod.string(),
   "role": zod.enum(['parent', 'child']),
   "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
+  "pointsCost": zod.number(),
   "status": zod.enum(['pending', 'approved', 'rejected']),
+  "approvedByParentId": zod.number().nullish(),
+  "approvedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -793,6 +860,9 @@ export const ListRoutinesResponseItem = zod.object({
   "color": zod.string(),
   "role": zod.enum(['parent', 'child']),
   "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
   "timeOfDay": zod.enum(['morning', 'afternoon', 'evening', 'bedtime']),
@@ -858,6 +928,9 @@ export const UpdateRoutineResponse = zod.object({
   "color": zod.string(),
   "role": zod.enum(['parent', 'child']),
   "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
   "timeOfDay": zod.enum(['morning', 'afternoon', 'evening', 'bedtime']),
@@ -975,12 +1048,18 @@ export const GetDashboardSummaryResponse = zod.object({
   "color": zod.string(),
   "role": zod.enum(['parent', 'child']),
   "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
   "pointsValue": zod.number(),
   "status": zod.enum(['pending', 'completed', 'approved', 'missed']),
+  "completedAt": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "approvedByParentId": zod.number().nullish(),
   "createdAt": zod.string()
 })),
   "pendingApprovals": zod.number(),
@@ -991,6 +1070,9 @@ export const GetDashboardSummaryResponse = zod.object({
   "color": zod.string(),
   "role": zod.enum(['parent', 'child']),
   "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
   "createdAt": zod.string()
 })),
   "todayMeals": zod.array(zod.object({
@@ -1042,7 +1124,7 @@ export const UpdateSettingsResponse = zod.object({
 
 
 /**
- * @summary Verify parent PIN
+ * @summary Verify global parent PIN (legacy)
  */
 export const VerifyPinBody = zod.object({
   "pin": zod.string()
@@ -1050,6 +1132,121 @@ export const VerifyPinBody = zod.object({
 
 export const VerifyPinResponse = zod.object({
   "valid": zod.boolean()
+})
+
+
+/**
+ * @summary Verify a parent member's PIN
+ */
+export const VerifyFamilyMemberPinParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const VerifyFamilyMemberPinBody = zod.object({
+  "pin": zod.string()
+})
+
+export const VerifyFamilyMemberPinResponse = zod.object({
+  "valid": zod.boolean()
+})
+
+
+/**
+ * @summary Set or update a parent member's PIN
+ */
+export const SetFamilyMemberPinParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SetFamilyMemberPinBody = zod.object({
+  "pin": zod.string()
+})
+
+export const SetFamilyMemberPinResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "role": zod.enum(['parent', 'child']),
+  "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary List all badges (optionally filter by member)
+ */
+export const ListBadgesQueryParams = zod.object({
+  "memberId": zod.coerce.number().nullish()
+})
+
+export const ListBadgesResponseItem = zod.object({
+  "id": zod.number(),
+  "memberId": zod.number(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "emoji": zod.string(),
+  "tier": zod.enum(['bronze', 'silver', 'gold']),
+  "awardedAt": zod.string()
+})
+export const ListBadgesResponse = zod.array(ListBadgesResponseItem)
+
+
+/**
+ * @summary Award a badge to a family member
+ */
+export const CreateBadgeBody = zod.object({
+  "memberId": zod.number(),
+  "title": zod.string(),
+  "description": zod.string().optional(),
+  "emoji": zod.string().optional(),
+  "tier": zod.enum(['bronze', 'silver', 'gold']).optional()
+})
+
+
+/**
+ * @summary Delete a badge
+ */
+export const DeleteBadgeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List point transactions (optionally filter by member)
+ */
+export const ListPointTransactionsQueryParams = zod.object({
+  "memberId": zod.coerce.number().nullish()
+})
+
+export const ListPointTransactionsResponseItem = zod.object({
+  "id": zod.number(),
+  "memberId": zod.number(),
+  "amount": zod.number(),
+  "type": zod.enum(['chore_earned', 'reward_spent', 'bonus', 'adjustment']),
+  "description": zod.string(),
+  "choreId": zod.number().nullish(),
+  "redemptionId": zod.number().nullish(),
+  "createdAt": zod.string()
+})
+export const ListPointTransactionsResponse = zod.array(ListPointTransactionsResponseItem)
+
+
+/**
+ * @summary Request a presigned URL for uploading an avatar
+ */
+export const RequestUploadUrlBody = zod.object({
+  "name": zod.string(),
+  "size": zod.number(),
+  "contentType": zod.string()
+})
+
+export const RequestUploadUrlResponse = zod.object({
+  "uploadURL": zod.string(),
+  "objectPath": zod.string()
 })
 
 

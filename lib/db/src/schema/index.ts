@@ -23,6 +23,8 @@ export const redemptionStatusEnum = pgEnum("redemption_status", ["pending", "app
 export const listCategoryEnum = pgEnum("list_category", ["grocery", "packing", "school", "reminders", "other"]);
 export const mealTypeEnum = pgEnum("meal_type", ["breakfast", "lunch", "dinner", "snack"]);
 export const timeOfDayEnum = pgEnum("time_of_day", ["morning", "afternoon", "evening", "bedtime"]);
+export const transactionTypeEnum = pgEnum("transaction_type", ["chore_earned", "reward_spent", "bonus", "adjustment"]);
+export const badgeTierEnum = pgEnum("badge_tier", ["bronze", "silver", "gold"]);
 
 // ── Family Members ────────────────────────────────────────────────────────────
 
@@ -33,6 +35,9 @@ export const familyMembersTable = pgTable("family_members", {
   color: text("color").notNull().default("#4f46e5"),
   role: roleEnum("role").notNull().default("child"),
   pointsBalance: integer("points_balance").notNull().default(0),
+  lifetimePoints: integer("lifetime_points").notNull().default(0),
+  avatarUrl: text("avatar_url"),
+  pinHash: text("pin_hash"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -76,6 +81,9 @@ export const choresTable = pgTable("chores", {
   repeatType: repeatTypeEnum("repeat_type").notNull().default("once"),
   pointsValue: integer("points_value").notNull().default(10),
   status: choreStatusEnum("status").notNull().default("pending"),
+  completedAt: timestamp("completed_at"),
+  approvedAt: timestamp("approved_at"),
+  approvedByParentId: integer("approved_by_parent_id").references(() => familyMembersTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -104,13 +112,49 @@ export const redemptionsTable = pgTable("reward_redemptions", {
   id: serial("id").primaryKey(),
   rewardId: integer("reward_id").notNull().references(() => rewardsTable.id, { onDelete: "cascade" }),
   memberId: integer("member_id").notNull().references(() => familyMembersTable.id, { onDelete: "cascade" }),
+  pointsCost: integer("points_cost").notNull().default(0),
   status: redemptionStatusEnum("status").notNull().default("pending"),
+  approvedByParentId: integer("approved_by_parent_id").references(() => familyMembersTable.id, { onDelete: "set null" }),
+  approvedAt: timestamp("approved_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 export const insertRedemptionSchema = createInsertSchema(redemptionsTable).omit({ id: true, createdAt: true });
 export type InsertRedemption = z.infer<typeof insertRedemptionSchema>;
 export type Redemption = typeof redemptionsTable.$inferSelect;
+
+// ── Point Transactions ────────────────────────────────────────────────────────
+
+export const pointTransactionsTable = pgTable("point_transactions", {
+  id: serial("id").primaryKey(),
+  memberId: integer("member_id").notNull().references(() => familyMembersTable.id, { onDelete: "cascade" }),
+  amount: integer("amount").notNull(),
+  type: transactionTypeEnum("type").notNull(),
+  description: text("description").notNull(),
+  choreId: integer("chore_id").references(() => choresTable.id, { onDelete: "set null" }),
+  redemptionId: integer("redemption_id").references(() => redemptionsTable.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertPointTransactionSchema = createInsertSchema(pointTransactionsTable).omit({ id: true, createdAt: true });
+export type InsertPointTransaction = z.infer<typeof insertPointTransactionSchema>;
+export type PointTransaction = typeof pointTransactionsTable.$inferSelect;
+
+// ── Badges ────────────────────────────────────────────────────────────────────
+
+export const badgesTable = pgTable("badges", {
+  id: serial("id").primaryKey(),
+  memberId: integer("member_id").notNull().references(() => familyMembersTable.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  emoji: text("emoji").notNull().default("🏆"),
+  tier: badgeTierEnum("tier").notNull().default("bronze"),
+  awardedAt: timestamp("awarded_at").notNull().defaultNow(),
+});
+
+export const insertBadgeSchema = createInsertSchema(badgesTable).omit({ id: true, awardedAt: true });
+export type InsertBadge = z.infer<typeof insertBadgeSchema>;
+export type Badge = typeof badgesTable.$inferSelect;
 
 // ── Lists ─────────────────────────────────────────────────────────────────────
 

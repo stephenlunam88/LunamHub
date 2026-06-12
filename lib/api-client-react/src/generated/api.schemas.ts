@@ -24,6 +24,10 @@ export interface FamilyMember {
   color: string;
   role: FamilyMemberRole;
   pointsBalance: number;
+  lifetimePoints: number;
+  /** @nullable */
+  avatarUrl?: string | null;
+  hasPin: boolean;
   createdAt: string;
 }
 
@@ -40,6 +44,7 @@ export interface FamilyMemberInput {
   emoji: string;
   color: string;
   role: FamilyMemberInputRole;
+  avatarUrl?: string;
 }
 
 export type FamilyMemberUpdateRole = typeof FamilyMemberUpdateRole[keyof typeof FamilyMemberUpdateRole];
@@ -56,6 +61,16 @@ export interface FamilyMemberUpdate {
   color?: string;
   role?: FamilyMemberUpdateRole;
   pointsBalance?: number;
+  /** @nullable */
+  avatarUrl?: string | null;
+}
+
+export interface SetPinInput {
+  pin: string;
+}
+
+export interface VerifyMemberPinInput {
+  pin: string;
 }
 
 export type EventCategory = typeof EventCategory[keyof typeof EventCategory];
@@ -164,7 +179,17 @@ export interface Chore {
   repeatType: ChoreRepeatType;
   pointsValue: number;
   status: ChoreStatus;
+  /** @nullable */
+  completedAt?: string | null;
+  /** @nullable */
+  approvedAt?: string | null;
+  /** @nullable */
+  approvedByParentId?: number | null;
   createdAt: string;
+}
+
+export interface ChoreApproveBody {
+  parentId?: number;
 }
 
 export type ChoreInputRepeatType = typeof ChoreInputRepeatType[keyof typeof ChoreInputRepeatType];
@@ -267,13 +292,93 @@ export interface Redemption {
   reward?: Reward;
   memberId: number;
   member?: FamilyMember;
+  pointsCost: number;
   status: RedemptionStatus;
+  /** @nullable */
+  approvedByParentId?: number | null;
+  /** @nullable */
+  approvedAt?: string | null;
   createdAt: string;
 }
 
 export interface RedemptionInput {
   rewardId: number;
   memberId: number;
+}
+
+export interface RedemptionApproveBody {
+  parentId?: number;
+}
+
+export type BadgeTier = typeof BadgeTier[keyof typeof BadgeTier];
+
+
+export const BadgeTier = {
+  bronze: 'bronze',
+  silver: 'silver',
+  gold: 'gold',
+} as const;
+
+export interface Badge {
+  id: number;
+  memberId: number;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  emoji: string;
+  tier: BadgeTier;
+  awardedAt: string;
+}
+
+export type BadgeInputTier = typeof BadgeInputTier[keyof typeof BadgeInputTier];
+
+
+export const BadgeInputTier = {
+  bronze: 'bronze',
+  silver: 'silver',
+  gold: 'gold',
+} as const;
+
+export interface BadgeInput {
+  memberId: number;
+  title: string;
+  description?: string;
+  emoji?: string;
+  tier?: BadgeInputTier;
+}
+
+export type PointTransactionType = typeof PointTransactionType[keyof typeof PointTransactionType];
+
+
+export const PointTransactionType = {
+  chore_earned: 'chore_earned',
+  reward_spent: 'reward_spent',
+  bonus: 'bonus',
+  adjustment: 'adjustment',
+} as const;
+
+export interface PointTransaction {
+  id: number;
+  memberId: number;
+  amount: number;
+  type: PointTransactionType;
+  description: string;
+  /** @nullable */
+  choreId?: number | null;
+  /** @nullable */
+  redemptionId?: number | null;
+  createdAt: string;
+}
+
+export interface UploadUrlRequest {
+  name: string;
+  size: number;
+  contentType: string;
+}
+
+export interface UploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
 }
 
 export type SharedListCategory = typeof SharedListCategory[keyof typeof SharedListCategory];
@@ -568,5 +673,23 @@ export type AddMealIngredientsToGrocery200 = {
 
 export type VerifyPin200 = {
   valid: boolean;
+};
+
+export type VerifyFamilyMemberPin200 = {
+  valid: boolean;
+};
+
+export type ListBadgesParams = {
+/**
+ * @nullable
+ */
+memberId?: number | null;
+};
+
+export type ListPointTransactionsParams = {
+/**
+ * @nullable
+ */
+memberId?: number | null;
 };
 

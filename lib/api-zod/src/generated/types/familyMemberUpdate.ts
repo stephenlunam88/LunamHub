@@ -13,4 +13,6 @@ export interface FamilyMemberUpdate {
   color?: string;
   role?: FamilyMemberUpdateRole;
   pointsBalance?: number;
+  /** @nullable */
+  avatarUrl?: string | null;
 }

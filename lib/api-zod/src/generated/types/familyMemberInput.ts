@@ -12,4 +12,5 @@ export interface FamilyMemberInput {
   emoji: string;
   color: string;
   role: FamilyMemberInputRole;
+  avatarUrl?: string;
 }

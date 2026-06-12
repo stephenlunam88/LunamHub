@@ -2,17 +2,21 @@ import { useState } from "react";
 import {
   useGetSettings, useVerifyPin, useUpdateSettings,
   useCreateFamilyMember, useDeleteFamilyMember, useListFamilyMembers,
+  useSetFamilyMemberPin,
+  useListRewards, useCreateReward, useDeleteReward,
   getGetSettingsQueryKey, getListFamilyMembersQueryKey,
+  getListRewardsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Lock, Plus, Trash2, Shield, Users, Settings as SettingsIcon } from "lucide-react";
-import type { FamilyMemberInput } from "@workspace/api-client-react";
+import { Lock, Plus, Trash2, Shield, Users, Settings as SettingsIcon, Key, Gift } from "lucide-react";
+import type { FamilyMemberInput, RewardInput } from "@workspace/api-client-react";
 
 export default function Admin() {
   const [pin, setPin] = useState("");
@@ -63,16 +67,95 @@ export default function Admin() {
   return <AdminPanel onLock={() => setUnlocked(false)} />;
 }
 
+function SetPinDialog({ memberId, memberName, memberEmoji, hasPin }: { memberId: number; memberName: string; memberEmoji: string; hasPin?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [newPin, setNewPin] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [mismatch, setMismatch] = useState(false);
+
+  const setPinMutation = useSetFamilyMemberPin({
+    mutation: {
+      onSuccess: () => {
+        setOpen(false);
+        setNewPin(""); setConfirm(""); setMismatch(false);
+      }
+    }
+  });
+
+  const handleSave = () => {
+    if (newPin !== confirm) { setMismatch(true); return; }
+    setPinMutation.mutate({ id: memberId, data: { pin: newPin } });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={o => { setOpen(o); setNewPin(""); setConfirm(""); setMismatch(false); }}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="rounded-xl gap-1.5">
+          <Key className="w-3.5 h-3.5" />
+          {hasPin ? "Change PIN" : "Set PIN"}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="rounded-3xl max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-serif flex items-center gap-2">
+            <Key className="w-5 h-5" /> {hasPin ? "Change" : "Set"} PIN for {memberEmoji} {memberName}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label>New PIN</Label>
+            <Input
+              type="password"
+              inputMode="numeric"
+              value={newPin}
+              onChange={e => { setNewPin(e.target.value); setMismatch(false); }}
+              placeholder="Enter new PIN"
+              className="rounded-xl h-12 text-center tracking-[0.4em] text-xl mt-1"
+            />
+          </div>
+          <div>
+            <Label>Confirm PIN</Label>
+            <Input
+              type="password"
+              inputMode="numeric"
+              value={confirm}
+              onChange={e => { setConfirm(e.target.value); setMismatch(false); }}
+              onKeyDown={e => { if (e.key === "Enter") handleSave(); }}
+              placeholder="Repeat new PIN"
+              className={`rounded-xl h-12 text-center tracking-[0.4em] text-xl mt-1 ${mismatch ? "border-red-500 bg-red-50" : ""}`}
+            />
+            {mismatch && <p className="text-red-600 text-sm mt-1">PINs don't match</p>}
+          </div>
+          <Button
+            className="w-full h-12 rounded-xl"
+            onClick={handleSave}
+            disabled={!newPin || !confirm || setPinMutation.isPending}
+          >
+            {setPinMutation.isPending ? "Saving…" : "Save PIN"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function AdminPanel({ onLock }: { onLock: () => void }) {
   const qc = useQueryClient();
   const { data: settings } = useGetSettings();
   const { data: members = [] } = useListFamilyMembers();
+  const { data: rewards = [] } = useListRewards();
   const [newPin, setNewPin] = useState("");
   const [memberForm, setMemberForm] = useState<FamilyMemberInput>({ name: "", emoji: "😊", color: "#6366f1", role: "child" });
+  const [rewardOpen, setRewardOpen] = useState(false);
+  const [rewardForm, setRewardForm] = useState<RewardInput>({ title: "", pointsCost: 100 });
 
   const updateSettings = useUpdateSettings({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getGetSettingsQueryKey() }) } });
   const createMember = useCreateFamilyMember({ mutation: { onSuccess: () => { qc.invalidateQueries({ queryKey: getListFamilyMembersQueryKey() }); setMemberForm({ name: "", emoji: "😊", color: "#6366f1", role: "child" }); } } });
   const deleteMember = useDeleteFamilyMember({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getListFamilyMembersQueryKey() }) } });
+  const createReward = useCreateReward({ mutation: { onSuccess: () => { qc.invalidateQueries({ queryKey: getListRewardsQueryKey() }); setRewardOpen(false); setRewardForm({ title: "", pointsCost: 100 }); } } });
+  const deleteReward = useDeleteReward({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getListRewardsQueryKey() }) } });
+
+  const parents = members.filter(m => m.role === "parent");
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -94,8 +177,18 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
               <div className="text-3xl">{m.emoji}</div>
               <div className="flex-1">
                 <div className="font-bold">{m.name}</div>
-                <div className="text-sm text-muted-foreground capitalize">{m.role}{m.role === "child" ? ` · ${m.pointsBalance} points` : ""}</div>
+                <div className="text-sm text-muted-foreground capitalize">
+                  {m.role}{m.role === "child" ? ` · ${m.pointsBalance} pts · ${m.lifetimePoints ?? 0} all-time` : ""}
+                </div>
               </div>
+              {m.role === "parent" && (
+                <SetPinDialog
+                  memberId={m.id}
+                  memberName={m.name}
+                  memberEmoji={m.emoji}
+                  hasPin={m.hasPin}
+                />
+              )}
               <button onClick={() => deleteMember.mutate({ id: m.id })} className="text-muted-foreground hover:text-destructive p-2">
                 <Trash2 className="w-5 h-5" />
               </button>
@@ -125,6 +218,67 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
         </CardContent>
       </Card>
 
+      {parents.length > 0 && (
+        <Card className="rounded-3xl border-0 shadow-sm">
+          <CardHeader><CardTitle className="flex items-center gap-2"><Key className="w-5 h-5" /> Parent PINs</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">Set a PIN for each parent to gate chore approvals and reward decisions.</p>
+            {parents.map(m => (
+              <div key={m.id} className="flex items-center gap-4 bg-muted rounded-2xl p-4">
+                <div className="text-3xl">{m.emoji}</div>
+                <div className="flex-1">
+                  <div className="font-bold">{m.name}</div>
+                  <div className="text-sm text-muted-foreground">{m.hasPin ? "PIN set ✓" : "No PIN set — approval is open"}</div>
+                </div>
+                <SetPinDialog memberId={m.id} memberName={m.name} memberEmoji={m.emoji} hasPin={m.hasPin} />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      <Card className="rounded-3xl border-0 shadow-sm">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2"><Gift className="w-5 h-5" /> Reward Store</CardTitle>
+            <Dialog open={rewardOpen} onOpenChange={setRewardOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="rounded-xl gap-1.5"><Plus className="w-4 h-4" /> Add Reward</Button>
+              </DialogTrigger>
+              <DialogContent className="rounded-3xl">
+                <DialogHeader><DialogTitle className="text-xl font-serif">New Reward</DialogTitle></DialogHeader>
+                <div className="space-y-4">
+                  <div><Label>Title</Label><Input value={rewardForm.title} onChange={e => setRewardForm(f => ({ ...f, title: e.target.value }))} className="rounded-xl h-12" /></div>
+                  <div><Label>Description</Label><Input value={rewardForm.description ?? ""} onChange={e => setRewardForm(f => ({ ...f, description: e.target.value }))} className="rounded-xl h-12" /></div>
+                  <div><Label>Points Cost</Label><Input type="number" value={rewardForm.pointsCost} onChange={e => setRewardForm(f => ({ ...f, pointsCost: Number(e.target.value) }))} className="rounded-xl h-12" /></div>
+                  <Button className="w-full h-12 rounded-xl" onClick={() => createReward.mutate({ data: rewardForm })} disabled={!rewardForm.title || createReward.isPending}>
+                    {createReward.isPending ? "Adding…" : "Add Reward"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {rewards.filter(r => r.active).length === 0 && (
+            <p className="text-muted-foreground text-sm">No rewards yet — add some for your family!</p>
+          )}
+          {rewards.filter(r => r.active).map(r => (
+            <div key={r.id} className="flex items-center gap-4 bg-muted rounded-2xl p-4">
+              <div className="text-2xl">🎁</div>
+              <div className="flex-1">
+                <div className="font-bold">{r.title}</div>
+                {r.description && <div className="text-sm text-muted-foreground">{r.description}</div>}
+              </div>
+              <div className="bg-primary text-primary-foreground px-3 py-1.5 rounded-xl font-bold text-sm">{r.pointsCost} pts</div>
+              <button onClick={() => deleteReward.mutate({ id: r.id })} className="text-muted-foreground hover:text-destructive p-2">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
       <Card className="rounded-3xl border-0 shadow-sm">
         <CardHeader><CardTitle className="flex items-center gap-2"><SettingsIcon className="w-5 h-5" /> App Settings</CardTitle></CardHeader>
         <CardContent className="space-y-5">
@@ -140,8 +294,9 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
           </div>
           <Separator />
           <div>
-            <Label>Change Parent PIN</Label>
-            <div className="flex gap-3 mt-1">
+            <Label>Change Global Parent PIN</Label>
+            <p className="text-xs text-muted-foreground mb-2">This PIN gates the Admin area. Per-parent PINs above gate approvals.</p>
+            <div className="flex gap-3">
               <Input type="password" inputMode="numeric" placeholder="New PIN (min 4 digits)" value={newPin}
                 onChange={e => setNewPin(e.target.value)} className="rounded-xl h-12 flex-1" />
               <Button className="h-12 px-6 rounded-xl" onClick={() => { updateSettings.mutate({ data: { parentPin: newPin } }); setNewPin(""); }} disabled={!newPin || newPin.length < 4}>

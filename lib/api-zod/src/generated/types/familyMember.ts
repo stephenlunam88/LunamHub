@@ -14,5 +14,9 @@ export interface FamilyMember {
   color: string;
   role: FamilyMemberRole;
   pointsBalance: number;
+  lifetimePoints: number;
+  /** @nullable */
+  avatarUrl?: string | null;
+  hasPin: boolean;
   createdAt: string;
 }

@@ -21,7 +21,10 @@ import type {
 
 import type {
   AddMealIngredientsToGrocery200,
+  Badge,
+  BadgeInput,
   Chore,
+  ChoreApproveBody,
   ChoreInput,
   ChoreSummary,
   ChoreUpdate,
@@ -34,18 +37,22 @@ import type {
   FamilyMemberUpdate,
   GetMealPlanParams,
   HealthStatus,
+  ListBadgesParams,
   ListChoresParams,
   ListEventsParams,
   ListItem,
   ListItemInput,
   ListItemUpdate,
+  ListPointTransactionsParams,
   Meal,
   MealInput,
   MealPlanEntry,
   MealPlanEntryInput,
   MealUpdate,
   PinInput,
+  PointTransaction,
   Redemption,
+  RedemptionApproveBody,
   RedemptionInput,
   Reward,
   RewardInput,
@@ -59,12 +66,17 @@ import type {
   RoutineItemUpdate,
   RoutineUpdate,
   RoutineWithItems,
+  SetPinInput,
   Settings,
   SettingsUpdate,
   SharedList,
   SharedListInput,
   SharedListUpdate,
   SharedListWithItems,
+  UploadUrlRequest,
+  UploadUrlResponse,
+  VerifyFamilyMemberPin200,
+  VerifyMemberPinInput,
   VerifyPin200
 } from './api.schemas';
 
@@ -1353,14 +1365,16 @@ export const getApproveChoreUrl = (id: number,) => {
 /**
  * @summary Approve a completed chore (parent action, awards points)
  */
-export const approveChore = async (id: number, options?: RequestInit): Promise<Chore> => {
+export const approveChore = async (id: number,
+    choreApproveBody?: ChoreApproveBody, options?: RequestInit): Promise<Chore> => {
 
   return customFetch<Chore>(getApproveChoreUrl(id),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      choreApproveBody,)
   }
 );}
 
@@ -1368,8 +1382,8 @@ export const approveChore = async (id: number, options?: RequestInit): Promise<C
 
 
 export const getApproveChoreMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveChore>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof approveChore>>, TError,{id: number}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveChore>>, TError,{id: number;data?: BodyType<ChoreApproveBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveChore>>, TError,{id: number;data?: BodyType<ChoreApproveBody>}, TContext> => {
 
 const mutationKey = ['approveChore'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1381,10 +1395,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveChore>>, {id: number}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveChore>>, {id: number;data?: BodyType<ChoreApproveBody>}> = (props) => {
+          const {id,data} = props ?? {};
 
-          return  approveChore(id,requestOptions)
+          return  approveChore(id,data,requestOptions)
         }
 
 
@@ -1395,18 +1409,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type ApproveChoreMutationResult = NonNullable<Awaited<ReturnType<typeof approveChore>>>
-
+    export type ApproveChoreMutationBody = BodyType<ChoreApproveBody> | undefined
     export type ApproveChoreMutationError = ErrorType<unknown>
 
     /**
  * @summary Approve a completed chore (parent action, awards points)
  */
 export const useApproveChore = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveChore>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveChore>>, TError,{id: number;data?: BodyType<ChoreApproveBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof approveChore>>,
         TError,
-        {id: number},
+        {id: number;data?: BodyType<ChoreApproveBody>},
         TContext
       > => {
       return useMutation(getApproveChoreMutationOptions(options));
@@ -1938,14 +1952,16 @@ export const getApproveRedemptionUrl = (id: number,) => {
 /**
  * @summary Approve a redemption request (parent action, deducts points)
  */
-export const approveRedemption = async (id: number, options?: RequestInit): Promise<Redemption> => {
+export const approveRedemption = async (id: number,
+    redemptionApproveBody?: RedemptionApproveBody, options?: RequestInit): Promise<Redemption> => {
 
   return customFetch<Redemption>(getApproveRedemptionUrl(id),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      redemptionApproveBody,)
   }
 );}
 
@@ -1953,8 +1969,8 @@ export const approveRedemption = async (id: number, options?: RequestInit): Prom
 
 
 export const getApproveRedemptionMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveRedemption>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof approveRedemption>>, TError,{id: number}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveRedemption>>, TError,{id: number;data?: BodyType<RedemptionApproveBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveRedemption>>, TError,{id: number;data?: BodyType<RedemptionApproveBody>}, TContext> => {
 
 const mutationKey = ['approveRedemption'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1966,10 +1982,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveRedemption>>, {id: number}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveRedemption>>, {id: number;data?: BodyType<RedemptionApproveBody>}> = (props) => {
+          const {id,data} = props ?? {};
 
-          return  approveRedemption(id,requestOptions)
+          return  approveRedemption(id,data,requestOptions)
         }
 
 
@@ -1980,18 +1996,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type ApproveRedemptionMutationResult = NonNullable<Awaited<ReturnType<typeof approveRedemption>>>
-
+    export type ApproveRedemptionMutationBody = BodyType<RedemptionApproveBody> | undefined
     export type ApproveRedemptionMutationError = ErrorType<unknown>
 
     /**
  * @summary Approve a redemption request (parent action, deducts points)
  */
 export const useApproveRedemption = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveRedemption>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveRedemption>>, TError,{id: number;data?: BodyType<RedemptionApproveBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof approveRedemption>>,
         TError,
-        {id: number},
+        {id: number;data?: BodyType<RedemptionApproveBody>},
         TContext
       > => {
       return useMutation(getApproveRedemptionMutationOptions(options));
@@ -4128,7 +4144,7 @@ export const getVerifyPinUrl = () => {
 }
 
 /**
- * @summary Verify parent PIN
+ * @summary Verify global parent PIN (legacy)
  */
 export const verifyPin = async (pinInput: PinInput, options?: RequestInit): Promise<VerifyPin200> => {
 
@@ -4177,7 +4193,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type VerifyPinMutationError = ErrorType<unknown>
 
     /**
- * @summary Verify parent PIN
+ * @summary Verify global parent PIN (legacy)
  */
 export const useVerifyPin = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyPin>>, TError,{data: BodyType<PinInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -4188,5 +4204,529 @@ export const useVerifyPin = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getVerifyPinMutationOptions(options));
+    }
+
+export const getVerifyFamilyMemberPinUrl = (id: number,) => {
+
+
+
+
+  return `/api/family/${id}/verify-pin`
+}
+
+/**
+ * @summary Verify a parent member's PIN
+ */
+export const verifyFamilyMemberPin = async (id: number,
+    verifyMemberPinInput: VerifyMemberPinInput, options?: RequestInit): Promise<VerifyFamilyMemberPin200> => {
+
+  return customFetch<VerifyFamilyMemberPin200>(getVerifyFamilyMemberPinUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      verifyMemberPinInput,)
+  }
+);}
+
+
+
+
+export const getVerifyFamilyMemberPinMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyFamilyMemberPin>>, TError,{id: number;data: BodyType<VerifyMemberPinInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyFamilyMemberPin>>, TError,{id: number;data: BodyType<VerifyMemberPinInput>}, TContext> => {
+
+const mutationKey = ['verifyFamilyMemberPin'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyFamilyMemberPin>>, {id: number;data: BodyType<VerifyMemberPinInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  verifyFamilyMemberPin(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyFamilyMemberPinMutationResult = NonNullable<Awaited<ReturnType<typeof verifyFamilyMemberPin>>>
+    export type VerifyFamilyMemberPinMutationBody = BodyType<VerifyMemberPinInput>
+    export type VerifyFamilyMemberPinMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Verify a parent member's PIN
+ */
+export const useVerifyFamilyMemberPin = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyFamilyMemberPin>>, TError,{id: number;data: BodyType<VerifyMemberPinInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof verifyFamilyMemberPin>>,
+        TError,
+        {id: number;data: BodyType<VerifyMemberPinInput>},
+        TContext
+      > => {
+      return useMutation(getVerifyFamilyMemberPinMutationOptions(options));
+    }
+
+export const getSetFamilyMemberPinUrl = (id: number,) => {
+
+
+
+
+  return `/api/family/${id}/set-pin`
+}
+
+/**
+ * @summary Set or update a parent member's PIN
+ */
+export const setFamilyMemberPin = async (id: number,
+    setPinInput: SetPinInput, options?: RequestInit): Promise<FamilyMember> => {
+
+  return customFetch<FamilyMember>(getSetFamilyMemberPinUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      setPinInput,)
+  }
+);}
+
+
+
+
+export const getSetFamilyMemberPinMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setFamilyMemberPin>>, TError,{id: number;data: BodyType<SetPinInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setFamilyMemberPin>>, TError,{id: number;data: BodyType<SetPinInput>}, TContext> => {
+
+const mutationKey = ['setFamilyMemberPin'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setFamilyMemberPin>>, {id: number;data: BodyType<SetPinInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setFamilyMemberPin(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetFamilyMemberPinMutationResult = NonNullable<Awaited<ReturnType<typeof setFamilyMemberPin>>>
+    export type SetFamilyMemberPinMutationBody = BodyType<SetPinInput>
+    export type SetFamilyMemberPinMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Set or update a parent member's PIN
+ */
+export const useSetFamilyMemberPin = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setFamilyMemberPin>>, TError,{id: number;data: BodyType<SetPinInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setFamilyMemberPin>>,
+        TError,
+        {id: number;data: BodyType<SetPinInput>},
+        TContext
+      > => {
+      return useMutation(getSetFamilyMemberPinMutationOptions(options));
+    }
+
+export const getListBadgesUrl = (params?: ListBadgesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/badges?${stringifiedParams}` : `/api/badges`
+}
+
+/**
+ * @summary List all badges (optionally filter by member)
+ */
+export const listBadges = async (params?: ListBadgesParams, options?: RequestInit): Promise<Badge[]> => {
+
+  return customFetch<Badge[]>(getListBadgesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBadgesQueryKey = (params?: ListBadgesParams,) => {
+    return [
+    `/api/badges`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListBadgesQueryOptions = <TData = Awaited<ReturnType<typeof listBadges>>, TError = ErrorType<unknown>>(params?: ListBadgesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBadges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBadgesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBadges>>> = ({ signal }) => listBadges(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBadges>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBadgesQueryResult = NonNullable<Awaited<ReturnType<typeof listBadges>>>
+export type ListBadgesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all badges (optionally filter by member)
+ */
+
+export function useListBadges<TData = Awaited<ReturnType<typeof listBadges>>, TError = ErrorType<unknown>>(
+ params?: ListBadgesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBadges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBadgesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateBadgeUrl = () => {
+
+
+
+
+  return `/api/badges`
+}
+
+/**
+ * @summary Award a badge to a family member
+ */
+export const createBadge = async (badgeInput: BadgeInput, options?: RequestInit): Promise<Badge> => {
+
+  return customFetch<Badge>(getCreateBadgeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      badgeInput,)
+  }
+);}
+
+
+
+
+export const getCreateBadgeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBadge>>, TError,{data: BodyType<BadgeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createBadge>>, TError,{data: BodyType<BadgeInput>}, TContext> => {
+
+const mutationKey = ['createBadge'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createBadge>>, {data: BodyType<BadgeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createBadge(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateBadgeMutationResult = NonNullable<Awaited<ReturnType<typeof createBadge>>>
+    export type CreateBadgeMutationBody = BodyType<BadgeInput>
+    export type CreateBadgeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Award a badge to a family member
+ */
+export const useCreateBadge = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBadge>>, TError,{data: BodyType<BadgeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createBadge>>,
+        TError,
+        {data: BodyType<BadgeInput>},
+        TContext
+      > => {
+      return useMutation(getCreateBadgeMutationOptions(options));
+    }
+
+export const getDeleteBadgeUrl = (id: number,) => {
+
+
+
+
+  return `/api/badges/${id}`
+}
+
+/**
+ * @summary Delete a badge
+ */
+export const deleteBadge = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteBadgeUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteBadgeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBadge>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteBadge>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteBadge'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteBadge>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteBadge(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteBadgeMutationResult = NonNullable<Awaited<ReturnType<typeof deleteBadge>>>
+
+    export type DeleteBadgeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a badge
+ */
+export const useDeleteBadge = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBadge>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteBadge>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteBadgeMutationOptions(options));
+    }
+
+export const getListPointTransactionsUrl = (params?: ListPointTransactionsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/point-transactions?${stringifiedParams}` : `/api/point-transactions`
+}
+
+/**
+ * @summary List point transactions (optionally filter by member)
+ */
+export const listPointTransactions = async (params?: ListPointTransactionsParams, options?: RequestInit): Promise<PointTransaction[]> => {
+
+  return customFetch<PointTransaction[]>(getListPointTransactionsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPointTransactionsQueryKey = (params?: ListPointTransactionsParams,) => {
+    return [
+    `/api/point-transactions`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListPointTransactionsQueryOptions = <TData = Awaited<ReturnType<typeof listPointTransactions>>, TError = ErrorType<unknown>>(params?: ListPointTransactionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPointTransactions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPointTransactionsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPointTransactions>>> = ({ signal }) => listPointTransactions(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPointTransactions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPointTransactionsQueryResult = NonNullable<Awaited<ReturnType<typeof listPointTransactions>>>
+export type ListPointTransactionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List point transactions (optionally filter by member)
+ */
+
+export function useListPointTransactions<TData = Awaited<ReturnType<typeof listPointTransactions>>, TError = ErrorType<unknown>>(
+ params?: ListPointTransactionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPointTransactions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPointTransactionsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getRequestUploadUrlUrl = () => {
+
+
+
+
+  return `/api/storage/uploads/request-url`
+}
+
+/**
+ * @summary Request a presigned URL for uploading an avatar
+ */
+export const requestUploadUrl = async (uploadUrlRequest: UploadUrlRequest, options?: RequestInit): Promise<UploadUrlResponse> => {
+
+  return customFetch<UploadUrlResponse>(getRequestUploadUrlUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      uploadUrlRequest,)
+  }
+);}
+
+
+
+
+export const getRequestUploadUrlMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestUploadUrl>>, TError,{data: BodyType<UploadUrlRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestUploadUrl>>, TError,{data: BodyType<UploadUrlRequest>}, TContext> => {
+
+const mutationKey = ['requestUploadUrl'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestUploadUrl>>, {data: BodyType<UploadUrlRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestUploadUrl(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestUploadUrlMutationResult = NonNullable<Awaited<ReturnType<typeof requestUploadUrl>>>
+    export type RequestUploadUrlMutationBody = BodyType<UploadUrlRequest>
+    export type RequestUploadUrlMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Request a presigned URL for uploading an avatar
+ */
+export const useRequestUploadUrl = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestUploadUrl>>, TError,{data: BodyType<UploadUrlRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestUploadUrl>>,
+        TError,
+        {data: BodyType<UploadUrlRequest>},
+        TContext
+      > => {
+      return useMutation(getRequestUploadUrlMutationOptions(options));
     }
 

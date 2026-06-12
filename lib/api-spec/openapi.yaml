@@ -28,6 +28,12 @@ tags:
     description: Dashboard aggregates
   - name: settings
     description: App settings
+  - name: badges
+    description: Achievement badges
+  - name: transactions
+    description: Point transaction history
+  - name: storage
+    description: Object storage for avatars
 
 paths:
   /healthz:
@@ -365,6 +371,12 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChoreApproveBody"
       responses:
         "200":
           description: Approved
@@ -502,6 +514,12 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RedemptionApproveBody"
       responses:
         "200":
           description: Approved
@@ -1076,7 +1094,7 @@ paths:
     post:
       operationId: verifyPin
       tags: [settings]
-      summary: Verify parent PIN
+      summary: Verify global parent PIN (legacy)
       requestBody:
         required: true
         content:
@@ -1095,6 +1113,156 @@ paths:
                     type: boolean
                 required:
                   - valid
+
+  # ── Family PIN management ──────────────────────────────────────────────────
+  /family/{id}/verify-pin:
+    post:
+      operationId: verifyFamilyMemberPin
+      tags: [family]
+      summary: Verify a parent member's PIN
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyMemberPinInput"
+      responses:
+        "200":
+          description: Result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                required:
+                  - valid
+
+  /family/{id}/set-pin:
+    post:
+      operationId: setFamilyMemberPin
+      tags: [family]
+      summary: Set or update a parent member's PIN
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetPinInput"
+      responses:
+        "200":
+          description: PIN updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyMember"
+
+  # ── Badges ──────────────────────────────────────────────────────────────────
+  /badges:
+    get:
+      operationId: listBadges
+      tags: [badges]
+      summary: List all badges (optionally filter by member)
+      parameters:
+        - name: memberId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Badges list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Badge"
+    post:
+      operationId: createBadge
+      tags: [badges]
+      summary: Award a badge to a family member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BadgeInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Badge"
+
+  /badges/{id}:
+    delete:
+      operationId: deleteBadge
+      tags: [badges]
+      summary: Delete a badge
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Point Transactions ──────────────────────────────────────────────────────
+  /point-transactions:
+    get:
+      operationId: listPointTransactions
+      tags: [transactions]
+      summary: List point transactions (optionally filter by member)
+      parameters:
+        - name: memberId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Transactions list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PointTransaction"
+
+  # ── Storage (avatar upload) ─────────────────────────────────────────────────
+  /storage/uploads/request-url:
+    post:
+      operationId: requestUploadUrl
+      tags: [storage]
+      summary: Request a presigned URL for uploading an avatar
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadUrlRequest"
+      responses:
+        "200":
+          description: Presigned upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
 
 components:
   schemas:
@@ -1123,6 +1291,12 @@ components:
           enum: [parent, child]
         pointsBalance:
           type: integer
+        lifetimePoints:
+          type: integer
+        avatarUrl:
+          type: ["string", "null"]
+        hasPin:
+          type: boolean
         createdAt:
           type: string
       required:
@@ -1132,6 +1306,8 @@ components:
         - color
         - role
         - pointsBalance
+        - lifetimePoints
+        - hasPin
         - createdAt
 
     FamilyMemberInput:
@@ -1146,6 +1322,8 @@ components:
         role:
           type: string
           enum: [parent, child]
+        avatarUrl:
+          type: string
       required:
         - name
         - emoji
@@ -1166,6 +1344,24 @@ components:
           enum: [parent, child]
         pointsBalance:
           type: integer
+        avatarUrl:
+          type: ["string", "null"]
+
+    SetPinInput:
+      type: object
+      properties:
+        pin:
+          type: string
+      required:
+        - pin
+
+    VerifyMemberPinInput:
+      type: object
+      properties:
+        pin:
+          type: string
+      required:
+        - pin
 
     # ── Events ────────────────────────────────────────────────────────────────
     Event:
@@ -1277,6 +1473,12 @@ components:
         status:
           type: string
           enum: [pending, completed, approved, missed]
+        completedAt:
+          type: ["string", "null"]
+        approvedAt:
+          type: ["string", "null"]
+        approvedByParentId:
+          type: ["integer", "null"]
         createdAt:
           type: string
       required:
@@ -1286,6 +1488,12 @@ components:
         - pointsValue
         - status
         - createdAt
+
+    ChoreApproveBody:
+      type: object
+      properties:
+        parentId:
+          type: integer
 
     ChoreInput:
       type: object
@@ -1423,15 +1631,22 @@ components:
           type: integer
         member:
           $ref: "#/components/schemas/FamilyMember"
+        pointsCost:
+          type: integer
         status:
           type: string
           enum: [pending, approved, rejected]
+        approvedByParentId:
+          type: ["integer", "null"]
+        approvedAt:
+          type: ["string", "null"]
         createdAt:
           type: string
       required:
         - id
         - rewardId
         - memberId
+        - pointsCost
         - status
         - createdAt
 
@@ -1445,6 +1660,112 @@ components:
       required:
         - rewardId
         - memberId
+
+    RedemptionApproveBody:
+      type: object
+      properties:
+        parentId:
+          type: integer
+
+    # ── Badges ────────────────────────────────────────────────────────────────
+    Badge:
+      type: object
+      properties:
+        id:
+          type: integer
+        memberId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        emoji:
+          type: string
+        tier:
+          type: string
+          enum: [bronze, silver, gold]
+        awardedAt:
+          type: string
+      required:
+        - id
+        - memberId
+        - title
+        - emoji
+        - tier
+        - awardedAt
+
+    BadgeInput:
+      type: object
+      properties:
+        memberId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        emoji:
+          type: string
+        tier:
+          type: string
+          enum: [bronze, silver, gold]
+      required:
+        - memberId
+        - title
+
+    # ── Point Transactions ────────────────────────────────────────────────────
+    PointTransaction:
+      type: object
+      properties:
+        id:
+          type: integer
+        memberId:
+          type: integer
+        amount:
+          type: integer
+        type:
+          type: string
+          enum: [chore_earned, reward_spent, bonus, adjustment]
+        description:
+          type: string
+        choreId:
+          type: ["integer", "null"]
+        redemptionId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - memberId
+        - amount
+        - type
+        - description
+        - createdAt
+
+    # ── Storage ───────────────────────────────────────────────────────────────
+    UploadUrlRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+        contentType:
+          type: string
+      required:
+        - name
+        - size
+        - contentType
+
+    UploadUrlResponse:
+      type: object
+      properties:
+        uploadURL:
+          type: string
+        objectPath:
+          type: string
+      required:
+        - uploadURL
+        - objectPath
 
     # ── Lists ─────────────────────────────────────────────────────────────────
     SharedList:

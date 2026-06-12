@@ -1,8 +1,8 @@
 import { useState } from "react";
 import {
   useListRewards, useListRedemptions, useListFamilyMembers,
-  useCreateReward, useDeleteReward, useRequestRedemption,
-  useApproveRedemption, useRejectRedemption,
+  useRequestRedemption, useApproveRedemption, useRejectRedemption,
+  useVerifyFamilyMemberPin,
   getListRewardsQueryKey, getListRedemptionsQueryKey, getListFamilyMembersQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -12,8 +12,102 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Gift, Plus, Trash2, Check, X, Star } from "lucide-react";
-import type { RewardInput, RedemptionInput } from "@workspace/api-client-react";
+import { Gift, Check, X, Star, Lock } from "lucide-react";
+import type { RedemptionInput } from "@workspace/api-client-react";
+
+interface PinActionDialogProps {
+  triggerLabel: string;
+  triggerIcon: React.ReactNode;
+  triggerClassName: string;
+  title: string;
+  description: string;
+  parents: Array<{ id: number; name: string; emoji: string; hasPin?: boolean }>;
+  onConfirm: (parentId: number) => void;
+  isPending: boolean;
+}
+
+function PinActionDialog({ triggerLabel, triggerIcon, triggerClassName, title, description, parents, onConfirm, isPending }: PinActionDialogProps) {
+  const [open, setOpen] = useState(false);
+  const [selectedParentId, setSelectedParentId] = useState<number>(parents[0]?.id ?? 0);
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState(false);
+  const [verified, setVerified] = useState(false);
+
+  const verifyPin = useVerifyFamilyMemberPin({
+    mutation: {
+      onSuccess: (data) => {
+        if (data.valid) {
+          setVerified(true);
+          onConfirm(selectedParentId);
+          setOpen(false);
+          setPin(""); setError(false); setVerified(false);
+        } else {
+          setError(true);
+          setPin("");
+        }
+      }
+    }
+  });
+
+  const selectedParent = parents.find(p => p.id === selectedParentId);
+
+  const handleConfirm = () => {
+    setError(false);
+    if (!selectedParent?.hasPin) {
+      onConfirm(selectedParentId);
+      setOpen(false);
+      return;
+    }
+    verifyPin.mutate({ id: selectedParentId, data: { pin } });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={o => { setOpen(o); setPin(""); setError(false); setVerified(false); }}>
+      <DialogTrigger asChild>
+        <Button size="icon" className={triggerClassName} disabled={isPending}>
+          {triggerIcon}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="rounded-3xl max-w-sm">
+        <DialogHeader><DialogTitle className="text-xl font-serif flex items-center gap-2"><Lock className="w-5 h-5" /> {title}</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <p className="text-muted-foreground text-sm">{description}</p>
+          {parents.length > 1 && (
+            <div>
+              <Label>Approving as</Label>
+              <Select value={selectedParentId.toString()} onValueChange={v => { setSelectedParentId(Number(v)); setPin(""); setError(false); }}>
+                <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>{parents.map(p => <SelectItem key={p.id} value={p.id.toString()}>{p.emoji} {p.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          )}
+          {selectedParent?.hasPin && (
+            <div>
+              <Label>Your PIN</Label>
+              <Input
+                type="password"
+                inputMode="numeric"
+                value={pin}
+                onChange={e => { setPin(e.target.value); setError(false); }}
+                onKeyDown={e => { if (e.key === "Enter") handleConfirm(); }}
+                placeholder="••••"
+                className={`rounded-xl h-12 text-center tracking-[0.4em] text-xl mt-1 ${error ? "border-red-500 bg-red-50" : ""}`}
+              />
+              {error && <p className="text-red-600 text-sm mt-1">Incorrect PIN</p>}
+            </div>
+          )}
+          <Button
+            className="w-full h-12 rounded-xl"
+            onClick={handleConfirm}
+            disabled={(selectedParent?.hasPin ? !pin : false) || verifyPin.isPending || verified}
+          >
+            {verifyPin.isPending ? "Verifying…" : "Confirm"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function Rewards() {
   const qc = useQueryClient();
@@ -27,14 +121,11 @@ export default function Rewards() {
   const { data: redemptions = [] } = useListRedemptions();
   const { data: members = [] } = useListFamilyMembers();
   const children = members.filter(m => m.role === "child");
+  const parents = members.filter(m => m.role === "parent");
 
-  const [rewardOpen, setRewardOpen] = useState(false);
   const [redeemOpen, setRedeemOpen] = useState(false);
-  const [rewardForm, setRewardForm] = useState<RewardInput>({ title: "", pointsCost: 100 });
   const [redeemForm, setRedeemForm] = useState<RedemptionInput>({ rewardId: 0, memberId: 0 });
 
-  const createReward = useCreateReward({ mutation: { onSuccess: () => { invalidateAll(); setRewardOpen(false); setRewardForm({ title: "", pointsCost: 100 }); } } });
-  const deleteReward = useDeleteReward({ mutation: { onSuccess: invalidateAll } });
   const requestRedemption = useRequestRedemption({ mutation: { onSuccess: () => { invalidateAll(); setRedeemOpen(false); setRedeemForm({ rewardId: 0, memberId: 0 }); } } });
   const approveRedemption = useApproveRedemption({ mutation: { onSuccess: invalidateAll } });
   const rejectRedemption = useRejectRedemption({ mutation: { onSuccess: invalidateAll } });
@@ -45,50 +136,32 @@ export default function Rewards() {
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-4xl font-serif font-bold">Reward Store</h1>
-        <div className="flex gap-3">
-          <Dialog open={redeemOpen} onOpenChange={setRedeemOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="h-14 px-6 rounded-2xl text-lg gap-2"><Gift className="w-5 h-5" /> Request Reward</Button>
-            </DialogTrigger>
-            <DialogContent className="rounded-3xl">
-              <DialogHeader><DialogTitle className="text-xl font-serif">Request a Reward</DialogTitle></DialogHeader>
-              <div className="space-y-4">
-                <div><Label>Child</Label>
-                  <Select value={redeemForm.memberId ? redeemForm.memberId.toString() : ""} onValueChange={v => setRedeemForm(f => ({ ...f, memberId: Number(v) }))}>
-                    <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Who is requesting?" /></SelectTrigger>
-                    <SelectContent>{children.map(m => <SelectItem key={m.id} value={m.id.toString()}>{m.emoji} {m.name} ({m.pointsBalance} pts)</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div><Label>Reward</Label>
-                  <Select value={redeemForm.rewardId ? redeemForm.rewardId.toString() : ""} onValueChange={v => setRedeemForm(f => ({ ...f, rewardId: Number(v) }))}>
-                    <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Choose a reward" /></SelectTrigger>
-                    <SelectContent>{rewards.filter(r => r.active).map(r => <SelectItem key={r.id} value={r.id.toString()}>{r.title} ({r.pointsCost} pts)</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <Button className="w-full h-12 rounded-xl" onClick={() => requestRedemption.mutate({ data: redeemForm })}
-                  disabled={!redeemForm.memberId || !redeemForm.rewardId || requestRedemption.isPending}>
-                  {requestRedemption.isPending ? "Requesting…" : "Request"}
-                </Button>
+        <Dialog open={redeemOpen} onOpenChange={setRedeemOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="h-14 px-6 rounded-2xl text-lg gap-2"><Gift className="w-5 h-5" /> Request Reward</Button>
+          </DialogTrigger>
+          <DialogContent className="rounded-3xl">
+            <DialogHeader><DialogTitle className="text-xl font-serif">Request a Reward</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div><Label>Child</Label>
+                <Select value={redeemForm.memberId ? redeemForm.memberId.toString() : ""} onValueChange={v => setRedeemForm(f => ({ ...f, memberId: Number(v) }))}>
+                  <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Who is requesting?" /></SelectTrigger>
+                  <SelectContent>{children.map(m => <SelectItem key={m.id} value={m.id.toString()}>{m.emoji} {m.name} ({m.pointsBalance} pts)</SelectItem>)}</SelectContent>
+                </Select>
               </div>
-            </DialogContent>
-          </Dialog>
-          <Dialog open={rewardOpen} onOpenChange={setRewardOpen}>
-            <DialogTrigger asChild>
-              <Button className="h-14 px-6 rounded-2xl text-lg gap-2"><Plus className="w-5 h-5" /> Add Reward</Button>
-            </DialogTrigger>
-            <DialogContent className="rounded-3xl">
-              <DialogHeader><DialogTitle className="text-xl font-serif">New Reward</DialogTitle></DialogHeader>
-              <div className="space-y-4">
-                <div><Label>Title</Label><Input value={rewardForm.title} onChange={e => setRewardForm(f => ({ ...f, title: e.target.value }))} className="rounded-xl h-12" /></div>
-                <div><Label>Description</Label><Input value={rewardForm.description ?? ""} onChange={e => setRewardForm(f => ({ ...f, description: e.target.value }))} className="rounded-xl h-12" /></div>
-                <div><Label>Points Cost</Label><Input type="number" value={rewardForm.pointsCost} onChange={e => setRewardForm(f => ({ ...f, pointsCost: Number(e.target.value) }))} className="rounded-xl h-12" /></div>
-                <Button className="w-full h-12 rounded-xl" onClick={() => createReward.mutate({ data: rewardForm })} disabled={!rewardForm.title || createReward.isPending}>
-                  {createReward.isPending ? "Adding…" : "Add Reward"}
-                </Button>
+              <div><Label>Reward</Label>
+                <Select value={redeemForm.rewardId ? redeemForm.rewardId.toString() : ""} onValueChange={v => setRedeemForm(f => ({ ...f, rewardId: Number(v) }))}>
+                  <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Choose a reward" /></SelectTrigger>
+                  <SelectContent>{rewards.filter(r => r.active).map(r => <SelectItem key={r.id} value={r.id.toString()}>{r.title} ({r.pointsCost} pts)</SelectItem>)}</SelectContent>
+                </Select>
               </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+              <Button className="w-full h-12 rounded-xl" onClick={() => requestRedemption.mutate({ data: redeemForm })}
+                disabled={!redeemForm.memberId || !redeemForm.rewardId || requestRedemption.isPending}>
+                {requestRedemption.isPending ? "Requesting…" : "Request"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {pending.length > 0 && (
@@ -102,12 +175,39 @@ export default function Rewards() {
                   <div className="font-bold">{r.member?.name}</div>
                   <div className="text-muted-foreground">{r.reward?.title} — {r.reward?.pointsCost} pts</div>
                 </div>
-                <Button size="icon" className="rounded-xl h-12 w-12 bg-green-600 hover:bg-green-700" onClick={() => approveRedemption.mutate({ id: r.id })}>
-                  <Check className="w-5 h-5" />
-                </Button>
-                <Button size="icon" variant="outline" className="rounded-xl h-12 w-12" onClick={() => rejectRedemption.mutate({ id: r.id })}>
-                  <X className="w-5 h-5" />
-                </Button>
+                {parents.length > 0 ? (
+                  <>
+                    <PinActionDialog
+                      triggerLabel="Approve"
+                      triggerIcon={<Check className="w-5 h-5" />}
+                      triggerClassName="rounded-xl h-12 w-12 bg-green-600 hover:bg-green-700"
+                      title="Approve Reward"
+                      description={`Approve "${r.reward?.title}" for ${r.member?.name}?`}
+                      parents={parents.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, hasPin: p.hasPin }))}
+                      onConfirm={(parentId) => approveRedemption.mutate({ id: r.id })}
+                      isPending={approveRedemption.isPending}
+                    />
+                    <PinActionDialog
+                      triggerLabel="Reject"
+                      triggerIcon={<X className="w-5 h-5" />}
+                      triggerClassName="rounded-xl h-12 w-12 border border-input bg-background hover:bg-accent"
+                      title="Reject Reward"
+                      description={`Reject "${r.reward?.title}" request from ${r.member?.name}?`}
+                      parents={parents.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, hasPin: p.hasPin }))}
+                      onConfirm={(parentId) => rejectRedemption.mutate({ id: r.id })}
+                      isPending={rejectRedemption.isPending}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Button size="icon" className="rounded-xl h-12 w-12 bg-green-600 hover:bg-green-700" onClick={() => approveRedemption.mutate({ id: r.id })}>
+                      <Check className="w-5 h-5" />
+                    </Button>
+                    <Button size="icon" variant="outline" className="rounded-xl h-12 w-12" onClick={() => rejectRedemption.mutate({ id: r.id })}>
+                      <X className="w-5 h-5" />
+                    </Button>
+                  </>
+                )}
               </div>
             ))}
           </CardContent>
@@ -124,9 +224,6 @@ export default function Rewards() {
                   <div className="font-bold text-xl">{r.title}</div>
                   {r.description && <div className="text-muted-foreground text-sm mt-1">{r.description}</div>}
                 </div>
-                <button onClick={() => deleteReward.mutate({ id: r.id })} className="text-muted-foreground hover:text-destructive p-1">
-                  <Trash2 className="w-4 h-4" />
-                </button>
               </div>
               <div className="mt-4 flex items-center justify-between">
                 <div className="bg-primary text-primary-foreground px-4 py-2 rounded-2xl font-bold text-lg">{r.pointsCost} pts</div>
@@ -142,7 +239,7 @@ export default function Rewards() {
       {rewards.filter(r => r.active).length === 0 && (
         <div className="text-center py-20 text-muted-foreground">
           <Gift className="w-16 h-16 mx-auto mb-4 opacity-30" />
-          <p className="text-xl">No rewards yet — add some!</p>
+          <p className="text-xl">No rewards yet — add some in Admin!</p>
         </div>
       )}
     </div>

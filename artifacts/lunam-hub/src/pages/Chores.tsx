@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   useListChores, useListFamilyMembers, useCreateChore, useCompleteChore,
-  useApproveChore, useDeleteChore, useGetChoresSummary,
+  useApproveChore, useDeleteChore, useGetChoresSummary, useVerifyFamilyMemberPin,
   getListChoresQueryKey, getGetChoresSummaryQueryKey, getListFamilyMembersQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -13,10 +13,113 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, Plus, Trash2, Star, Clock } from "lucide-react";
+import { CheckCircle2, Plus, Trash2, Star, Clock, Lock } from "lucide-react";
 import type { ChoreInput } from "@workspace/api-client-react";
 
 type ChoreFormState = Omit<ChoreInput, "status">;
+
+interface PinApproveDialogProps {
+  choreId: number;
+  choreTitle: string;
+  onSuccess: () => void;
+  parents: Array<{ id: number; name: string; emoji: string; hasPin?: boolean }>;
+}
+
+function PinApproveDialog({ choreId, choreTitle, onSuccess, parents }: PinApproveDialogProps) {
+  const [open, setOpen] = useState(false);
+  const [selectedParentId, setSelectedParentId] = useState<number>(parents[0]?.id ?? 0);
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState(false);
+
+  const verifyPin = useVerifyFamilyMemberPin({
+    mutation: {
+      onSuccess: (data) => {
+        if (data.valid) {
+          approveChore.mutate({ id: choreId });
+        } else {
+          setError(true);
+          setPin("");
+        }
+      }
+    }
+  });
+
+  const qc = useQueryClient();
+  const approveChore = useApproveChore({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListChoresQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetChoresSummaryQueryKey() });
+        qc.invalidateQueries({ queryKey: getListFamilyMembersQueryKey() });
+        setOpen(false);
+        setPin("");
+        setError(false);
+        onSuccess();
+      }
+    }
+  });
+
+  const handleApprove = () => {
+    setError(false);
+    const parent = parents.find(p => p.id === selectedParentId);
+    if (!parent) return;
+    if (!parent.hasPin) {
+      approveChore.mutate({ id: choreId });
+      return;
+    }
+    verifyPin.mutate({ id: selectedParentId, data: { pin } });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={o => { setOpen(o); setPin(""); setError(false); }}>
+      <DialogTrigger asChild>
+        <Button className="rounded-xl h-12 px-6 bg-green-600 hover:bg-green-700">
+          <Star className="w-4 h-4 mr-2" /> Approve
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="rounded-3xl max-w-sm">
+        <DialogHeader><DialogTitle className="text-xl font-serif flex items-center gap-2"><Lock className="w-5 h-5" /> Approve Chore</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <p className="text-muted-foreground text-sm">"{choreTitle}"</p>
+          {parents.length > 1 && (
+            <div>
+              <Label>Approving as</Label>
+              <Select value={selectedParentId.toString()} onValueChange={v => { setSelectedParentId(Number(v)); setPin(""); setError(false); }}>
+                <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>{parents.map(p => <SelectItem key={p.id} value={p.id.toString()}>{p.emoji} {p.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          )}
+          {parents.find(p => p.id === selectedParentId)?.hasPin && (
+            <div>
+              <Label>Your PIN</Label>
+              <Input
+                type="password"
+                inputMode="numeric"
+                value={pin}
+                onChange={e => { setPin(e.target.value); setError(false); }}
+                onKeyDown={e => { if (e.key === "Enter") handleApprove(); }}
+                placeholder="••••"
+                className={`rounded-xl h-12 text-center tracking-[0.4em] text-xl mt-1 ${error ? "border-red-500 bg-red-50" : ""}`}
+              />
+              {error && <p className="text-red-600 text-sm mt-1">Incorrect PIN</p>}
+            </div>
+          )}
+          <Button
+            className="w-full h-12 rounded-xl bg-green-600 hover:bg-green-700"
+            onClick={handleApprove}
+            disabled={
+              (parents.find(p => p.id === selectedParentId)?.hasPin ? !pin : false) ||
+              verifyPin.isPending || approveChore.isPending
+            }
+          >
+            {verifyPin.isPending || approveChore.isPending ? "Approving…" : "Approve & Award Points"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function Chores() {
   const qc = useQueryClient();
@@ -31,16 +134,22 @@ export default function Chores() {
   const { data: summary = [] } = useGetChoresSummary();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<ChoreFormState>({ title: "", pointsValue: 10, repeatType: "once" });
+  const [filterChildId, setFilterChildId] = useState<number | null>(null);
 
   const createChore = useCreateChore({ mutation: { onSuccess: () => { invalidate(); setOpen(false); setForm({ title: "", pointsValue: 10, repeatType: "once" }); } } });
   const completeChore = useCompleteChore({ mutation: { onSuccess: invalidate } });
-  const approveChore = useApproveChore({ mutation: { onSuccess: invalidate } });
   const deleteChore = useDeleteChore({ mutation: { onSuccess: invalidate } });
 
   const children = members.filter(m => m.role === "child");
-  const pending = chores.filter(c => c.status === "pending");
-  const needsApproval = chores.filter(c => c.status === "completed");
-  const approved = chores.filter(c => c.status === "approved");
+  const parents = members.filter(m => m.role === "parent");
+
+  const filteredChores = filterChildId
+    ? chores.filter(c => c.assignedTo === filterChildId)
+    : chores;
+
+  const pending = filteredChores.filter(c => c.status === "pending");
+  const needsApproval = filteredChores.filter(c => c.status === "completed");
+  const approved = filteredChores.filter(c => c.status === "approved");
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -85,19 +194,32 @@ export default function Chores() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {children.map(m => {
           const s = summary.find(s => s.memberId === m.id);
+          const isActive = filterChildId === m.id;
           return (
-            <Card key={m.id} className="rounded-3xl border-0 shadow-sm text-center">
+            <Card
+              key={m.id}
+              className={`rounded-3xl border-2 shadow-sm text-center cursor-pointer transition-all select-none ${isActive ? "border-primary bg-primary/5 shadow-md scale-[1.02]" : "border-transparent hover:border-primary/30 hover:shadow-md"}`}
+              onClick={() => setFilterChildId(isActive ? null : m.id)}
+            >
               <CardContent className="pt-6 pb-5">
                 <div className="text-4xl mb-2">{m.emoji}</div>
                 <div className="font-bold text-lg">{m.name}</div>
                 <div className="text-3xl font-bold text-primary mt-1">{m.pointsBalance}</div>
-                <div className="text-xs text-muted-foreground">points</div>
-                {s && <div className="text-xs text-muted-foreground mt-2">{s.approved} approved · {s.pending} pending</div>}
+                <div className="text-xs text-muted-foreground">pts available</div>
+                {s && <div className="text-xs text-muted-foreground mt-2">{s.approved} done · {s.pending} pending</div>}
               </CardContent>
             </Card>
           );
         })}
       </div>
+
+      {filterChildId && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Showing chores for</span>
+          <span className="font-semibold">{members.find(m => m.id === filterChildId)?.name}</span>
+          <button onClick={() => setFilterChildId(null)} className="text-xs text-muted-foreground underline ml-1">Clear filter</button>
+        </div>
+      )}
 
       <Tabs defaultValue="pending">
         <TabsList className="rounded-2xl h-14 p-1">
@@ -156,9 +278,20 @@ export default function Chores() {
                     {member && <div className="text-sm text-muted-foreground mt-1">{member.emoji} {member.name} completed this</div>}
                   </div>
                   <div className="bg-primary/10 text-primary font-bold px-4 py-2 rounded-2xl">{c.pointsValue} pts</div>
-                  <Button className="rounded-xl h-12 px-6 bg-green-600 hover:bg-green-700" onClick={() => approveChore.mutate({ id: c.id })}>
-                    <Star className="w-4 h-4 mr-2" /> Approve
-                  </Button>
+                  {parents.length > 0 ? (
+                    <PinApproveDialog
+                      choreId={c.id}
+                      choreTitle={c.title}
+                      parents={parents.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, hasPin: p.hasPin }))}
+                      onSuccess={invalidate}
+                    />
+                  ) : (
+                    <Button className="rounded-xl h-12 px-6 bg-green-600 hover:bg-green-700" onClick={() => {
+                      qc.invalidateQueries({ queryKey: getListChoresQueryKey() });
+                    }}>
+                      <Star className="w-4 h-4 mr-2" /> Approve
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             );

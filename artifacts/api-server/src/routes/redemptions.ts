@@ -3,7 +3,7 @@
 
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { redemptionsTable, rewardsTable, familyMembersTable } from "@workspace/db";
+import { redemptionsTable, rewardsTable, familyMembersTable, pointTransactionsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { formatReward } from "./rewards";
 import {
@@ -11,6 +11,9 @@ import {
   ApproveRedemptionParams,
   RejectRedemptionParams,
 } from "@workspace/api-zod";
+import { z } from "zod";
+
+const RedemptionApproveBodySchema = z.object({ parentId: z.number().int().positive().optional() });
 
 const router = Router();
 
@@ -23,9 +26,16 @@ async function formatRedemption(r: typeof redemptionsTable.$inferSelect) {
     reward: reward ? formatReward(reward) : undefined,
     memberId: r.memberId,
     member: member
-      ? { id: member.id, name: member.name, emoji: member.emoji, color: member.color, role: member.role, pointsBalance: member.pointsBalance, createdAt: member.createdAt.toISOString() }
+      ? {
+          id: member.id, name: member.name, emoji: member.emoji, color: member.color, role: member.role,
+          pointsBalance: member.pointsBalance, lifetimePoints: member.lifetimePoints,
+          avatarUrl: member.avatarUrl ?? null, hasPin: !!member.pinHash, createdAt: member.createdAt.toISOString(),
+        }
       : undefined,
+    pointsCost: r.pointsCost,
     status: r.status,
+    approvedByParentId: r.approvedByParentId ?? null,
+    approvedAt: r.approvedAt?.toISOString() ?? null,
     createdAt: r.createdAt.toISOString(),
   };
 }
@@ -37,27 +47,46 @@ router.get("/", async (_req, res) => {
   res.json(result);
 });
 
-// POST /api/redemptions
+// POST /api/redemptions — store pointsCost at request time for audit trail
 router.post("/", async (req, res) => {
   const body = RequestRedemptionBody.parse(req.body);
-  const [redemption] = await db.insert(redemptionsTable).values(body).returning();
+  const [reward] = await db.select().from(rewardsTable).where(eq(rewardsTable.id, body.rewardId));
+  const pointsCost = reward?.pointsCost ?? 0;
+  const [redemption] = await db.insert(redemptionsTable).values({ ...body, pointsCost }).returning();
   res.status(201).json(await formatRedemption(redemption));
 });
 
-// POST /api/redemptions/:id/approve
+// POST /api/redemptions/:id/approve — deducts points_balance + records transaction
 router.post("/:id/approve", async (req, res) => {
   const { id } = ApproveRedemptionParams.parse({ id: Number(req.params.id) });
+  const bodyParse = RedemptionApproveBodySchema.safeParse(req.body);
+  const parentId = bodyParse.success ? (bodyParse.data.parentId ?? null) : null;
+
   const [redemption] = await db.select().from(redemptionsTable).where(eq(redemptionsTable.id, id));
   if (!redemption) { res.status(404).json({ error: "Not found" }); return; }
 
   const [reward] = await db.select().from(rewardsTable).where(eq(rewardsTable.id, redemption.rewardId));
-  const [updated] = await db.update(redemptionsTable).set({ status: "approved" }).where(eq(redemptionsTable.id, id)).returning();
+  const now = new Date();
+  const [updated] = await db
+    .update(redemptionsTable)
+    .set({ status: "approved", approvedByParentId: parentId, approvedAt: now })
+    .where(eq(redemptionsTable.id, id))
+    .returning();
 
-  if (reward) {
+  const cost = redemption.pointsCost || reward?.pointsCost || 0;
+  if (cost > 0) {
     await db
       .update(familyMembersTable)
-      .set({ pointsBalance: sql`${familyMembersTable.pointsBalance} - ${reward.pointsCost}` })
+      .set({ pointsBalance: sql`${familyMembersTable.pointsBalance} - ${cost}` })
       .where(eq(familyMembersTable.id, redemption.memberId));
+
+    await db.insert(pointTransactionsTable).values({
+      memberId: redemption.memberId,
+      amount: -cost,
+      type: "reward_spent",
+      description: `Redeemed: ${reward?.title ?? "reward"}`,
+      redemptionId: redemption.id,
+    });
   }
   res.json(await formatRedemption(updated));
 });

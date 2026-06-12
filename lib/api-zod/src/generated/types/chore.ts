@@ -22,5 +22,11 @@ export interface Chore {
   repeatType: ChoreRepeatType;
   pointsValue: number;
   status: ChoreStatus;
+  /** @nullable */
+  completedAt?: string | null;
+  /** @nullable */
+  approvedAt?: string | null;
+  /** @nullable */
+  approvedByParentId?: number | null;
   createdAt: string;
 }
