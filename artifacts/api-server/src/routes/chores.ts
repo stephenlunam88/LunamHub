@@ -36,6 +36,8 @@ const CreateChoreSchema = z.object({
   dueDate: z.string().optional(),
   repeatType: z.enum(["once", "daily", "weekly"]),
   pointsValue: z.number().int(),
+  // For weekly chores: days of week [0=Sun … 6=Sat]. Defaults to [today's DOW] when omitted.
+  daysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
 });
 
 const router = Router();
@@ -46,7 +48,7 @@ function todayStr() {
   return new Date().toISOString().split("T")[0]!;
 }
 
-async function getMemberById(id: number | null) {
+async function getMemberById(id: number | null | undefined) {
   if (!id) return undefined;
   const [m] = await db.select().from(familyMembersTable).where(eq(familyMembersTable.id, id));
   if (!m) return undefined;
@@ -86,7 +88,7 @@ function formatInstance(
   };
 }
 
-// ── One-time migration: chores → templates + instances ─────────────────────────
+// ── Per-row idempotent migration: chores → templates + instances ───────────────
 
 let migrationDone = false;
 
@@ -94,18 +96,22 @@ async function runMigrationIfNeeded() {
   if (migrationDone) return;
   migrationDone = true;
 
-  const [{ count: templateCount }] = await db
-    .select({ count: count() })
-    .from(choreTemplatesTable);
-
-  if (Number(templateCount) > 0) return; // already migrated
-
   const oldChores = await db.select().from(choresTable);
-  if (oldChores.length === 0) return; // nothing to migrate
+  if (oldChores.length === 0) return;
+
+  // Find which legacy chore IDs already have a corresponding template
+  const existingMigrated = await db
+    .select({ legacyChoreId: choreTemplatesTable.legacyChoreId })
+    .from(choreTemplatesTable)
+    .where(sql`${choreTemplatesTable.legacyChoreId} IS NOT NULL`);
+  const migratedIds = new Set(existingMigrated.map((r) => r.legacyChoreId).filter(Boolean) as number[]);
+
+  const toMigrate = oldChores.filter((c) => !migratedIds.has(c.id));
+  if (toMigrate.length === 0) return;
 
   const today = todayStr();
 
-  for (const c of oldChores) {
+  for (const c of toMigrate) {
     const [template] = await db
       .insert(choreTemplatesTable)
       .values({
@@ -115,6 +121,7 @@ async function runMigrationIfNeeded() {
         repeatType: c.repeatType,
         requiresApproval: true,
         active: true,
+        legacyChoreId: c.id,
         createdAt: c.createdAt,
       })
       .returning();
@@ -125,9 +132,8 @@ async function runMigrationIfNeeded() {
       await db.insert(choreTemplateChildrenTable).values({
         templateId: template.id,
         childId: c.assignedTo,
-      });
+      }).onConflictDoNothing();
 
-      // Map old status → new instance status
       const instanceStatus =
         c.status === "approved" ? "done" :
         c.status === "completed" ? "pending_approval" :
@@ -189,7 +195,7 @@ async function generateTodayInstances() {
   const todayDow = new Date().getDay(); // 0=Sun … 6=Sat
 
   for (const template of templates) {
-    if (template.repeatType === "once") continue; // seeded at creation
+    if (template.repeatType === "once") continue; // seeded at creation, not regenerated
 
     const children = assignments
       .filter((a) => a.templateId === template.id)
@@ -216,9 +222,17 @@ async function generateTodayInstances() {
     }
 
     if (template.repeatType === "weekly") {
-      // Default: Mon (1). In future, daysOfWeek column can override this.
-      const targetDow = 1;
-      if (todayDow !== targetDow) continue;
+      // daysOfWeek stored as JSON array, e.g. "[1,3]". Default: day the template was created.
+      let targetDays: number[];
+      try {
+        targetDays = template.daysOfWeek
+          ? (JSON.parse(template.daysOfWeek) as number[])
+          : [template.createdAt.getDay()];
+      } catch {
+        targetDays = [template.createdAt.getDay()];
+      }
+      if (!targetDays.includes(todayDow)) continue;
+
       await db
         .insert(choreInstancesTable)
         .values(
@@ -302,7 +316,7 @@ router.get("/summary", async (_req, res) => {
       doneToday: todayInstances.filter((i) => i.status === "done").length,
       missedToday: todayInstances.filter((i) => i.status === "missed").length,
       allTimeDone: mine.filter((i) => i.status === "done").length,
-      // Legacy fields for backward compat
+      // Legacy fields for backward compat with existing frontend
       pending: todayInstances.filter((i) => i.status === "todo").length,
       completed: todayInstances.filter((i) => i.status === "pending_approval").length,
       approved: mine.filter((i) => i.status === "done").length,
@@ -344,6 +358,12 @@ router.post("/", async (req, res) => {
   const body = CreateChoreSchema.parse(req.body);
   const today = todayStr();
 
+  // For weekly: store caller-supplied daysOfWeek or default to today's DOW
+  const daysOfWeekJson =
+    body.repeatType === "weekly"
+      ? JSON.stringify(body.daysOfWeek ?? [new Date().getDay()])
+      : null;
+
   const [template] = await db
     .insert(choreTemplatesTable)
     .values({
@@ -351,6 +371,7 @@ router.post("/", async (req, res) => {
       description: body.description,
       pointsValue: body.pointsValue,
       repeatType: body.repeatType,
+      daysOfWeek: daysOfWeekJson,
       requiresApproval: true,
       active: true,
     })
@@ -375,10 +396,23 @@ router.post("/", async (req, res) => {
     );
   }
 
-  // Seed initial instance(s) for today (or specified dueDate for once chores)
-  const dueDate = body.repeatType === "once" ? (body.dueDate ?? today) : today;
+  // Seed initial instance(s):
+  //   once: use specified dueDate or today
+  //   daily: always today
+  //   weekly: only if today is one of the target days; otherwise no instance yet
+  const dueDate =
+    body.repeatType === "once"
+      ? (body.dueDate ?? today)
+      : today;
 
-  if (childIds.length > 0) {
+  const todayDow = new Date().getDay();
+  let shouldSeedToday = true;
+  if (body.repeatType === "weekly") {
+    const targetDays = body.daysOfWeek ?? [todayDow];
+    shouldSeedToday = targetDays.includes(todayDow);
+  }
+
+  if (childIds.length > 0 && shouldSeedToday) {
     await db
       .insert(choreInstancesTable)
       .values(
@@ -420,7 +454,7 @@ router.get("/:id", async (req, res) => {
   res.json(formatInstance(inst, await getMemberById(inst.childId)));
 });
 
-// ── DELETE /api/chores/:id — deactivate template (hides all instances) ─────────
+// ── DELETE /api/chores/:id — deactivate template + remove pending instances ────
 
 router.delete("/:id", async (req, res) => {
   const id = Number(req.params.id);
@@ -434,7 +468,6 @@ router.delete("/:id", async (req, res) => {
       .update(choreTemplatesTable)
       .set({ active: false })
       .where(eq(choreTemplatesTable.id, inst.templateId));
-    // Also delete all non-done instances for this template
     await db
       .delete(choreInstancesTable)
       .where(
@@ -444,7 +477,6 @@ router.delete("/:id", async (req, res) => {
         ),
       );
   } else if (inst) {
-    // Instance without template — just delete it
     await db.delete(choreInstancesTable).where(eq(choreInstancesTable.id, id));
   }
 
@@ -458,13 +490,25 @@ router.post("/:id/complete", async (req, res) => {
   const [inst] = await db
     .update(choreInstancesTable)
     .set({ status: "pending_approval", completedAt: new Date() })
-    .where(eq(choreInstancesTable.id, id))
+    .where(
+      and(
+        eq(choreInstancesTable.id, id),
+        eq(choreInstancesTable.status, "todo"),
+      ),
+    )
     .returning();
-  if (!inst) { res.status(404).json({ error: "Not found" }); return; }
+
+  if (!inst) {
+    // Either not found or wrong state — return current
+    const [current] = await db.select().from(choreInstancesTable).where(eq(choreInstancesTable.id, id));
+    if (!current) { res.status(404).json({ error: "Not found" }); return; }
+    res.json(formatInstance(current, await getMemberById(current.childId)));
+    return;
+  }
   res.json(formatInstance(inst, await getMemberById(inst.childId)));
 });
 
-// ── POST /api/chores/:id/approve — parent approves, awards points (once guard) ─
+// ── POST /api/chores/:id/approve — parent approves; points awarded exactly once ─
 
 router.post("/:id/approve", async (req, res) => {
   const id = Number(req.params.id);
@@ -475,51 +519,63 @@ router.post("/:id/approve", async (req, res) => {
   const ok = await verifyParentPin(parentId, pin, res);
   if (!ok) return;
 
-  const [inst] = await db
-    .select()
-    .from(choreInstancesTable)
-    .where(eq(choreInstancesTable.id, id));
-  if (!inst) { res.status(404).json({ error: "Not found" }); return; }
-
   const now = new Date();
+
+  // Atomic state gate: only update when status='pending_approval' AND pointsAwarded=false
   const [updated] = await db
     .update(choreInstancesTable)
-    .set({ status: "done", approvedAt: now, approvedByParentId: parentId })
-    .where(eq(choreInstancesTable.id, id))
+    .set({
+      status: "done",
+      approvedAt: now,
+      approvedByParentId: parentId,
+      pointsAwarded: true,
+    })
+    .where(
+      and(
+        eq(choreInstancesTable.id, id),
+        eq(choreInstancesTable.status, "pending_approval"),
+        eq(choreInstancesTable.pointsAwarded, false),
+      ),
+    )
     .returning();
 
-  // Award points only once
-  if (!inst.pointsAwarded && inst.childId) {
-    await db
-      .update(choreInstancesTable)
-      .set({ pointsAwarded: true })
-      .where(eq(choreInstancesTable.id, id));
+  if (!updated) {
+    // Wrong state or already approved — return current state as a no-op (idempotent)
+    const [current] = await db.select().from(choreInstancesTable).where(eq(choreInstancesTable.id, id));
+    if (!current) { res.status(404).json({ error: "Not found" }); return; }
+    res.json(formatInstance(current, await getMemberById(current.childId)));
+    return;
+  }
 
+  // Award points — we know this is the first (and only) time because the atomic update succeeded
+  if (updated.childId) {
     await db
       .update(familyMembersTable)
       .set({
-        pointsBalance: sql`${familyMembersTable.pointsBalance} + ${inst.pointsValue}`,
-        lifetimePoints: sql`${familyMembersTable.lifetimePoints} + ${inst.pointsValue}`,
+        pointsBalance: sql`${familyMembersTable.pointsBalance} + ${updated.pointsValue}`,
+        lifetimePoints: sql`${familyMembersTable.lifetimePoints} + ${updated.pointsValue}`,
       })
-      .where(eq(familyMembersTable.id, inst.childId));
+      .where(eq(familyMembersTable.id, updated.childId));
 
     await db.insert(pointTransactionsTable).values({
-      memberId: inst.childId,
-      amount: inst.pointsValue,
+      memberId: updated.childId,
+      amount: updated.pointsValue,
       type: "chore_earned",
-      description: `Earned for: ${inst.title}`,
-      choreInstanceId: inst.id,
+      description: `Earned for: ${updated.title}`,
+      choreInstanceId: updated.id,
       approvedByParentId: parentId,
     });
 
     const [member] = await db
       .select()
       .from(familyMembersTable)
-      .where(eq(familyMembersTable.id, inst.childId));
-    if (member) await checkAndAwardBadges(member.id, member.lifetimePoints + inst.pointsValue);
+      .where(eq(familyMembersTable.id, updated.childId));
+    if (member) {
+      await checkAndAwardBadges(member.id, member.lifetimePoints);
+    }
   }
 
-  res.json(formatInstance(updated!, await getMemberById(updated!.childId)));
+  res.json(formatInstance(updated, await getMemberById(updated.childId)));
 });
 
 // ── POST /api/chores/:id/reject — parent rejects, resets to todo ──────────────
@@ -536,9 +592,20 @@ router.post("/:id/reject", async (req, res) => {
   const [inst] = await db
     .update(choreInstancesTable)
     .set({ status: "todo", completedAt: null })
-    .where(eq(choreInstancesTable.id, id))
+    .where(
+      and(
+        eq(choreInstancesTable.id, id),
+        eq(choreInstancesTable.status, "pending_approval"),
+      ),
+    )
     .returning();
-  if (!inst) { res.status(404).json({ error: "Not found" }); return; }
+
+  if (!inst) {
+    const [current] = await db.select().from(choreInstancesTable).where(eq(choreInstancesTable.id, id));
+    if (!current) { res.status(404).json({ error: "Not found" }); return; }
+    res.json(formatInstance(current, await getMemberById(current.childId)));
+    return;
+  }
   res.json(formatInstance(inst, await getMemberById(inst.childId)));
 });
 

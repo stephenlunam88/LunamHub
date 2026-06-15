@@ -16,4 +16,6 @@ export interface ChoreInput {
   dueDate?: string;
   repeatType: ChoreInputRepeatType;
   pointsValue: number;
+  /** For weekly chores — which days to repeat (0=Sun, 1=Mon … 6=Sat). Defaults to today's day of week. */
+  daysOfWeek?: number[];
 }

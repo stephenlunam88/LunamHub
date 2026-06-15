@@ -105,9 +105,13 @@ export const choreTemplatesTable = pgTable("chore_templates", {
   description: text("description"),
   pointsValue: integer("points_value").notNull().default(10),
   repeatType: repeatTypeEnum("repeat_type").notNull().default("once"),
+  // JSON array of day-of-week numbers (0=Sun … 6=Sat) for weekly chores, e.g. "[1,3]"
+  daysOfWeek: text("days_of_week"),
   requiresApproval: boolean("requires_approval").notNull().default(true),
   active: boolean("active").notNull().default(true),
   createdBy: integer("created_by").references(() => familyMembersTable.id, { onDelete: "set null" }),
+  // Tracks which legacy chores.id this template was migrated from (enables idempotent migration)
+  legacyChoreId: integer("legacy_chore_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

@@ -256,7 +256,8 @@ export const CreateChoreBody = zod.object({
   "assignedToMany": zod.array(zod.number()).optional().describe('Assign to multiple children at once (creates one chore per child)'),
   "dueDate": zod.string().optional(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
-  "pointsValue": zod.number()
+  "pointsValue": zod.number(),
+  "daysOfWeek": zod.array(zod.number()).optional().describe('For weekly chores — which days to repeat (0=Sun, 1=Mon … 6=Sat). Defaults to today\'s day of week.')
 })
 
 
