@@ -139,7 +139,10 @@ async function runMigrationIfNeeded() {
         c.status === "completed" ? "pending_approval" :
         c.status === "missed" ? "missed" : "todo";
 
-      const dueDate = c.dueDate ?? today;
+      // For resolved chores, preserve their original date. For pending/missed,
+      // use today so they surface in the current day's flow.
+      const isResolved = c.status === "approved" || c.status === "completed" || c.status === "missed";
+      const dueDate = isResolved ? (c.dueDate ?? today) : today;
       await db
         .insert(choreInstancesTable)
         .values({
@@ -440,6 +443,58 @@ router.post("/", async (req, res) => {
   );
 
   res.status(201).json(formatted);
+});
+
+// ── PATCH /api/chores/:id — update instance fields; propagates to template ─────
+
+const UpdateChoreSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().nullable().optional(),
+  dueDate: z.string().nullable().optional(),
+  repeatType: z.enum(["once", "daily", "weekly"]).optional(),
+  pointsValue: z.number().int().optional(),
+  status: z.enum(["todo", "pending_approval", "done", "missed", "rejected"]).optional(),
+});
+
+router.patch("/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  const body = UpdateChoreSchema.parse(req.body);
+
+  const [inst] = await db
+    .select()
+    .from(choreInstancesTable)
+    .where(eq(choreInstancesTable.id, id));
+  if (!inst) { res.status(404).json({ error: "Not found" }); return; }
+
+  // Fields that apply to the instance snapshot
+  const instanceUpdates: Partial<typeof choreInstancesTable.$inferInsert> = {};
+  if (body.title !== undefined) instanceUpdates.title = body.title;
+  if (body.pointsValue !== undefined) instanceUpdates.pointsValue = body.pointsValue;
+  if (body.dueDate !== undefined) instanceUpdates.dueDate = body.dueDate ?? inst.dueDate;
+  if (body.repeatType !== undefined) instanceUpdates.repeatType = body.repeatType;
+  if (body.status !== undefined) instanceUpdates.status = body.status;
+
+  const [updated] = await db
+    .update(choreInstancesTable)
+    .set(instanceUpdates)
+    .where(eq(choreInstancesTable.id, id))
+    .returning();
+
+  // Propagate title, description, pointsValue, repeatType to the template so
+  // future generated instances pick up the changes
+  if (inst.templateId && (body.title !== undefined || body.description !== undefined || body.pointsValue !== undefined || body.repeatType !== undefined)) {
+    const templateUpdates: Partial<typeof choreTemplatesTable.$inferInsert> = {};
+    if (body.title !== undefined) templateUpdates.title = body.title;
+    if (body.description !== undefined) templateUpdates.description = body.description;
+    if (body.pointsValue !== undefined) templateUpdates.pointsValue = body.pointsValue;
+    if (body.repeatType !== undefined) templateUpdates.repeatType = body.repeatType;
+    await db
+      .update(choreTemplatesTable)
+      .set(templateUpdates)
+      .where(eq(choreTemplatesTable.id, inst.templateId));
+  }
+
+  res.json(formatInstance(updated!, await getMemberById(updated!.childId)));
 });
 
 // ── GET /api/chores/:id ────────────────────────────────────────────────────────

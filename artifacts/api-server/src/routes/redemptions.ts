@@ -65,7 +65,7 @@ router.post("/", async (req, res) => {
 
   if (member.pointsBalance < reward.pointsCost) {
     res.status(422).json({
-      error: `You need ${reward.pointsCost - member.pointsBalance} more points for this reward.`,
+      error: "You need more points for this reward.",
     });
     return;
   }
