@@ -9,7 +9,8 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trophy } from "lucide-react";
+import { Trophy, CheckCircle2, Clock, Star } from "lucide-react";
+import type { Chore } from "@workspace/api-client-react";
 
 function AvatarOrEmoji({
   avatarUrl,
@@ -46,6 +47,28 @@ function ChildBadgeIcons({ memberId }: { memberId: number }) {
   );
 }
 
+function ChoreRow({ chore }: { chore: Chore }) {
+  const member = chore.assignedMember;
+  return (
+    <li className="bg-background rounded-xl p-3 shadow-sm flex items-center gap-3">
+      {member && (
+        <AvatarOrEmoji
+          avatarUrl={member.avatarUrl}
+          emoji={member.emoji}
+          sizeCls="w-8 h-8 text-2xl"
+        />
+      )}
+      <div className="flex-1 min-w-0">
+        {member && <div className="text-xs font-semibold text-primary truncate">{member.name}</div>}
+        <div className="font-medium truncate">{chore.title}</div>
+      </div>
+      <span className="bg-secondary/30 text-secondary-foreground px-3 py-1 rounded-full text-sm font-bold shrink-0">
+        {chore.pointsValue} pts
+      </span>
+    </li>
+  );
+}
+
 const rankMedal = (i: number) =>
   i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`;
 
@@ -67,6 +90,11 @@ export default function Dashboard() {
   if (!summary) return <div>Failed to load dashboard</div>;
 
   const children = summary.familyMembers.filter(m => m.role === "child");
+
+  const todoChores = summary.todayChores.filter(c => c.status === "todo");
+  const approvalChores = summary.todayChores.filter(c => c.status === "pending_approval");
+  const doneChores = summary.todayChores.filter(c => c.status === "done");
+  const hasAnyChores = summary.todayChores.length > 0;
 
   return (
     <div className="space-y-8 animate-in fade-in zoom-in duration-500">
@@ -106,25 +134,53 @@ export default function Dashboard() {
 
         <Card className="rounded-3xl shadow-sm border-0 bg-secondary/20">
           <CardHeader>
-            <CardTitle className="text-xl">Chores</CardTitle>
+            <CardTitle className="text-xl">Today's Chores</CardTitle>
           </CardHeader>
           <CardContent>
-            {summary.todayChores.length === 0 ? (
+            {!hasAnyChores ? (
               <p className="text-muted-foreground">No chores due today.</p>
             ) : (
-              <ul className="space-y-3">
-                {summary.todayChores.map(c => (
-                  <li
-                    key={c.id}
-                    className="bg-background rounded-xl p-4 shadow-sm flex justify-between items-center"
-                  >
-                    <span className="font-medium">{c.title}</span>
-                    <span className="bg-secondary/30 text-secondary-foreground px-3 py-1 rounded-full text-sm font-bold">
-                      {c.pointsValue} pts
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <div className="space-y-4">
+                {todoChores.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Clock className="w-3.5 h-3.5 text-yellow-600" />
+                      <span className="text-xs font-semibold text-yellow-700 uppercase tracking-wide">
+                        To Do ({todoChores.length})
+                      </span>
+                    </div>
+                    <ul className="space-y-2">
+                      {todoChores.map(c => <ChoreRow key={c.id} chore={c} />)}
+                    </ul>
+                  </div>
+                )}
+                {approvalChores.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Star className="w-3.5 h-3.5 text-blue-600" />
+                      <span className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
+                        Needs Approval ({approvalChores.length})
+                      </span>
+                    </div>
+                    <ul className="space-y-2">
+                      {approvalChores.map(c => <ChoreRow key={c.id} chore={c} />)}
+                    </ul>
+                  </div>
+                )}
+                {doneChores.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                      <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">
+                        Done Today ({doneChores.length})
+                      </span>
+                    </div>
+                    <ul className="space-y-2">
+                      {doneChores.map(c => <ChoreRow key={c.id} chore={c} />)}
+                    </ul>
+                  </div>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>

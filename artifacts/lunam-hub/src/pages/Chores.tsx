@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   useListChores, useListFamilyMembers, useCreateChore, useCompleteChore,
-  useApproveChore, useDeleteChore, useGetChoresSummary, useListBadges,
+  useApproveChore, useRejectChore, useDeleteChore, useGetChoresSummary, useListBadges,
   getListChoresQueryKey, getGetChoresSummaryQueryKey, getListFamilyMembersQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, Plus, Trash2, Star, Clock, Lock, Medal } from "lucide-react";
+import { CheckCircle2, Plus, Trash2, Star, Clock, Lock, Medal, XCircle } from "lucide-react";
 import type { ChoreInput } from "@workspace/api-client-react";
 
 const TIER_STYLES = {
@@ -36,6 +36,21 @@ interface PinApproveDialogProps {
   choreTitle: string;
   parents: ParentInfo[];
   onSuccess: () => void;
+}
+
+function MemberAvatar({ avatarUrl, emoji, name, sizeCls = "w-8 h-8" }: { avatarUrl?: string | null; emoji: string; name: string; sizeCls?: string }) {
+  const [failed, setFailed] = useState(false);
+  if (avatarUrl && !failed) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={name}
+        className={`${sizeCls} rounded-full object-cover border border-muted shrink-0`}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  return <span className="text-2xl leading-none shrink-0">{emoji}</span>;
 }
 
 function PinApproveDialog({ choreId, choreTitle, parents, onSuccess }: PinApproveDialogProps) {
@@ -156,14 +171,26 @@ export default function Chores() {
   const createChore = useCreateChore({ mutation: { onSuccess: () => { invalidate(); setOpen(false); setForm({ title: "", pointsValue: 10, repeatType: "once", assignedToMany: [] }); } } });
   const completeChore = useCompleteChore({ mutation: { onSuccess: invalidate } });
   const approveChore = useApproveChore({ mutation: { onSuccess: invalidate } });
+  const rejectChore = useRejectChore({ mutation: { onSuccess: invalidate } });
   const deleteChore = useDeleteChore({ mutation: { onSuccess: invalidate } });
 
   const children = members.filter(m => m.role === "child");
   const parents = members.filter(m => m.role === "parent") as ParentInfo[];
 
-  const pending = chores.filter(c => c.status === "todo");
+  const todo = chores.filter(c => c.status === "todo");
   const needsApproval = chores.filter(c => c.status === "pending_approval");
-  const approved = chores.filter(c => c.status === "done");
+  const done = chores.filter(c => c.status === "done");
+  const missed = chores.filter(c => c.status === "missed");
+
+  const summarySlice = filterChildId
+    ? summary.filter(s => s.memberId === filterChildId)
+    : summary;
+  const tabCounts = {
+    todo: summarySlice.reduce((a, s) => a + s.todoPending, 0),
+    approval: summarySlice.reduce((a, s) => a + s.pendingApproval, 0),
+    done: summarySlice.reduce((a, s) => a + s.doneToday, 0),
+    missed: summarySlice.reduce((a, s) => a + s.missedToday, 0),
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -200,9 +227,9 @@ export default function Chores() {
                   })}
                   {children.length === 0 && <span className="text-muted-foreground text-sm">No children added yet</span>}
                 </div>
-                {(form.assignedToMany?.length ?? 0) > 0 && (
+                {(form.assignedToMany?.length ?? 0) > 1 && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    {(form.assignedToMany?.length ?? 0) > 1 ? `Creates ${form.assignedToMany?.length} separate chores` : ""}
+                    Creates {form.assignedToMany?.length} separate chores
                   </p>
                 )}
               </div>
@@ -231,7 +258,18 @@ export default function Chores() {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <Card
+          className={`rounded-3xl border-2 shadow-sm text-center cursor-pointer transition-all select-none ${!filterChildId ? "border-primary bg-primary/5 shadow-md scale-[1.02]" : "border-transparent hover:border-primary/30 hover:shadow-md"}`}
+          onClick={() => setFilterChildId(null)}
+        >
+          <CardContent className="pt-6 pb-5">
+            <div className="mb-2 text-4xl">👨‍👩‍👧‍👦</div>
+            <div className="font-bold text-lg">All</div>
+            <div className="text-xs text-muted-foreground mt-1">Everyone</div>
+          </CardContent>
+        </Card>
+
         {children.map(m => {
           const s = summary.find(s => s.memberId === m.id);
           const isActive = filterChildId === m.id;
@@ -258,7 +296,7 @@ export default function Chores() {
                 <div className="text-3xl font-bold text-primary mt-1">{m.pointsBalance}</div>
                 <div className="text-xs text-muted-foreground">store balance</div>
                 <div className="text-sm font-semibold text-amber-600 mt-0.5">{m.lifetimePoints ?? 0} all-time</div>
-                {s && <div className="text-xs text-muted-foreground mt-1">{s.approved} done · {s.pending} pending</div>}
+                {s && <div className="text-xs text-muted-foreground mt-1">{s.todoPending} to do · {s.doneToday} done</div>}
                 {badgeCount > 0 && topTier && (
                   <div className={`inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-xs font-semibold border ${TIER_STYLES[topTier].bg} ${TIER_STYLES[topTier].text} ${TIER_STYLES[topTier].border}`}>
                     <Medal className="w-3 h-3" />
@@ -321,50 +359,41 @@ export default function Chores() {
         </Card>
       )}
 
-      {filterChildId && (
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Showing chores for</span>
-          <span className="font-semibold">{members.find(m => m.id === filterChildId)?.name}</span>
-          <button onClick={() => setFilterChildId(null)} className="text-xs text-muted-foreground underline ml-1">Clear filter</button>
-        </div>
-      )}
-
-      <Tabs defaultValue="pending">
+      <Tabs defaultValue="todo">
         <TabsList className="rounded-2xl h-14 p-1">
-          <TabsTrigger value="pending" className="rounded-xl h-11 px-5 text-base gap-2">
-            To Do <Badge className="bg-yellow-100 text-yellow-800">{pending.length}</Badge>
+          <TabsTrigger value="todo" className="rounded-xl h-11 px-5 text-base gap-2">
+            To Do <Badge className="bg-yellow-100 text-yellow-800">{tabCounts.todo}</Badge>
           </TabsTrigger>
           <TabsTrigger value="approval" className="rounded-xl h-11 px-5 text-base gap-2">
-            Approval <Badge className="bg-blue-100 text-blue-800">{needsApproval.length}</Badge>
+            Approval <Badge className="bg-blue-100 text-blue-800">{tabCounts.approval}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="approved" className="rounded-xl h-11 px-5 text-base gap-2">
-            Done <Badge className="bg-green-100 text-green-800">{approved.length}</Badge>
+          <TabsTrigger value="done" className="rounded-xl h-11 px-5 text-base gap-2">
+            Done Today <Badge className="bg-green-100 text-green-800">{tabCounts.done}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="missed" className="rounded-xl h-11 px-5 text-base gap-2">
+            Missed <Badge className="bg-red-100 text-red-800">{tabCounts.missed}</Badge>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="pending" className="space-y-3 mt-4">
-          {pending.length === 0 && <p className="text-center text-muted-foreground py-12">All chores done! 🎉</p>}
-          {pending.map(c => {
-            const member = members.find(m => m.id === c.assignedTo);
+        <TabsContent value="todo" className="space-y-3 mt-4">
+          {todo.length === 0 && <p className="text-center text-muted-foreground py-12">All chores done! 🎉</p>}
+          {todo.map(c => {
+            const member = c.assignedMember ?? members.find(m => m.id === c.assignedTo);
             return (
               <Card key={c.id} className="rounded-2xl border-0 shadow-sm">
                 <CardContent className="p-5 flex items-center gap-4">
-                  <div className="flex-1">
-                    <div className="font-semibold text-lg">{c.title}</div>
-                    <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                      {member && (
-                        <span className="flex items-center gap-1.5">
-                          {member.avatarUrl
-                            ? <img src={member.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                            : <span>{member.emoji}</span>}
-                          {member.name}
-                        </span>
-                      )}
+                  {member && (
+                    <MemberAvatar avatarUrl={member.avatarUrl} emoji={member.emoji} name={member.name} sizeCls="w-10 h-10" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    {member && <div className="font-bold text-base text-primary">{member.name}</div>}
+                    <div className="font-semibold text-lg leading-tight">{c.title}</div>
+                    <div className="flex items-center gap-3 mt-0.5 text-sm text-muted-foreground">
                       {c.dueDate && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{c.dueDate}</span>}
                       {c.repeatType !== "once" && <Badge variant="outline" className="text-xs">{c.repeatType}</Badge>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 shrink-0">
                     <div className="bg-primary/10 text-primary font-bold px-4 py-2 rounded-2xl text-lg">{c.pointsValue} pts</div>
                     <Button size="icon" variant="ghost" className="h-12 w-12 rounded-xl text-green-600 hover:text-green-700 hover:bg-green-50"
                       onClick={() => completeChore.mutate({ id: c.id })}>
@@ -384,22 +413,23 @@ export default function Chores() {
         <TabsContent value="approval" className="space-y-3 mt-4">
           {needsApproval.length === 0 && <p className="text-center text-muted-foreground py-12">Nothing awaiting approval</p>}
           {needsApproval.map(c => {
-            const member = members.find(m => m.id === c.assignedTo);
+            const member = c.assignedMember ?? members.find(m => m.id === c.assignedTo);
             return (
               <Card key={c.id} className="rounded-2xl border-0 shadow-sm bg-blue-50">
                 <CardContent className="p-5 flex items-center gap-4">
-                  <div className="flex-1">
-                    <div className="font-semibold text-lg">{c.title}</div>
+                  {member && (
+                    <MemberAvatar avatarUrl={member.avatarUrl} emoji={member.emoji} name={member.name} sizeCls="w-10 h-10" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    {member && <div className="font-bold text-base text-primary">{member.name}</div>}
+                    <div className="font-semibold text-lg leading-tight">{c.title}</div>
                     {member && (
-                      <div className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
-                        {member.avatarUrl
-                          ? <img src={member.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                          : <span>{member.emoji}</span>}
-                        {member.name} completed this
+                      <div className="text-sm text-muted-foreground mt-0.5">
+                        marked as complete — awaiting approval
                       </div>
                     )}
                   </div>
-                  <div className="bg-primary/10 text-primary font-bold px-4 py-2 rounded-2xl">{c.pointsValue} pts</div>
+                  <div className="bg-primary/10 text-primary font-bold px-4 py-2 rounded-2xl shrink-0">{c.pointsValue} pts</div>
                   {parents.length > 0 ? (
                     <PinApproveDialog
                       choreId={c.id}
@@ -409,7 +439,7 @@ export default function Chores() {
                     />
                   ) : (
                     <Button
-                      className="rounded-xl h-12 px-6 bg-green-600 hover:bg-green-700"
+                      className="rounded-xl h-12 px-6 bg-green-600 hover:bg-green-700 shrink-0"
                       onClick={() => approveChore.mutate({ id: c.id })}
                       disabled={approveChore.isPending}
                     >
@@ -422,38 +452,66 @@ export default function Chores() {
           })}
         </TabsContent>
 
-        <TabsContent value="approved" className="space-y-3 mt-4">
-          {approved.length === 0 && <p className="text-center text-muted-foreground py-12">No completed chores yet</p>}
-          {approved.map(c => {
-            const member = members.find(m => m.id === c.assignedTo);
+        <TabsContent value="done" className="space-y-3 mt-4">
+          {done.length === 0 && <p className="text-center text-muted-foreground py-12">No completed chores yet today</p>}
+          {done.map(c => {
+            const member = c.assignedMember ?? members.find(m => m.id === c.assignedTo);
             const approver = c.approvedByParentId ? members.find(m => m.id === c.approvedByParentId) : null;
             return (
               <Card key={c.id} className="rounded-2xl border-0 shadow-sm opacity-75">
                 <CardContent className="p-5 flex items-center gap-4">
                   <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0" />
-                  <div className="flex-1">
-                    <div className="font-semibold line-through text-muted-foreground">{c.title}</div>
-                    <div className="flex items-center gap-3 mt-0.5 text-sm text-muted-foreground">
-                      {member && (
-                        <span className="flex items-center gap-1.5">
-                          {member.avatarUrl
-                            ? <img src={member.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                            : <span>{member.emoji}</span>}
-                          {member.name}
-                        </span>
-                      )}
-                      {approver && (
-                        <span className="flex items-center gap-1.5 text-green-700">
-                          ✓ Approved by
-                          {approver.avatarUrl
-                            ? <img src={approver.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                            : <span>{approver.emoji}</span>}
-                          {approver.name}
-                        </span>
-                      )}
-                    </div>
+                  {member && (
+                    <MemberAvatar avatarUrl={member.avatarUrl} emoji={member.emoji} name={member.name} sizeCls="w-10 h-10" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    {member && <div className="font-bold text-base text-green-700">{member.name}</div>}
+                    <div className="font-semibold line-through text-muted-foreground leading-tight">{c.title}</div>
+                    {approver && (
+                      <div className="flex items-center gap-1.5 text-sm text-green-700 mt-0.5">
+                        <span>Approved by</span>
+                        {approver.avatarUrl
+                          ? <img src={approver.avatarUrl} alt="" className="w-4 h-4 rounded-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                          : <span>{approver.emoji}</span>}
+                        <span>{approver.name}</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-green-700 font-bold">+{c.pointsValue} pts</div>
+                  <div className="text-green-700 font-bold shrink-0">+{c.pointsValue} pts</div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </TabsContent>
+
+        <TabsContent value="missed" className="space-y-3 mt-4">
+          {missed.length === 0 && <p className="text-center text-muted-foreground py-12">No missed chores today 🎉</p>}
+          {missed.map(c => {
+            const member = c.assignedMember ?? members.find(m => m.id === c.assignedTo);
+            return (
+              <Card key={c.id} className="rounded-2xl border-0 shadow-sm bg-red-50">
+                <CardContent className="p-5 flex items-center gap-4">
+                  <XCircle className="w-6 h-6 text-red-400 flex-shrink-0" />
+                  {member && (
+                    <MemberAvatar avatarUrl={member.avatarUrl} emoji={member.emoji} name={member.name} sizeCls="w-10 h-10" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    {member && <div className="font-bold text-base text-red-600">{member.name}</div>}
+                    <div className="font-semibold text-muted-foreground line-through leading-tight">{c.title}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Not completed today</div>
+                  </div>
+                  <div className="shrink-0 flex items-center gap-3">
+                    <div className="text-red-400 font-bold">{c.pointsValue} pts</div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-xl h-10 px-4 text-sm"
+                      onClick={() => rejectChore.mutate({ id: c.id })}
+                      disabled={rejectChore.isPending}
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             );

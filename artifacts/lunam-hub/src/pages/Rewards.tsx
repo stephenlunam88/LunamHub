@@ -8,10 +8,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Gift, Check, X, Star, Lock } from "lucide-react";
+import { Gift, Check, X, Star, Lock, AlertTriangle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import type { RedemptionInput } from "@workspace/api-client-react";
 
 interface ParentInfo {
@@ -76,14 +76,14 @@ function PinActionDialog({ triggerIcon, triggerClassName, title, description, pa
           {selectedParent?.hasPin && (
             <div>
               <Label>Your PIN</Label>
-              <Input
+              <input
                 type="password"
                 inputMode="numeric"
                 value={pin}
                 onChange={e => { setPin(e.target.value); setLocalError(null); clearError?.(); }}
                 onKeyDown={e => { if (e.key === "Enter") handleConfirm(); }}
                 placeholder="••••"
-                className={`rounded-xl h-12 text-center tracking-[0.4em] text-xl mt-1 ${error ? "border-red-500 bg-red-50" : ""}`}
+                className={`w-full rounded-xl h-12 text-center tracking-[0.4em] text-xl mt-1 border px-3 bg-background ${error ? "border-red-500 bg-red-50" : "border-input"}`}
                 autoFocus
               />
               {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
@@ -105,6 +105,8 @@ function PinActionDialog({ triggerIcon, triggerClassName, title, description, pa
 
 export default function Rewards() {
   const qc = useQueryClient();
+  const { toast } = useToast();
+
   const invalidateAll = () => {
     qc.invalidateQueries({ queryKey: getListRewardsQueryKey() });
     qc.invalidateQueries({ queryKey: getListRedemptionsQueryKey() });
@@ -122,18 +124,53 @@ export default function Rewards() {
   const [approveErrors, setApproveErrors] = useState<Record<number, string>>({});
   const [rejectErrors, setRejectErrors] = useState<Record<number, string>>({});
 
-  const requestRedemption = useRequestRedemption({ mutation: { onSuccess: () => { invalidateAll(); setRedeemOpen(false); setRedeemForm({ rewardId: 0, memberId: 0 }); } } });
+  const selectedChild = children.find(m => m.id === redeemForm.memberId) ?? null;
+  const selectedReward = rewards.find(r => r.id === redeemForm.rewardId) ?? null;
+  const shortfall = selectedChild && selectedReward
+    ? Math.max(0, selectedReward.pointsCost - selectedChild.pointsBalance)
+    : 0;
+  const canAfford = shortfall === 0;
+
+  const requestRedemption = useRequestRedemption({
+    mutation: {
+      onSuccess: () => {
+        invalidateAll();
+        setRedeemOpen(false);
+        setRedeemForm({ rewardId: 0, memberId: 0 });
+      },
+      onError: (err: unknown) => {
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "";
+        if (status === 422 || msg.toLowerCase().includes("points")) {
+          toast({
+            title: "Not enough points",
+            description: msg || "This child doesn't have enough points for this reward.",
+            variant: "destructive",
+          });
+        }
+      }
+    }
+  });
+
   const approveRedemption = useApproveRedemption({
     mutation: {
       onSuccess: invalidateAll,
       onError: (err: unknown, variables) => {
+        const status = (err as { response?: { status?: number } })?.response?.status;
         const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "";
-        if (msg.includes("PIN") || msg.includes("Invalid")) {
+        if (status === 422 || msg.toLowerCase().includes("points")) {
+          toast({
+            title: "Balance too low",
+            description: "This child no longer has enough points.",
+            variant: "destructive",
+          });
+        } else if (msg.includes("PIN") || msg.includes("Invalid")) {
           setApproveErrors(prev => ({ ...prev, [variables.id]: "Incorrect PIN — try again" }));
         }
       }
     }
   });
+
   const rejectRedemption = useRejectRedemption({
     mutation: {
       onSuccess: invalidateAll,
@@ -153,27 +190,66 @@ export default function Rewards() {
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-4xl font-serif font-bold">Reward Store</h1>
-        <Dialog open={redeemOpen} onOpenChange={setRedeemOpen}>
+        <Dialog open={redeemOpen} onOpenChange={o => { setRedeemOpen(o); if (!o) setRedeemForm({ rewardId: 0, memberId: 0 }); }}>
           <DialogTrigger asChild>
             <Button variant="outline" className="h-14 px-6 rounded-2xl text-lg gap-2"><Gift className="w-5 h-5" /> Request Reward</Button>
           </DialogTrigger>
           <DialogContent className="rounded-3xl">
             <DialogHeader><DialogTitle className="text-xl font-serif">Request a Reward</DialogTitle></DialogHeader>
             <div className="space-y-4">
-              <div><Label>Child</Label>
-                <Select value={redeemForm.memberId ? redeemForm.memberId.toString() : ""} onValueChange={v => setRedeemForm(f => ({ ...f, memberId: Number(v) }))}>
-                  <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Who is requesting?" /></SelectTrigger>
-                  <SelectContent>{children.map(m => <SelectItem key={m.id} value={m.id.toString()}>{m.emoji} {m.name} ({m.pointsBalance} pts)</SelectItem>)}</SelectContent>
+              <div>
+                <Label>Child</Label>
+                <Select
+                  value={redeemForm.memberId ? redeemForm.memberId.toString() : ""}
+                  onValueChange={v => setRedeemForm(f => ({ ...f, memberId: Number(v) }))}
+                >
+                  <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue placeholder="Who is requesting?" /></SelectTrigger>
+                  <SelectContent>
+                    {children.map(m => (
+                      <SelectItem key={m.id} value={m.id.toString()}>
+                        {m.emoji} {m.name} — {m.pointsBalance} pts
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedChild && (
+                  <p className="text-sm text-muted-foreground mt-1.5 ml-1">
+                    Store balance: <span className="font-semibold text-foreground">{selectedChild.pointsBalance} pts</span>
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label>Reward</Label>
+                <Select
+                  value={redeemForm.rewardId ? redeemForm.rewardId.toString() : ""}
+                  onValueChange={v => setRedeemForm(f => ({ ...f, rewardId: Number(v) }))}
+                >
+                  <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue placeholder="Choose a reward" /></SelectTrigger>
+                  <SelectContent>
+                    {rewards.filter(r => r.active).map(r => (
+                      <SelectItem key={r.id} value={r.id.toString()}>
+                        {r.title} ({r.pointsCost} pts)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
-              <div><Label>Reward</Label>
-                <Select value={redeemForm.rewardId ? redeemForm.rewardId.toString() : ""} onValueChange={v => setRedeemForm(f => ({ ...f, rewardId: Number(v) }))}>
-                  <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Choose a reward" /></SelectTrigger>
-                  <SelectContent>{rewards.filter(r => r.active).map(r => <SelectItem key={r.id} value={r.id.toString()}>{r.title} ({r.pointsCost} pts)</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <Button className="w-full h-12 rounded-xl" onClick={() => requestRedemption.mutate({ data: redeemForm })}
-                disabled={!redeemForm.memberId || !redeemForm.rewardId || requestRedemption.isPending}>
+
+              {selectedChild && selectedReward && !canAfford && (
+                <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>
+                    {selectedChild.name} needs <strong>{shortfall} more points</strong> for this reward.
+                  </span>
+                </div>
+              )}
+
+              <Button
+                className="w-full h-12 rounded-xl"
+                onClick={() => requestRedemption.mutate({ data: redeemForm })}
+                disabled={!redeemForm.memberId || !redeemForm.rewardId || !canAfford || requestRedemption.isPending}
+              >
                 {requestRedemption.isPending ? "Requesting…" : "Request"}
               </Button>
             </div>
