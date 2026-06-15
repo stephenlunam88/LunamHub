@@ -5,6 +5,7 @@ import {
   getListChoresQueryKey, getGetChoresSummaryQueryKey, getListFamilyMembersQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -31,13 +32,6 @@ interface ParentInfo {
   hasPin?: boolean;
 }
 
-interface PinApproveDialogProps {
-  choreId: number;
-  choreTitle: string;
-  parents: ParentInfo[];
-  onSuccess: () => void;
-}
-
 function MemberAvatar({ avatarUrl, emoji, name, sizeCls = "w-8 h-8" }: { avatarUrl?: string | null; emoji: string; name: string; sizeCls?: string }) {
   const [failed, setFailed] = useState(false);
   if (avatarUrl && !failed) {
@@ -53,7 +47,12 @@ function MemberAvatar({ avatarUrl, emoji, name, sizeCls = "w-8 h-8" }: { avatarU
   return <span className="text-2xl leading-none shrink-0">{emoji}</span>;
 }
 
-function PinApproveDialog({ choreId, choreTitle, parents, onSuccess }: PinApproveDialogProps) {
+function PinApproveDialog({ choreId, choreTitle, parents, onSuccess }: {
+  choreId: number;
+  choreTitle: string;
+  parents: ParentInfo[];
+  onSuccess: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [selectedParentId, setSelectedParentId] = useState<number>(parents[0]?.id ?? 0);
   const [pin, setPin] = useState("");
@@ -61,40 +60,22 @@ function PinApproveDialog({ choreId, choreTitle, parents, onSuccess }: PinApprov
 
   const approveChore = useApproveChore({
     mutation: {
-      onSuccess: () => {
-        setOpen(false);
-        setPin("");
-        setError(null);
-        onSuccess();
-      },
+      onSuccess: () => { setOpen(false); setPin(""); setError(null); onSuccess(); },
       onError: (err: unknown) => {
         const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "";
-        if (msg.includes("PIN") || msg.includes("Invalid")) {
-          setError("Incorrect PIN — try again");
-          setPin("");
-        } else {
-          setError("Failed to approve");
-        }
+        setError(msg.includes("PIN") || msg.includes("Invalid") ? "Incorrect PIN — try again" : "Failed to approve");
+        setPin("");
       }
     }
   });
 
   const selectedParent = parents.find(p => p.id === selectedParentId);
-
-  const handleApprove = () => {
-    setError(null);
-    approveChore.mutate({
-      id: choreId,
-      data: { parentId: selectedParentId, pin: selectedParent?.hasPin ? pin : undefined },
-    });
-  };
-
   const reset = () => { setPin(""); setError(null); };
 
   return (
     <Dialog open={open} onOpenChange={o => { setOpen(o); reset(); }}>
       <DialogTrigger asChild>
-        <Button className="rounded-xl h-12 px-6 bg-green-600 hover:bg-green-700">
+        <Button className="rounded-xl h-12 px-6 bg-green-600 hover:bg-green-700 shrink-0">
           <Star className="w-4 h-4 mr-2" /> Approve
         </Button>
       </DialogTrigger>
@@ -125,7 +106,7 @@ function PinApproveDialog({ choreId, choreTitle, parents, onSuccess }: PinApprov
                 inputMode="numeric"
                 value={pin}
                 onChange={e => { setPin(e.target.value); setError(null); }}
-                onKeyDown={e => { if (e.key === "Enter") handleApprove(); }}
+                onKeyDown={e => { if (e.key === "Enter") approveChore.mutate({ id: choreId, data: { parentId: selectedParentId, pin: selectedParent?.hasPin ? pin : undefined } }); }}
                 placeholder="••••"
                 className={`rounded-xl h-12 text-center tracking-[0.4em] text-xl mt-1 ${error ? "border-red-500 bg-red-50" : ""}`}
                 autoFocus
@@ -133,15 +114,99 @@ function PinApproveDialog({ choreId, choreTitle, parents, onSuccess }: PinApprov
               {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
             </div>
           )}
-          {!selectedParent?.hasPin && error && (
-            <p className="text-red-600 text-sm">{error}</p>
-          )}
+          {!selectedParent?.hasPin && error && <p className="text-red-600 text-sm">{error}</p>}
           <Button
             className="w-full h-12 rounded-xl bg-green-600 hover:bg-green-700"
-            onClick={handleApprove}
+            onClick={() => approveChore.mutate({ id: choreId, data: { parentId: selectedParentId, pin: selectedParent?.hasPin ? pin : undefined } })}
             disabled={(selectedParent?.hasPin ? !pin : false) || approveChore.isPending}
           >
             {approveChore.isPending ? "Approving…" : "Approve & Award Points"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PinDismissDialog({ choreId, choreTitle, parents, onSuccess }: {
+  choreId: number;
+  choreTitle: string;
+  parents: ParentInfo[];
+  onSuccess: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [selectedParentId, setSelectedParentId] = useState<number>(parents[0]?.id ?? 0);
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const rejectChore = useRejectChore({
+    mutation: {
+      onSuccess: () => { setOpen(false); setPin(""); setError(null); onSuccess(); },
+      onError: (err: unknown) => {
+        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "";
+        setError(msg.includes("PIN") || msg.includes("Invalid") ? "Incorrect PIN — try again" : "Failed to dismiss");
+        setPin("");
+      }
+    }
+  });
+
+  const selectedParent = parents.find(p => p.id === selectedParentId);
+  const reset = () => { setPin(""); setError(null); };
+
+  const handleConfirm = () => {
+    rejectChore.mutate({ id: choreId, data: { parentId: selectedParentId, pin: selectedParent?.hasPin ? pin : undefined } });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={o => { setOpen(o); reset(); }}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="rounded-xl h-10 px-4 text-sm shrink-0">
+          Dismiss
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="rounded-3xl max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-serif flex items-center gap-2">
+            <Lock className="w-5 h-5" /> Dismiss Missed Chore
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-muted-foreground text-sm">Dismiss "{choreTitle}" without awarding points?</p>
+          {parents.length > 1 && (
+            <div>
+              <Label>Confirming as</Label>
+              <Select value={selectedParentId.toString()} onValueChange={v => { setSelectedParentId(Number(v)); reset(); }}>
+                <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {parents.map(p => <SelectItem key={p.id} value={p.id.toString()}>{p.emoji} {p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {selectedParent?.hasPin && (
+            <div>
+              <Label>Your PIN</Label>
+              <Input
+                type="password"
+                inputMode="numeric"
+                value={pin}
+                onChange={e => { setPin(e.target.value); setError(null); }}
+                onKeyDown={e => { if (e.key === "Enter") handleConfirm(); }}
+                placeholder="••••"
+                className={`rounded-xl h-12 text-center tracking-[0.4em] text-xl mt-1 ${error ? "border-red-500 bg-red-50" : ""}`}
+                autoFocus
+              />
+              {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
+            </div>
+          )}
+          {!selectedParent?.hasPin && error && <p className="text-red-600 text-sm">{error}</p>}
+          <Button
+            variant="destructive"
+            className="w-full h-12 rounded-xl"
+            onClick={handleConfirm}
+            disabled={(selectedParent?.hasPin ? !pin : false) || rejectChore.isPending}
+          >
+            {rejectChore.isPending ? "Dismissing…" : "Dismiss Chore"}
           </Button>
         </div>
       </DialogContent>
@@ -155,13 +220,15 @@ export default function Chores() {
   const [form, setForm] = useState<ChoreFormState>({ title: "", pointsValue: 10, repeatType: "once" });
   const [filterChildId, setFilterChildId] = useState<number | null>(null);
 
+  const today = format(new Date(), "yyyy-MM-dd");
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: getListChoresQueryKey() });
     qc.invalidateQueries({ queryKey: getGetChoresSummaryQueryKey() });
     qc.invalidateQueries({ queryKey: getListFamilyMembersQueryKey() });
   };
 
-  const { data: chores = [] } = useListChores(
+  const { data: allChores = [] } = useListChores(
     filterChildId ? { assignedTo: filterChildId } : undefined
   );
   const { data: members = [] } = useListFamilyMembers();
@@ -171,11 +238,12 @@ export default function Chores() {
   const createChore = useCreateChore({ mutation: { onSuccess: () => { invalidate(); setOpen(false); setForm({ title: "", pointsValue: 10, repeatType: "once", assignedToMany: [] }); } } });
   const completeChore = useCompleteChore({ mutation: { onSuccess: invalidate } });
   const approveChore = useApproveChore({ mutation: { onSuccess: invalidate } });
-  const rejectChore = useRejectChore({ mutation: { onSuccess: invalidate } });
   const deleteChore = useDeleteChore({ mutation: { onSuccess: invalidate } });
 
   const children = members.filter(m => m.role === "child");
   const parents = members.filter(m => m.role === "parent") as ParentInfo[];
+
+  const chores = allChores.filter(c => !c.dueDate || c.dueDate === today);
 
   const todo = chores.filter(c => c.status === "todo");
   const needsApproval = chores.filter(c => c.status === "pending_approval");
@@ -365,7 +433,7 @@ export default function Chores() {
             To Do <Badge className="bg-yellow-100 text-yellow-800">{tabCounts.todo}</Badge>
           </TabsTrigger>
           <TabsTrigger value="approval" className="rounded-xl h-11 px-5 text-base gap-2">
-            Approval <Badge className="bg-blue-100 text-blue-800">{tabCounts.approval}</Badge>
+            Needs Approval <Badge className="bg-blue-100 text-blue-800">{tabCounts.approval}</Badge>
           </TabsTrigger>
           <TabsTrigger value="done" className="rounded-xl h-11 px-5 text-base gap-2">
             Done Today <Badge className="bg-green-100 text-green-800">{tabCounts.done}</Badge>
@@ -423,11 +491,7 @@ export default function Chores() {
                   <div className="flex-1 min-w-0">
                     {member && <div className="font-bold text-base text-primary">{member.name}</div>}
                     <div className="font-semibold text-lg leading-tight">{c.title}</div>
-                    {member && (
-                      <div className="text-sm text-muted-foreground mt-0.5">
-                        marked as complete — awaiting approval
-                      </div>
-                    )}
+                    <div className="text-sm text-muted-foreground mt-0.5">marked as complete — awaiting approval</div>
                   </div>
                   <div className="bg-primary/10 text-primary font-bold px-4 py-2 rounded-2xl shrink-0">{c.pointsValue} pts</div>
                   {parents.length > 0 ? (
@@ -500,18 +564,25 @@ export default function Chores() {
                     <div className="font-semibold text-muted-foreground line-through leading-tight">{c.title}</div>
                     <div className="text-xs text-muted-foreground mt-0.5">Not completed today</div>
                   </div>
-                  <div className="shrink-0 flex items-center gap-3">
-                    <div className="text-red-400 font-bold">{c.pointsValue} pts</div>
+                  <div className="text-red-400 font-bold shrink-0">{c.pointsValue} pts</div>
+                  {parents.length > 0 ? (
+                    <PinDismissDialog
+                      choreId={c.id}
+                      choreTitle={c.title}
+                      parents={parents}
+                      onSuccess={invalidate}
+                    />
+                  ) : (
                     <Button
                       size="sm"
                       variant="outline"
-                      className="rounded-xl h-10 px-4 text-sm"
-                      onClick={() => rejectChore.mutate({ id: c.id })}
-                      disabled={rejectChore.isPending}
+                      className="rounded-xl h-10 px-4 text-sm shrink-0"
+                      onClick={() => { /* no-op: require parent PIN when parents exist */ }}
+                      disabled
                     >
                       Dismiss
                     </Button>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             );
