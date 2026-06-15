@@ -161,9 +161,9 @@ export default function Chores() {
   const children = members.filter(m => m.role === "child");
   const parents = members.filter(m => m.role === "parent") as ParentInfo[];
 
-  const pending = chores.filter(c => c.status === "pending");
-  const needsApproval = chores.filter(c => c.status === "completed");
-  const approved = chores.filter(c => c.status === "approved");
+  const pending = chores.filter(c => c.status === "todo");
+  const needsApproval = chores.filter(c => c.status === "pending_approval");
+  const approved = chores.filter(c => c.status === "done");
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">

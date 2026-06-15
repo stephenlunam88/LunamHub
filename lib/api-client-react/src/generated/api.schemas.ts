@@ -9,6 +9,10 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface ErrorResponse {
+  error: string;
+}
+
 export type FamilyMemberRole = typeof FamilyMemberRole[keyof typeof FamilyMemberRole];
 
 
@@ -166,14 +170,17 @@ export type ChoreStatus = typeof ChoreStatus[keyof typeof ChoreStatus];
 
 
 export const ChoreStatus = {
-  pending: 'pending',
-  completed: 'completed',
-  approved: 'approved',
+  todo: 'todo',
+  pending_approval: 'pending_approval',
+  done: 'done',
   missed: 'missed',
+  rejected: 'rejected',
 } as const;
 
 export interface Chore {
   id: number;
+  /** @nullable */
+  templateId?: number | null;
   title: string;
   /** @nullable */
   description?: string | null;
@@ -185,12 +192,15 @@ export interface Chore {
   repeatType: ChoreRepeatType;
   pointsValue: number;
   status: ChoreStatus;
+  pointsAwarded: boolean;
   /** @nullable */
   completedAt?: string | null;
   /** @nullable */
   approvedAt?: string | null;
   /** @nullable */
   approvedByParentId?: number | null;
+  /** @nullable */
+  missedAt?: string | null;
   createdAt: string;
 }
 
@@ -232,10 +242,11 @@ export type ChoreUpdateStatus = typeof ChoreUpdateStatus[keyof typeof ChoreUpdat
 
 
 export const ChoreUpdateStatus = {
-  pending: 'pending',
-  completed: 'completed',
-  approved: 'approved',
+  todo: 'todo',
+  pending_approval: 'pending_approval',
+  done: 'done',
   missed: 'missed',
+  rejected: 'rejected',
 } as const;
 
 export interface ChoreUpdate {
@@ -255,6 +266,15 @@ export interface ChoreSummary {
   memberName: string;
   memberColor: string;
   memberEmoji: string;
+  /** @nullable */
+  memberAvatarUrl?: string | null;
+  pointsBalance?: number;
+  lifetimePoints?: number;
+  todoPending: number;
+  pendingApproval: number;
+  doneToday: number;
+  missedToday: number;
+  allTimeDone: number;
   pending: number;
   completed: number;
   approved: number;

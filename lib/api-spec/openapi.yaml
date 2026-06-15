@@ -387,6 +387,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/Chore"
 
+  /chores/{id}/reject:
+    post:
+      operationId: rejectChore
+      tags: [chores]
+      summary: Reject a completed chore (parent action, resets to todo for retry)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChoreApproveBody"
+      responses:
+        "200":
+          description: Rejected — status reset to todo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chore"
+
   /chores/summary:
     get:
       operationId: getChoresSummary
@@ -504,6 +529,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Redemption"
+        "422":
+          description: Insufficient points balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /redemptions/{id}/approve:
     post:
@@ -1359,6 +1390,14 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
     # ── Family Members ────────────────────────────────────────────────────────
     FamilyMember:
       type: object
@@ -1551,6 +1590,8 @@ components:
       properties:
         id:
           type: integer
+        templateId:
+          type: ["integer", "null"]
         title:
           type: string
         description:
@@ -1568,13 +1609,17 @@ components:
           type: integer
         status:
           type: string
-          enum: [pending, completed, approved, missed]
+          enum: [todo, pending_approval, done, missed, rejected]
+        pointsAwarded:
+          type: boolean
         completedAt:
           type: ["string", "null"]
         approvedAt:
           type: ["string", "null"]
         approvedByParentId:
           type: ["integer", "null"]
+        missedAt:
+          type: ["string", "null"]
         createdAt:
           type: string
       required:
@@ -1583,6 +1628,7 @@ components:
         - repeatType
         - pointsValue
         - status
+        - pointsAwarded
         - createdAt
 
     ChoreApproveBody:
@@ -1637,7 +1683,7 @@ components:
           type: integer
         status:
           type: string
-          enum: [pending, completed, approved, missed]
+          enum: [todo, pending_approval, done, missed, rejected]
 
     ChoreSummary:
       type: object
@@ -1650,6 +1696,22 @@ components:
           type: string
         memberEmoji:
           type: string
+        memberAvatarUrl:
+          type: ["string", "null"]
+        pointsBalance:
+          type: integer
+        lifetimePoints:
+          type: integer
+        todoPending:
+          type: integer
+        pendingApproval:
+          type: integer
+        doneToday:
+          type: integer
+        missedToday:
+          type: integer
+        allTimeDone:
+          type: integer
         pending:
           type: integer
         completed:
@@ -1665,6 +1727,11 @@ components:
         - memberName
         - memberColor
         - memberEmoji
+        - todoPending
+        - pendingApproval
+        - doneToday
+        - missedToday
+        - allTimeDone
         - pending
         - completed
         - approved

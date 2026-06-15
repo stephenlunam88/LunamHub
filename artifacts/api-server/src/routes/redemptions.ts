@@ -1,5 +1,7 @@
 // Redemption routes — mounted at /api/redemptions
-// Children request reward redemptions; parents approve or reject
+// Children request reward redemptions; parents approve or reject.
+// Balance guard: POST checks balance before creating; approve re-checks before deducting.
+// Points deducted from pointsBalance (spendable) only — never from lifetimePoints.
 
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -51,16 +53,35 @@ router.get("/", async (_req, res) => {
   res.json(result);
 });
 
-// POST /api/redemptions — store pointsCost at request time for audit trail
+// POST /api/redemptions — balance guard before creating
 router.post("/", async (req, res) => {
   const body = RequestRedemptionBody.parse(req.body);
+
   const [reward] = await db.select().from(rewardsTable).where(eq(rewardsTable.id, body.rewardId));
-  const pointsCost = reward?.pointsCost ?? 0;
-  const [redemption] = await db.insert(redemptionsTable).values({ ...body, pointsCost }).returning();
-  res.status(201).json(await formatRedemption(redemption));
+  if (!reward) { res.status(404).json({ error: "Reward not found" }); return; }
+
+  const [member] = await db.select().from(familyMembersTable).where(eq(familyMembersTable.id, body.memberId));
+  if (!member) { res.status(404).json({ error: "Member not found" }); return; }
+
+  if (member.pointsBalance < reward.pointsCost) {
+    res.status(422).json({
+      error: `You need ${reward.pointsCost - member.pointsBalance} more points for this reward.`,
+    });
+    return;
+  }
+
+  const [redemption] = await db
+    .insert(redemptionsTable)
+    .values({ ...body, pointsCost: reward.pointsCost })
+    .returning();
+  res.status(201).json(await formatRedemption(redemption!));
 });
 
-async function verifyParentPin(parentId: number | null, pin: string | null, res: import("express").Response): Promise<{ ok: true; parent: typeof familyMembersTable.$inferSelect | null } | { ok: false }> {
+async function verifyParentPin(
+  parentId: number | null,
+  pin: string | null,
+  res: import("express").Response,
+): Promise<{ ok: true; parent: typeof familyMembersTable.$inferSelect | null } | { ok: false }> {
   const allParents = await db.select().from(familyMembersTable)
     .where(eq(familyMembersTable.role, "parent"));
   if (allParents.length > 0) {
@@ -79,7 +100,7 @@ async function verifyParentPin(parentId: number | null, pin: string | null, res:
   return { ok: true, parent: null };
 }
 
-// POST /api/redemptions/:id/approve — deducts points_balance + records transaction
+// POST /api/redemptions/:id/approve — re-checks balance; deducts pointsBalance only
 router.post("/:id/approve", async (req, res) => {
   const { id } = ApproveRedemptionParams.parse({ id: Number(req.params.id) });
   const bodyParse = RedemptionApproveBodySchema.safeParse(req.body);
@@ -93,6 +114,19 @@ router.post("/:id/approve", async (req, res) => {
   if (!redemption) { res.status(404).json({ error: "Not found" }); return; }
 
   const [reward] = await db.select().from(rewardsTable).where(eq(rewardsTable.id, redemption.rewardId));
+  const cost = redemption.pointsCost || reward?.pointsCost || 0;
+
+  // Re-check balance at approve time (child may have spent elsewhere since requesting)
+  if (cost > 0) {
+    const [member] = await db.select().from(familyMembersTable).where(eq(familyMembersTable.id, redemption.memberId));
+    if (!member || member.pointsBalance < cost) {
+      res.status(422).json({
+        error: `This child no longer has enough points. Balance: ${member?.pointsBalance ?? 0}, needed: ${cost}.`,
+      });
+      return;
+    }
+  }
+
   const now = new Date();
   const [updated] = await db
     .update(redemptionsTable)
@@ -100,8 +134,8 @@ router.post("/:id/approve", async (req, res) => {
     .where(eq(redemptionsTable.id, id))
     .returning();
 
-  const cost = redemption.pointsCost || reward?.pointsCost || 0;
   if (cost > 0) {
+    // Deduct from spendable balance only — lifetimePoints is never reduced
     await db
       .update(familyMembersTable)
       .set({ pointsBalance: sql`${familyMembersTable.pointsBalance} - ${cost}` })
@@ -115,10 +149,11 @@ router.post("/:id/approve", async (req, res) => {
       redemptionId: redemption.id,
     });
   }
-  res.json(await formatRedemption(updated));
+
+  res.json(await formatRedemption(updated!));
 });
 
-// POST /api/redemptions/:id/reject — also requires parent PIN
+// POST /api/redemptions/:id/reject — requires parent PIN; no points deducted
 router.post("/:id/reject", async (req, res) => {
   const { id } = RejectRedemptionParams.parse({ id: Number(req.params.id) });
   const bodyParse = RedemptionApproveBodySchema.safeParse(req.body);

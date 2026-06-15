@@ -216,6 +216,7 @@ export const ListChoresQueryParams = zod.object({
 
 export const ListChoresResponseItem = zod.object({
   "id": zod.number(),
+  "templateId": zod.number().nullish(),
   "title": zod.string(),
   "description": zod.string().nullish(),
   "assignedTo": zod.number().nullish(),
@@ -234,10 +235,12 @@ export const ListChoresResponseItem = zod.object({
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
   "pointsValue": zod.number(),
-  "status": zod.enum(['pending', 'completed', 'approved', 'missed']),
+  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected']),
+  "pointsAwarded": zod.boolean(),
   "completedAt": zod.string().nullish(),
   "approvedAt": zod.string().nullish(),
   "approvedByParentId": zod.number().nullish(),
+  "missedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 export const ListChoresResponse = zod.array(ListChoresResponseItem)
@@ -266,6 +269,7 @@ export const GetChoreParams = zod.object({
 
 export const GetChoreResponse = zod.object({
   "id": zod.number(),
+  "templateId": zod.number().nullish(),
   "title": zod.string(),
   "description": zod.string().nullish(),
   "assignedTo": zod.number().nullish(),
@@ -284,10 +288,12 @@ export const GetChoreResponse = zod.object({
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
   "pointsValue": zod.number(),
-  "status": zod.enum(['pending', 'completed', 'approved', 'missed']),
+  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected']),
+  "pointsAwarded": zod.boolean(),
   "completedAt": zod.string().nullish(),
   "approvedAt": zod.string().nullish(),
   "approvedByParentId": zod.number().nullish(),
+  "missedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -306,11 +312,12 @@ export const UpdateChoreBody = zod.object({
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']).optional(),
   "pointsValue": zod.number().optional(),
-  "status": zod.enum(['pending', 'completed', 'approved', 'missed']).optional()
+  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected']).optional()
 })
 
 export const UpdateChoreResponse = zod.object({
   "id": zod.number(),
+  "templateId": zod.number().nullish(),
   "title": zod.string(),
   "description": zod.string().nullish(),
   "assignedTo": zod.number().nullish(),
@@ -329,10 +336,12 @@ export const UpdateChoreResponse = zod.object({
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
   "pointsValue": zod.number(),
-  "status": zod.enum(['pending', 'completed', 'approved', 'missed']),
+  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected']),
+  "pointsAwarded": zod.boolean(),
   "completedAt": zod.string().nullish(),
   "approvedAt": zod.string().nullish(),
   "approvedByParentId": zod.number().nullish(),
+  "missedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -354,6 +363,7 @@ export const CompleteChoreParams = zod.object({
 
 export const CompleteChoreResponse = zod.object({
   "id": zod.number(),
+  "templateId": zod.number().nullish(),
   "title": zod.string(),
   "description": zod.string().nullish(),
   "assignedTo": zod.number().nullish(),
@@ -372,10 +382,12 @@ export const CompleteChoreResponse = zod.object({
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
   "pointsValue": zod.number(),
-  "status": zod.enum(['pending', 'completed', 'approved', 'missed']),
+  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected']),
+  "pointsAwarded": zod.boolean(),
   "completedAt": zod.string().nullish(),
   "approvedAt": zod.string().nullish(),
   "approvedByParentId": zod.number().nullish(),
+  "missedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -394,6 +406,7 @@ export const ApproveChoreBody = zod.object({
 
 export const ApproveChoreResponse = zod.object({
   "id": zod.number(),
+  "templateId": zod.number().nullish(),
   "title": zod.string(),
   "description": zod.string().nullish(),
   "assignedTo": zod.number().nullish(),
@@ -412,10 +425,55 @@ export const ApproveChoreResponse = zod.object({
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
   "pointsValue": zod.number(),
-  "status": zod.enum(['pending', 'completed', 'approved', 'missed']),
+  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected']),
+  "pointsAwarded": zod.boolean(),
   "completedAt": zod.string().nullish(),
   "approvedAt": zod.string().nullish(),
   "approvedByParentId": zod.number().nullish(),
+  "missedAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Reject a completed chore (parent action, resets to todo for retry)
+ */
+export const RejectChoreParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RejectChoreBody = zod.object({
+  "parentId": zod.number().optional(),
+  "pin": zod.string().optional()
+})
+
+export const RejectChoreResponse = zod.object({
+  "id": zod.number(),
+  "templateId": zod.number().nullish(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "assignedTo": zod.number().nullish(),
+  "assignedMember": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "role": zod.enum(['parent', 'child']),
+  "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
+  "createdAt": zod.string()
+}).optional(),
+  "dueDate": zod.string().nullish(),
+  "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "pointsValue": zod.number(),
+  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected']),
+  "pointsAwarded": zod.boolean(),
+  "completedAt": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "approvedByParentId": zod.number().nullish(),
+  "missedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -428,6 +486,14 @@ export const GetChoresSummaryResponseItem = zod.object({
   "memberName": zod.string(),
   "memberColor": zod.string(),
   "memberEmoji": zod.string(),
+  "memberAvatarUrl": zod.string().nullish(),
+  "pointsBalance": zod.number().optional(),
+  "lifetimePoints": zod.number().optional(),
+  "todoPending": zod.number(),
+  "pendingApproval": zod.number(),
+  "doneToday": zod.number(),
+  "missedToday": zod.number(),
+  "allTimeDone": zod.number(),
   "pending": zod.number(),
   "completed": zod.number(),
   "approved": zod.number(),
@@ -1047,6 +1113,7 @@ export const GetDashboardSummaryResponse = zod.object({
 })),
   "todayChores": zod.array(zod.object({
   "id": zod.number(),
+  "templateId": zod.number().nullish(),
   "title": zod.string(),
   "description": zod.string().nullish(),
   "assignedTo": zod.number().nullish(),
@@ -1065,10 +1132,12 @@ export const GetDashboardSummaryResponse = zod.object({
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
   "pointsValue": zod.number(),
-  "status": zod.enum(['pending', 'completed', 'approved', 'missed']),
+  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected']),
+  "pointsAwarded": zod.boolean(),
   "completedAt": zod.string().nullish(),
   "approvedAt": zod.string().nullish(),
   "approvedByParentId": zod.number().nullish(),
+  "missedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })),
   "pendingApprovals": zod.number(),

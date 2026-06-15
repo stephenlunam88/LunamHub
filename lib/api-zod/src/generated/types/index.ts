@@ -24,6 +24,7 @@ export * from './choreUpdate';
 export * from './choreUpdateRepeatType';
 export * from './choreUpdateStatus';
 export * from './dashboardSummary';
+export * from './errorResponse';
 export * from './event';
 export * from './eventCategory';
 export * from './eventInput';

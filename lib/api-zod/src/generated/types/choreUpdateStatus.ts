@@ -10,8 +10,9 @@ export type ChoreUpdateStatus = typeof ChoreUpdateStatus[keyof typeof ChoreUpdat
 
 
 export const ChoreUpdateStatus = {
-  pending: 'pending',
-  completed: 'completed',
-  approved: 'approved',
+  todo: 'todo',
+  pending_approval: 'pending_approval',
+  done: 'done',
   missed: 'missed',
+  rejected: 'rejected',
 } as const;

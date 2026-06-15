@@ -11,6 +11,8 @@ import type { FamilyMember } from './familyMember';
 
 export interface Chore {
   id: number;
+  /** @nullable */
+  templateId?: number | null;
   title: string;
   /** @nullable */
   description?: string | null;
@@ -22,11 +24,14 @@ export interface Chore {
   repeatType: ChoreRepeatType;
   pointsValue: number;
   status: ChoreStatus;
+  pointsAwarded: boolean;
   /** @nullable */
   completedAt?: string | null;
   /** @nullable */
   approvedAt?: string | null;
   /** @nullable */
   approvedByParentId?: number | null;
+  /** @nullable */
+  missedAt?: string | null;
   createdAt: string;
 }

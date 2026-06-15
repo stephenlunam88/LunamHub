@@ -31,6 +31,7 @@ import type {
   ChoreSummary,
   ChoreUpdate,
   DashboardSummary,
+  ErrorResponse,
   Event,
   EventInput,
   EventUpdate,
@@ -1429,6 +1430,78 @@ export const useApproveChore = <TError = ErrorType<unknown>,
       return useMutation(getApproveChoreMutationOptions(options));
     }
 
+export const getRejectChoreUrl = (id: number,) => {
+
+
+
+
+  return `/api/chores/${id}/reject`
+}
+
+/**
+ * @summary Reject a completed chore (parent action, resets to todo for retry)
+ */
+export const rejectChore = async (id: number,
+    choreApproveBody?: ChoreApproveBody, options?: RequestInit): Promise<Chore> => {
+
+  return customFetch<Chore>(getRejectChoreUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      choreApproveBody,)
+  }
+);}
+
+
+
+
+export const getRejectChoreMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectChore>>, TError,{id: number;data?: BodyType<ChoreApproveBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rejectChore>>, TError,{id: number;data?: BodyType<ChoreApproveBody>}, TContext> => {
+
+const mutationKey = ['rejectChore'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rejectChore>>, {id: number;data?: BodyType<ChoreApproveBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  rejectChore(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RejectChoreMutationResult = NonNullable<Awaited<ReturnType<typeof rejectChore>>>
+    export type RejectChoreMutationBody = BodyType<ChoreApproveBody> | undefined
+    export type RejectChoreMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Reject a completed chore (parent action, resets to todo for retry)
+ */
+export const useRejectChore = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectChore>>, TError,{id: number;data?: BodyType<ChoreApproveBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rejectChore>>,
+        TError,
+        {id: number;data?: BodyType<ChoreApproveBody>},
+        TContext
+      > => {
+      return useMutation(getRejectChoreMutationOptions(options));
+    }
+
 export const getGetChoresSummaryUrl = () => {
 
 
@@ -1899,7 +1972,7 @@ export const requestRedemption = async (redemptionInput: RedemptionInput, option
 
 
 
-export const getRequestRedemptionMutationOptions = <TError = ErrorType<unknown>,
+export const getRequestRedemptionMutationOptions = <TError = ErrorType<ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestRedemption>>, TError,{data: BodyType<RedemptionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof requestRedemption>>, TError,{data: BodyType<RedemptionInput>}, TContext> => {
 
@@ -1928,12 +2001,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type RequestRedemptionMutationResult = NonNullable<Awaited<ReturnType<typeof requestRedemption>>>
     export type RequestRedemptionMutationBody = BodyType<RedemptionInput>
-    export type RequestRedemptionMutationError = ErrorType<unknown>
+    export type RequestRedemptionMutationError = ErrorType<ErrorResponse>
 
     /**
  * @summary Request to redeem a reward (child action)
  */
-export const useRequestRedemption = <TError = ErrorType<unknown>,
+export const useRequestRedemption = <TError = ErrorType<ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestRedemption>>, TError,{data: BodyType<RedemptionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof requestRedemption>>,

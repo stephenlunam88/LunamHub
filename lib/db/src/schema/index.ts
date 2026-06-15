@@ -9,6 +9,7 @@ import {
   boolean,
   timestamp,
   pgEnum,
+  unique,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -17,7 +18,12 @@ import { z } from "zod/v4";
 
 export const roleEnum = pgEnum("role", ["parent", "child"]);
 export const repeatTypeEnum = pgEnum("repeat_type", ["once", "daily", "weekly"]);
+// Legacy enum kept for the old chores table (do not remove — FK exists via point_transactions)
 export const choreStatusEnum = pgEnum("chore_status", ["pending", "completed", "approved", "missed"]);
+// New enum for chore_instances
+export const choreInstanceStatusEnum = pgEnum("chore_instance_status", [
+  "todo", "pending_approval", "done", "missed", "rejected",
+]);
 export const eventCategoryEnum = pgEnum("event_category", ["school", "sport", "appointment", "birthday", "family", "other"]);
 export const redemptionStatusEnum = pgEnum("redemption_status", ["pending", "approved", "rejected"]);
 export const listCategoryEnum = pgEnum("list_category", ["grocery", "packing", "school", "reminders", "other"]);
@@ -70,7 +76,7 @@ export const eventMembersTable = pgTable("event_members", {
   memberId: integer("member_id").notNull().references(() => familyMembersTable.id, { onDelete: "cascade" }),
 });
 
-// ── Chores ────────────────────────────────────────────────────────────────────
+// ── Chores (legacy — kept for point_transactions FK; do not drop) ─────────────
 
 export const choresTable = pgTable("chores", {
   id: serial("id").primaryKey(),
@@ -90,6 +96,56 @@ export const choresTable = pgTable("chores", {
 export const insertChoreSchema = createInsertSchema(choresTable).omit({ id: true, createdAt: true });
 export type InsertChore = z.infer<typeof insertChoreSchema>;
 export type Chore = typeof choresTable.$inferSelect;
+
+// ── Chore Templates ───────────────────────────────────────────────────────────
+
+export const choreTemplatesTable = pgTable("chore_templates", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  pointsValue: integer("points_value").notNull().default(10),
+  repeatType: repeatTypeEnum("repeat_type").notNull().default("once"),
+  requiresApproval: boolean("requires_approval").notNull().default(true),
+  active: boolean("active").notNull().default(true),
+  createdBy: integer("created_by").references(() => familyMembersTable.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertChoreTemplateSchema = createInsertSchema(choreTemplatesTable).omit({ id: true, createdAt: true });
+export type InsertChoreTemplate = z.infer<typeof insertChoreTemplateSchema>;
+export type ChoreTemplate = typeof choreTemplatesTable.$inferSelect;
+
+// Junction table: chore_templates <-> children
+export const choreTemplateChildrenTable = pgTable("chore_template_children", {
+  id: serial("id").primaryKey(),
+  templateId: integer("template_id").notNull().references(() => choreTemplatesTable.id, { onDelete: "cascade" }),
+  childId: integer("child_id").notNull().references(() => familyMembersTable.id, { onDelete: "cascade" }),
+});
+
+// ── Chore Instances ───────────────────────────────────────────────────────────
+
+export const choreInstancesTable = pgTable("chore_instances", {
+  id: serial("id").primaryKey(),
+  templateId: integer("template_id").references(() => choreTemplatesTable.id, { onDelete: "cascade" }),
+  childId: integer("child_id").references(() => familyMembersTable.id, { onDelete: "set null" }),
+  title: text("title").notNull(),
+  pointsValue: integer("points_value").notNull().default(10),
+  repeatType: repeatTypeEnum("repeat_type").notNull().default("once"),
+  dueDate: text("due_date").notNull(), // YYYY-MM-DD
+  status: choreInstanceStatusEnum("status").notNull().default("todo"),
+  pointsAwarded: boolean("points_awarded").notNull().default(false),
+  completedAt: timestamp("completed_at"),
+  approvedAt: timestamp("approved_at"),
+  approvedByParentId: integer("approved_by_parent_id").references(() => familyMembersTable.id, { onDelete: "set null" }),
+  missedAt: timestamp("missed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  unique("unique_chore_instance_per_day").on(t.templateId, t.childId, t.dueDate),
+]);
+
+export const insertChoreInstanceSchema = createInsertSchema(choreInstancesTable).omit({ id: true, createdAt: true });
+export type InsertChoreInstance = z.infer<typeof insertChoreInstanceSchema>;
+export type ChoreInstance = typeof choreInstancesTable.$inferSelect;
 
 // ── Rewards ───────────────────────────────────────────────────────────────────
 
@@ -132,6 +188,7 @@ export const pointTransactionsTable = pgTable("point_transactions", {
   type: transactionTypeEnum("type").notNull(),
   description: text("description").notNull(),
   choreId: integer("chore_id").references(() => choresTable.id, { onDelete: "set null" }),
+  choreInstanceId: integer("chore_instance_id").references(() => choreInstancesTable.id, { onDelete: "set null" }),
   redemptionId: integer("redemption_id").references(() => redemptionsTable.id, { onDelete: "set null" }),
   approvedByParentId: integer("approved_by_parent_id").references(() => familyMembersTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),

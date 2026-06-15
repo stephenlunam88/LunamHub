@@ -11,6 +11,15 @@ export interface ChoreSummary {
   memberName: string;
   memberColor: string;
   memberEmoji: string;
+  /** @nullable */
+  memberAvatarUrl?: string | null;
+  pointsBalance?: number;
+  lifetimePoints?: number;
+  todoPending: number;
+  pendingApproval: number;
+  doneToday: number;
+  missedToday: number;
+  allTimeDone: number;
   pending: number;
   completed: number;
   approved: number;
