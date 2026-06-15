@@ -1,11 +1,10 @@
 import { useState } from "react";
 import {
   useListChores, useListFamilyMembers, useCreateChore, useCompleteChore,
-  useApproveChore, useRejectChore, useDeleteChore, useGetChoresSummary, useListBadges,
+  useApproveChore, useRejectChore, useDeleteChore, useGetChoresSummary, useListBadges, useVerifyPin,
   getListChoresQueryKey, getGetChoresSummaryQueryKey, getListFamilyMembersQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -214,13 +213,82 @@ function PinDismissDialog({ choreId, choreTitle, parents, onSuccess }: {
   );
 }
 
+function PinDeleteDialog({ choreId, choreTitle, onSuccess }: {
+  choreId: number;
+  choreTitle: string;
+  onSuccess: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const deleteChore = useDeleteChore({
+    mutation: { onSuccess: () => { setOpen(false); setPin(""); setError(null); onSuccess(); } }
+  });
+
+  const verifyPin = useVerifyPin({
+    mutation: {
+      onSuccess: () => {
+        deleteChore.mutate({ id: choreId });
+      },
+      onError: () => {
+        setError("Incorrect PIN — try again");
+        setPin("");
+      }
+    }
+  });
+
+  const reset = () => { setPin(""); setError(null); };
+  const handleConfirm = () => verifyPin.mutate({ data: { pin } });
+
+  return (
+    <Dialog open={open} onOpenChange={o => { setOpen(o); reset(); }}>
+      <DialogTrigger asChild>
+        <Button size="icon" variant="ghost" className="h-12 w-12 rounded-xl text-muted-foreground hover:text-destructive">
+          <Trash2 className="w-5 h-5" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="rounded-3xl max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-serif flex items-center gap-2">
+            <Lock className="w-5 h-5" /> Delete Chore
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-muted-foreground text-sm">Delete "{choreTitle}"? Enter the admin PIN to confirm.</p>
+          <div>
+            <Label>Admin PIN</Label>
+            <Input
+              type="password"
+              inputMode="numeric"
+              value={pin}
+              onChange={e => { setPin(e.target.value); setError(null); }}
+              onKeyDown={e => { if (e.key === "Enter" && pin) handleConfirm(); }}
+              placeholder="••••"
+              className={`rounded-xl h-12 text-center tracking-[0.4em] text-xl mt-1 ${error ? "border-red-500 bg-red-50" : ""}`}
+              autoFocus
+            />
+            {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
+          </div>
+          <Button
+            variant="destructive"
+            className="w-full h-12 rounded-xl"
+            onClick={handleConfirm}
+            disabled={!pin || verifyPin.isPending || deleteChore.isPending}
+          >
+            {verifyPin.isPending || deleteChore.isPending ? "Deleting…" : "Delete Chore"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Chores() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<ChoreFormState>({ title: "", pointsValue: 10, repeatType: "once" });
   const [filterChildId, setFilterChildId] = useState<number | null>(null);
-
-  const today = format(new Date(), "yyyy-MM-dd");
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: getListChoresQueryKey() });
@@ -238,17 +306,14 @@ export default function Chores() {
   const createChore = useCreateChore({ mutation: { onSuccess: () => { invalidate(); setOpen(false); setForm({ title: "", pointsValue: 10, repeatType: "once", assignedToMany: [] }); } } });
   const completeChore = useCompleteChore({ mutation: { onSuccess: invalidate } });
   const approveChore = useApproveChore({ mutation: { onSuccess: invalidate } });
-  const deleteChore = useDeleteChore({ mutation: { onSuccess: invalidate } });
 
   const children = members.filter(m => m.role === "child");
   const parents = members.filter(m => m.role === "parent") as ParentInfo[];
 
-  const chores = allChores.filter(c => !c.dueDate || c.dueDate === today);
-
-  const todo = chores.filter(c => c.status === "todo");
-  const needsApproval = chores.filter(c => c.status === "pending_approval");
-  const done = chores.filter(c => c.status === "done");
-  const missed = chores.filter(c => c.status === "missed");
+  const todo = allChores.filter(c => c.status === "todo");
+  const needsApproval = allChores.filter(c => c.status === "pending_approval");
+  const done = allChores.filter(c => c.status === "done");
+  const missed = allChores.filter(c => c.status === "missed");
 
   const summarySlice = filterChildId
     ? summary.filter(s => s.memberId === filterChildId)
@@ -467,10 +532,7 @@ export default function Chores() {
                       onClick={() => completeChore.mutate({ id: c.id })}>
                       <CheckCircle2 className="w-6 h-6" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-12 w-12 rounded-xl text-muted-foreground hover:text-destructive"
-                      onClick={() => deleteChore.mutate({ id: c.id })}>
-                      <Trash2 className="w-5 h-5" />
-                    </Button>
+                    <PinDeleteDialog choreId={c.id} choreTitle={c.title} onSuccess={invalidate} />
                   </div>
                 </CardContent>
               </Card>

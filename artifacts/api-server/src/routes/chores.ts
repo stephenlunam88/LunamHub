@@ -336,13 +336,15 @@ router.get("/summary", async (_req, res) => {
 router.get("/", async (req, res) => {
   await generateTodayInstances();
 
+  const today = todayStr();
   const assignedTo = req.query.assignedTo ? Number(req.query.assignedTo) : undefined;
   const statusFilter = req.query.status as string | undefined;
 
   let instances = await db
     .select()
     .from(choreInstancesTable)
-    .orderBy(choreInstancesTable.dueDate, choreInstancesTable.createdAt);
+    .where(eq(choreInstancesTable.dueDate, today))
+    .orderBy(choreInstancesTable.createdAt);
 
   if (assignedTo != null) instances = instances.filter((i) => i.childId === assignedTo);
   if (statusFilter) instances = instances.filter((i) => i.status === statusFilter);
