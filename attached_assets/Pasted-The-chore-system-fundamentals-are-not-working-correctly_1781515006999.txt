@@ -1,0 +1,255 @@
+The chore system fundamentals are not working correctly. Please fix the backend logic before adding any new UI features.
+
+The app must implement a proper chore engine with these rules.
+
+## 1. Separate Repeat Templates From Chore Instances
+
+Repeatable chores must not just be one chore with a repeat label.
+
+Create/use two concepts:
+
+### Chore Template
+Stores the repeat rule.
+
+Fields:
+- id
+- title
+- description
+- points
+- assigned child/children
+- repeat frequency: none, daily, weekly, custom
+- due time
+- required/optional
+- missed behaviour
+- active/inactive
+
+### Chore Instance
+Stores the actual chore for a specific date.
+
+Fields:
+- id
+- templateId
+- childId
+- scheduledDate
+- dueDateTime
+- status
+- points
+- completedAt
+- approvedAt
+- approvedByParentId
+- rejectedAt
+- rejectionReason
+
+Each repeat occurrence must be its own instance.
+
+Example:
+
+Make Bed daily should create:
+
+- Make Bed - Monday
+- Make Bed - Tuesday
+- Make Bed - Wednesday
+
+Each one has its own status and history.
+
+## 2. Repeat Chore Generation
+
+Add scheduled logic that checks chore templates and creates missing chore instances.
+
+For each active repeatable template:
+
+- Check today’s date
+- Check whether an instance already exists for that child/date/template
+- If not, create it
+
+Do not create duplicates.
+
+This should run:
+- When the app loads
+- When the dashboard loads
+- After a parent creates or edits a repeatable chore
+- On a scheduled/background check if supported
+
+## 3. Missed Chore Logic
+
+Missed chores are currently not implemented and must be fixed.
+
+When a repeatable chore instance passes its due date/time and is still incomplete:
+
+Assigned → Missed
+
+No points are awarded.
+
+The missed chore should:
+- Stay in history
+- Not appear as an active chore
+- Break the child’s streak if it is required
+- Not block the next repeat occurrence from being created
+
+Example:
+
+Daily chore: Make Bed, due 8:00am
+
+Monday:
+- Instance exists
+- Child does not complete it
+- At 8:01am it becomes Missed
+
+Tuesday:
+- A new Make Bed instance is created
+- Monday remains Missed in history
+
+## 4. One-Off Chore Overdue Logic
+
+For non-repeat one-off chores:
+
+When due date/time passes and status is still Assigned:
+
+Assigned → Overdue
+
+One-off overdue chores should remain visible until:
+- Completed
+- Cancelled
+- Edited by a parent
+
+## 5. Required Status Rules
+
+Use these statuses consistently:
+
+- Assigned
+- Pending Approval
+- Approved
+- Rejected
+- Missed
+- Overdue
+- Cancelled
+
+Do not award points for:
+- Assigned
+- Pending Approval
+- Rejected
+- Missed
+- Overdue
+- Cancelled
+
+Only award points when status becomes Approved.
+
+## 6. Approval Logic
+
+When a child completes a chore:
+
+Assigned or Overdue → Pending Approval
+
+When a parent approves:
+
+Pending Approval → Approved
+
+Then:
+- Add points to child current balance
+- Add points to child lifetime points
+- Record approvedAt
+- Record approvedByParentId
+
+When rejected:
+
+Pending Approval → Rejected
+
+No points awarded.
+
+## 7. Streak Logic
+
+Streaks must be implemented.
+
+Track per child:
+
+- currentStreak
+- bestStreak
+- lastStreakDate
+- missedRequiredChoreCount
+
+A child earns a streak day only when all required chores for that day are approved.
+
+A streak breaks when a required chore for that day becomes Missed.
+
+Optional chores do not affect streaks.
+
+Cancelled chores do not affect streaks.
+
+If a child has no required chores assigned for a day, do not increment or break the streak.
+
+## 8. Dashboard Behaviour
+
+Active child chore list should show:
+
+- Assigned
+- Overdue
+- Pending Approval
+- Rejected
+
+It should not show:
+
+- Approved
+- Missed
+- Cancelled
+
+Missed and approved chores should be available in history only.
+
+## 9. Acceptance Tests
+
+Please implement and test these scenarios:
+
+### Daily repeat chore
+Create “Make Bed”, assigned to one child, repeats daily, due 8:00am.
+
+Expected:
+- Today’s instance is created.
+- If not completed after 8:00am, it becomes Missed.
+- Tomorrow a new instance is created.
+- No duplicate instances are created.
+
+### Weekly repeat chore
+Create “Take Bins Out”, repeats weekly.
+
+Expected:
+- One instance is created for the correct scheduled day.
+- It does not create daily duplicates.
+- If missed, it becomes Missed but next week’s occurrence is still created.
+
+### One-off chore
+Create “Clean Room”, no repeat, due today.
+
+Expected:
+- If not completed by due time, it becomes Overdue.
+- It remains visible until completed or cancelled.
+
+### Approval
+Complete a chore.
+
+Expected:
+- Status becomes Pending Approval.
+- No points are awarded yet.
+- Parent approves with PIN.
+- Status becomes Approved.
+- Points are added once only.
+- Refreshing the page does not add points again.
+
+### Streak
+Create one required daily chore.
+
+Expected:
+- If approved today, current streak becomes 1.
+- If approved tomorrow, current streak becomes 2.
+- If missed the next day, current streak resets to 0.
+- Best streak remains 2.
+
+## 10. Priority
+
+Do not add new features until this is fixed.
+
+Focus on:
+1. Repeat chore instance generation
+2. Missed chore processing
+3. One-off overdue processing
+4. Correct point awarding
+5. Streak calculation
+6. Dashboard filtering

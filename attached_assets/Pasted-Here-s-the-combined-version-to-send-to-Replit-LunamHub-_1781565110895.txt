@@ -1,0 +1,436 @@
+Here’s the combined version to send to Replit:
+
+---
+
+## LunamHub chore, points and reward fixes
+
+The UI is looking good, but the chore, points and reward logic needs to be tightened so the app behaves correctly long term.
+
+The main rule is:
+
+**Recurring chores should generate dated chore instances, and points should only be awarded when a specific chore instance is approved.**
+
+---
+
+## 1. Same chore name for multiple kids is valid
+
+The app is correctly showing two “Make bed” chores because two children have the same chore assigned.
+
+This is **not a duplicate bug**.
+
+The issue is that the dashboard and chore list need to make the assigned child more obvious.
+
+### Required fix
+
+Wherever chores are displayed, show the assigned child clearly.
+
+Each chore row should show:
+
+```text
+Child avatar
+Child name
+Chore title
+Points
+Repeat type
+Status
+```
+
+Example:
+
+```text
+Illidan — Make bed — 10 pts — Daily
+Honor — Make bed — 10 pts — Daily
+```
+
+On the dashboard chore tile, do not show only:
+
+```text
+Make bed — 10 pts
+Make bed — 10 pts
+```
+
+Instead show:
+
+```text
+Illidan — Make bed — 10 pts
+Honor — Make bed — 10 pts
+```
+
+Only treat it as a duplicate if the **same child** has the **same chore instance** more than once for the **same date**.
+
+Valid:
+
+```text
+Make bed / Illidan / Today
+Make bed / Honor / Today
+```
+
+Not valid:
+
+```text
+Make bed / Illidan / Today
+Make bed / Illidan / Today
+```
+
+Duplicate prevention should be based on:
+
+```text
+templateId + childId + dueDate
+```
+
+Not chore title alone.
+
+---
+
+## 2. Separate chore templates from chore instances
+
+Please refactor chores into two concepts.
+
+### Chore Template
+
+This is the parent rule.
+
+Fields:
+
+```text
+id
+title
+description
+points
+assignedChildIds
+repeatType: none | daily | weekly | custom
+daysOfWeek
+requiresApproval
+active
+createdBy
+createdAt
+```
+
+### Chore Instance
+
+This is the actual chore the child completes.
+
+Fields:
+
+```text
+id
+templateId
+childId
+title
+points
+dueDate
+status: todo | pending_approval | done | missed | rejected
+completedAt
+approvedAt
+approvedBy
+missedAt
+createdAt
+pointsAwarded: boolean
+```
+
+The app should display and complete **instances**, not templates.
+
+---
+
+## 3. Recurring chore behaviour
+
+For daily chores:
+
+```text
+Each day:
+- Check all active daily chore templates.
+- For each assigned child:
+  - If no chore instance exists for that child/template/date:
+    - Create one chore instance for today.
+```
+
+Important:
+
+```text
+Do not create duplicate instances if one already exists for the same:
+templateId + childId + dueDate
+```
+
+Add a uniqueness rule:
+
+```text
+unique(templateId, childId, dueDate)
+```
+
+Example:
+
+```text
+Make Bed assigned to Honor, daily
+Every day Honor should see one Make Bed chore
+Completing today’s chore should not complete tomorrow’s chore
+Tomorrow should generate a fresh instance
+```
+
+---
+
+## 4. Missed chore behaviour
+
+Missed chores are not currently implemented and need to be added.
+
+At the end of the day, or when the app opens the next day:
+
+```text
+Find all chore instances where:
+status = todo
+dueDate < today
+
+Set them to:
+status = missed
+missedAt = current timestamp
+```
+
+Missed chores should:
+
+```text
+- Not award points
+- Not count as done
+- Not stay forever in To Do
+- Not block the next recurring chore from being created
+- Be visible in history or a missed tab
+```
+
+A repeat chore that was missed yesterday should still create a fresh chore today.
+
+---
+
+## 5. Chore approval flow
+
+The approval flow should work like this:
+
+```text
+Child marks chore as complete
+→ chore moves to pending_approval
+
+Parent approves chore
+→ chore moves to done
+→ points are awarded
+
+Parent rejects chore
+→ chore moves back to todo or rejected
+→ no points are awarded
+```
+
+Points should only be awarded once.
+
+Use:
+
+```text
+pointsAwarded: boolean
+```
+
+When a parent approves a chore:
+
+```text
+if chore.status == pending_approval and chore.pointsAwarded == false:
+    child.storeBalance += chore.points
+    child.achievementPoints += chore.points
+    child.weeklyPoints += chore.points
+    chore.pointsAwarded = true
+    chore.status = done
+```
+
+This prevents double-awarding points if the approve button is clicked twice or the page refreshes.
+
+---
+
+## 6. Points model
+
+Store balance and achievement points need to be separated.
+
+### Store balance
+
+This is the child’s spendable balance.
+
+```text
+Completing approved chores increases store balance
+Buying rewards decreases store balance
+```
+
+### Achievement points
+
+This is the child’s lifetime earned points.
+
+```text
+Completing approved chores increases achievement points
+Buying rewards does not decrease achievement points
+```
+
+When a chore is approved:
+
+```text
+child.storeBalance += chore.points
+child.achievementPoints += chore.points
+child.weeklyPoints += chore.points
+```
+
+When a reward is approved:
+
+```text
+child.storeBalance -= reward.cost
+```
+
+Do not reduce achievement points when a reward is purchased.
+
+---
+
+## 7. Prevent negative store balances
+
+Illidan currently has a negative store balance. This should not happen unless a parent override feature is deliberately added.
+
+Reward request should check the selected child’s store balance before allowing the request.
+
+```text
+if child.storeBalance >= reward.cost:
+    allow reward request
+else:
+    block request and show:
+    "You need more points for this reward."
+```
+
+If parent override is added later, it should be explicit:
+
+```text
+Parent override required
+Admin PIN required
+Allow negative balance: true
+```
+
+But for now, do not allow negative store balances.
+
+---
+
+## 8. Reward store behaviour
+
+Reward request should:
+
+```text
+- Let the child select who is requesting the reward
+- Check that child’s store balance
+- Prevent the request if balance is too low
+- Move the reward request to parent approval
+- Deduct points only once the reward is approved
+```
+
+Reward approval should work like this:
+
+```text
+Child requests reward
+→ reward moves to pending approval
+
+Parent approves reward
+→ check store balance again
+→ deduct reward cost
+→ mark reward as approved
+
+Parent rejects reward
+→ do not deduct points
+→ mark reward as rejected
+```
+
+This prevents a child from requesting a reward, spending points elsewhere, and then still getting the original reward approved without enough balance.
+
+---
+
+## 9. Dashboard fixes
+
+On the dashboard chore tile, each chore row should show:
+
+```text
+Child avatar
+Child name
+Chore title
+Points
+Status
+```
+
+Example:
+
+```text
+Honor — Make bed — 10 pts
+Illidan — Make bed — 10 pts
+```
+
+The dashboard should show today’s active chore instances, not old templates.
+
+Recommended dashboard sections:
+
+```text
+Today’s To Do
+Pending Approval
+Done Today
+```
+
+Avoid showing old completed recurring chores in today’s active list.
+
+---
+
+## 10. Chores page filters
+
+The child cards at the top should be clickable filters.
+
+Expected behaviour:
+
+```text
+Click Honor card:
+- Show only Honor’s chores
+- Show Honor’s pending approval and done chores
+
+Click Illidan card:
+- Show only Illidan’s chores
+
+Click All:
+- Show all children’s chores
+```
+
+The selected child card should have a clear active state.
+
+---
+
+## 11. Chore count fixes
+
+The current count shows:
+
+```text
+To Do: 4
+Approval: 0
+Done: 15
+```
+
+Done may include old recurring instances, which is okay for history, but the main chores view should clearly separate current and historical data.
+
+Use separate counts:
+
+```text
+Today To Do
+Today Pending Approval
+Done Today
+Missed Today
+All-Time Done
+```
+
+Do not mix all-time done chores into today’s workflow unless it is clearly labelled as history.
+
+---
+
+## 12. Priority order
+
+Please fix in this order:
+
+```text
+1. Separate chore templates from chore instances
+2. Add assigned child display to dashboard chores
+3. Add duplicate prevention using templateId + childId + dueDate
+4. Implement missed chores
+5. Fix approval so points are only awarded once
+6. Separate store balance from achievement points
+7. Prevent reward requests that would create negative balances
+8. Add child filtering on the chores page
+9. Clean up today vs history chore counts
+```
+
+The app should treat chores as dated daily instances, not just static records. Same-name chores are allowed across different children, but the assigned child must be clearly shown everywhere.
