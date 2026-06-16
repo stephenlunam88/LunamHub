@@ -411,10 +411,10 @@ export default function Calendar() {
 
             <div>
               <Label>Repeat</Label>
-              <Select value={form.recurrence ?? ""} onValueChange={v => setForm(f => ({ ...f, recurrence: v, recurrenceEndDate: v ? f.recurrenceEndDate : "" }))}>
+              <Select value={form.recurrence ?? "none"} onValueChange={v => setForm(f => ({ ...f, recurrence: v === "none" ? null : v, recurrenceEndDate: v === "none" ? "" : f.recurrenceEndDate }))}>
                 <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="None" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   <SelectItem value="DAILY">Daily</SelectItem>
                   <SelectItem value="WEEKLY">Weekly</SelectItem>
                   <SelectItem value="MONTHLY">Monthly</SelectItem>
