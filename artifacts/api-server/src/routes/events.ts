@@ -1,5 +1,6 @@
 // Calendar event routes
-// Handles creating, reading, updating and deleting events with member assignments
+// Handles creating, reading, updating and deleting events with member assignments.
+// Events created/deleted via this API are also synced to Google Calendar when connected.
 
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -12,7 +13,15 @@ import {
   UpdateEventParams,
   DeleteEventParams,
   ListEventsQueryParams,
+  SyncGoogleCalendarBody,
 } from "@workspace/api-zod";
+import {
+  isGCalConnected,
+  listGCalEvents,
+  createGCalEvent,
+  deleteGCalEvent,
+  type GCalEvent,
+} from "../lib/google-calendar";
 
 const router = Router();
 
@@ -37,13 +46,86 @@ function formatEvent(e: typeof eventsTable.$inferSelect, memberIds: number[] = [
     endTime: e.endTime ?? null,
     allDay: e.allDay,
     category: e.category,
+    googleEventId: e.googleEventId ?? null,
     assignedMembers: memberIds,
     createdAt: e.createdAt.toISOString(),
   };
 }
 
-// GET /api/events — list events with optional filters
-router.get("/", async (req, res) => {
+// Map a Google Calendar event to our local schema for upsert
+function gcalToLocal(ge: GCalEvent): {
+  title: string;
+  description: string | null;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  allDay: boolean;
+  category: "other";
+  googleEventId: string;
+} {
+  const isAllDay = !!ge.start.date;
+  const date = ge.start.date ?? ge.start.dateTime?.slice(0, 10) ?? "";
+  const startTime = ge.start.dateTime ? ge.start.dateTime.slice(11, 16) : null;
+  const endTime = ge.end.dateTime ? ge.end.dateTime.slice(11, 16) : null;
+  return {
+    title: ge.summary ?? "(No title)",
+    description: ge.description ?? null,
+    date,
+    startTime,
+    endTime,
+    allDay: isAllDay,
+    category: "other",
+    googleEventId: ge.id,
+  };
+}
+
+// ── Google Calendar status (before /:id to avoid route conflict) ──────────────
+router.get("/google-calendar-status", async (req, res): Promise<void> => {
+  const connected = await isGCalConnected();
+  res.json({ connected });
+});
+
+// ── Google Calendar sync ──────────────────────────────────────────────────────
+router.post("/sync-google", async (req, res): Promise<void> => {
+  const body = SyncGoogleCalendarBody.parse(req.body);
+  const connected = await isGCalConnected();
+  if (!connected) {
+    res.json({ connected: false, synced: 0 });
+    return;
+  }
+
+  const gcalEvents = await listGCalEvents(body.startDate, body.endDate);
+  if (!gcalEvents) {
+    res.json({ connected: true, synced: 0 });
+    return;
+  }
+
+  let synced = 0;
+  for (const ge of gcalEvents) {
+    const local = gcalToLocal(ge);
+    // Upsert: if we already have a local row with this googleEventId, update it; otherwise insert
+    const [existing] = await db
+      .select({ id: eventsTable.id })
+      .from(eventsTable)
+      .where(eq(eventsTable.googleEventId, ge.id));
+
+    if (existing) {
+      await db
+        .update(eventsTable)
+        .set({ title: local.title, description: local.description, date: local.date, startTime: local.startTime, endTime: local.endTime, allDay: local.allDay })
+        .where(eq(eventsTable.id, existing.id));
+    } else {
+      await db.insert(eventsTable).values(local);
+    }
+    synced++;
+  }
+
+  req.log.info({ synced, range: `${body.startDate}..${body.endDate}` }, "gcal sync complete");
+  res.json({ connected: true, synced });
+});
+
+// ── List events ───────────────────────────────────────────────────────────────
+router.get("/", async (req, res): Promise<void> => {
   const params = ListEventsQueryParams.parse({
     startDate: req.query.startDate,
     endDate: req.query.endDate,
@@ -64,13 +146,28 @@ router.get("/", async (req, res) => {
   res.json(result);
 });
 
-// POST /api/events
-router.post("/", async (req, res) => {
+// ── Create event (also pushes to Google Calendar) ────────────────────────────
+router.post("/", async (req, res): Promise<void> => {
   const body = CreateEventBody.parse(req.body);
   const assignedMembers: number[] = (body as { assignedMembers?: number[] }).assignedMembers ?? [];
   const { assignedMembers: _drop, ...eventData } = body as typeof body & { assignedMembers?: number[] };
 
   const [event] = await db.insert(eventsTable).values(eventData).returning();
+
+  // Best-effort push to Google Calendar; store returned googleEventId
+  const gcalId = await createGCalEvent({
+    title: event.title,
+    description: event.description,
+    date: event.date,
+    startTime: event.startTime,
+    endTime: event.endTime,
+    allDay: event.allDay,
+  });
+  if (gcalId) {
+    await db.update(eventsTable).set({ googleEventId: gcalId }).where(eq(eventsTable.id, event.id));
+    event.googleEventId = gcalId;
+  }
+
   if (assignedMembers.length > 0) {
     await db.insert(eventMembersTable).values(assignedMembers.map((mid) => ({ eventId: event.id, memberId: mid })));
   }
@@ -78,8 +175,8 @@ router.post("/", async (req, res) => {
   res.status(201).json(formatEvent(event, memberMap[event.id] ?? []));
 });
 
-// GET /api/events/:id
-router.get("/:id", async (req, res) => {
+// ── Get event ─────────────────────────────────────────────────────────────────
+router.get("/:id", async (req, res): Promise<void> => {
   const { id } = GetEventParams.parse({ id: Number(req.params.id) });
   const [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, id));
   if (!event) { res.status(404).json({ error: "Not found" }); return; }
@@ -87,8 +184,8 @@ router.get("/:id", async (req, res) => {
   res.json(formatEvent(event, memberMap[id] ?? []));
 });
 
-// PATCH /api/events/:id
-router.patch("/:id", async (req, res) => {
+// ── Update event ──────────────────────────────────────────────────────────────
+router.patch("/:id", async (req, res): Promise<void> => {
   const { id } = UpdateEventParams.parse({ id: Number(req.params.id) });
   const body = UpdateEventBody.parse(req.body);
   const assignedMembers: number[] | undefined = (body as { assignedMembers?: number[] }).assignedMembers;
@@ -108,9 +205,14 @@ router.patch("/:id", async (req, res) => {
   res.json(formatEvent(event, memberMap[id] ?? []));
 });
 
-// DELETE /api/events/:id
-router.delete("/:id", async (req, res) => {
+// ── Delete event (also deletes from Google Calendar) ─────────────────────────
+router.delete("/:id", async (req, res): Promise<void> => {
   const { id } = DeleteEventParams.parse({ id: Number(req.params.id) });
+  const [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, id));
+  if (event?.googleEventId) {
+    // Best-effort — don't block local delete on Google Calendar failure
+    deleteGCalEvent(event.googleEventId).catch(() => {});
+  }
   await db.delete(eventsTable).where(eq(eventsTable.id, id));
   res.status(204).send();
 });

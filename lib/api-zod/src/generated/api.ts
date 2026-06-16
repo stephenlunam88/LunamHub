@@ -124,6 +124,7 @@ export const ListEventsResponseItem = zod.object({
   "endTime": zod.string().nullish(),
   "allDay": zod.boolean(),
   "category": zod.enum(['school', 'sport', 'appointment', 'birthday', 'family', 'other']),
+  "googleEventId": zod.string().nullish().describe('Google Calendar event ID for synced events'),
   "assignedMembers": zod.array(zod.number()),
   "createdAt": zod.string()
 })
@@ -146,6 +147,28 @@ export const CreateEventBody = zod.object({
 
 
 /**
+ * @summary Get Google Calendar connection status
+ */
+export const GetGoogleCalendarStatusResponse = zod.object({
+  "connected": zod.boolean()
+})
+
+
+/**
+ * @summary Sync events from Google Calendar for a date range
+ */
+export const SyncGoogleCalendarBody = zod.object({
+  "startDate": zod.string().describe('Start date YYYY-MM-DD'),
+  "endDate": zod.string().describe('End date YYYY-MM-DD')
+})
+
+export const SyncGoogleCalendarResponse = zod.object({
+  "connected": zod.boolean(),
+  "synced": zod.number().describe('Number of events upserted from Google Calendar')
+})
+
+
+/**
  * @summary Get an event
  */
 export const GetEventParams = zod.object({
@@ -161,6 +184,7 @@ export const GetEventResponse = zod.object({
   "endTime": zod.string().nullish(),
   "allDay": zod.boolean(),
   "category": zod.enum(['school', 'sport', 'appointment', 'birthday', 'family', 'other']),
+  "googleEventId": zod.string().nullish().describe('Google Calendar event ID for synced events'),
   "assignedMembers": zod.array(zod.number()),
   "createdAt": zod.string()
 })
@@ -193,6 +217,7 @@ export const UpdateEventResponse = zod.object({
   "endTime": zod.string().nullish(),
   "allDay": zod.boolean(),
   "category": zod.enum(['school', 'sport', 'appointment', 'birthday', 'family', 'other']),
+  "googleEventId": zod.string().nullish().describe('Google Calendar event ID for synced events'),
   "assignedMembers": zod.array(zod.number()),
   "createdAt": zod.string()
 })
@@ -1097,6 +1122,7 @@ export const GetDashboardSummaryResponse = zod.object({
   "endTime": zod.string().nullish(),
   "allDay": zod.boolean(),
   "category": zod.enum(['school', 'sport', 'appointment', 'birthday', 'family', 'other']),
+  "googleEventId": zod.string().nullish().describe('Google Calendar event ID for synced events'),
   "assignedMembers": zod.array(zod.number()),
   "createdAt": zod.string()
 })),
@@ -1109,6 +1135,7 @@ export const GetDashboardSummaryResponse = zod.object({
   "endTime": zod.string().nullish(),
   "allDay": zod.boolean(),
   "category": zod.enum(['school', 'sport', 'appointment', 'birthday', 'family', 'other']),
+  "googleEventId": zod.string().nullish().describe('Google Calendar event ID for synced events'),
   "assignedMembers": zod.array(zod.number()),
   "createdAt": zod.string()
 })),

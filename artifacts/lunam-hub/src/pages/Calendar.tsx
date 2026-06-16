@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  useListEvents, useCreateEvent, useDeleteEvent,
-  getListEventsQueryKey, getListEventsQueryOptions,
+  useListEvents, useCreateEvent, useDeleteEvent, useSyncGoogleCalendar, useGetGoogleCalendarStatus,
+  getListEventsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay, parseISO } from "date-fns";
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Plus, Trash2, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Trash2, Clock, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { EventInput } from "@workspace/api-client-react";
 
@@ -37,6 +37,22 @@ export default function Calendar() {
   const startDate = format(startOfMonth(currentMonth), "yyyy-MM-dd");
   const endDate = format(endOfMonth(currentMonth), "yyyy-MM-dd");
   const { data: events = [] } = useListEvents({ startDate, endDate });
+  const { data: gcalStatus } = useGetGoogleCalendarStatus();
+  const isConnected = gcalStatus?.connected ?? false;
+
+  const sync = useSyncGoogleCalendar({
+    mutation: {
+      onSuccess: () => qc.invalidateQueries({ queryKey: getListEventsQueryKey() }),
+    },
+  });
+
+  // Auto-sync Google Calendar when month changes (if connected)
+  useEffect(() => {
+    if (isConnected) {
+      sync.mutate({ data: { startDate, endDate } });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, isConnected]);
 
   const createEvent = useCreateEvent({
     mutation: {
@@ -57,7 +73,16 @@ export default function Calendar() {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex items-center justify-between">
-        <h1 className="text-4xl font-serif font-bold">Calendar</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-4xl font-serif font-bold">Calendar</h1>
+          {isConnected && (
+            <span className="flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+              Google Calendar
+              {sync.isPending && <RefreshCw className="w-3 h-3 animate-spin ml-0.5" />}
+            </span>
+          )}
+        </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button className="h-14 px-6 rounded-2xl text-lg gap-2">
@@ -142,7 +167,12 @@ export default function Calendar() {
               selectedDayEvents.map(e => (
                 <div key={e.id} className="bg-muted rounded-2xl p-4 flex gap-3">
                   <div className="flex-1">
-                    <div className="font-semibold text-base">{e.title}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-base">{e.title}</span>
+                      {e.googleEventId && (
+                        <span className="text-[10px] font-medium text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">GCal</span>
+                      )}
+                    </div>
                     {e.startTime && (
                       <div className="flex items-center gap-1 text-muted-foreground text-sm mt-1">
                         <Clock className="w-3 h-3" />{e.startTime}{e.endTime ? ` – ${e.endTime}` : ""}
@@ -162,6 +192,14 @@ export default function Calendar() {
               onClick={() => { setForm(f => ({ ...f, date: format(selectedDay, "yyyy-MM-dd") })); setOpen(true); }}>
               <Plus className="w-4 h-4 mr-2" /> Add to this day
             </Button>
+            {isConnected && (
+              <Button variant="ghost" className="w-full rounded-xl h-10 text-muted-foreground text-sm gap-1.5"
+                onClick={() => sync.mutate({ data: { startDate, endDate } })}
+                disabled={sync.isPending}>
+                <RefreshCw className={cn("w-3.5 h-3.5", sync.isPending && "animate-spin")} />
+                {sync.isPending ? "Syncing…" : "Sync Google Calendar"}
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>

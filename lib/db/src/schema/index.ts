@@ -62,10 +62,11 @@ export const eventsTable = pgTable("events", {
   endTime: text("end_time"),
   allDay: boolean("all_day").notNull().default(false),
   category: eventCategoryEnum("category").notNull().default("other"),
+  googleEventId: text("google_event_id"), // Google Calendar event ID for synced events
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertEventSchema = createInsertSchema(eventsTable).omit({ id: true, createdAt: true });
+export const insertEventSchema = createInsertSchema(eventsTable).omit({ id: true, createdAt: true, googleEventId: true });
 export type InsertEvent = z.infer<typeof insertEventSchema>;
 export type Event = typeof eventsTable.$inferSelect;
 

@@ -19,6 +19,11 @@ export interface Event {
   endTime?: string | null;
   allDay: boolean;
   category: EventCategory;
+  /**
+     * Google Calendar event ID for synced events
+     * @nullable
+     */
+  googleEventId?: string | null;
   assignedMembers: number[];
   createdAt: string;
 }

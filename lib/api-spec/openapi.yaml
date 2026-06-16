@@ -185,6 +185,38 @@ paths:
               schema:
                 $ref: "#/components/schemas/Event"
 
+  /events/google-calendar-status:
+    get:
+      operationId: getGoogleCalendarStatus
+      tags: [events]
+      summary: Get Google Calendar connection status
+      responses:
+        "200":
+          description: Connection status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoogleCalendarStatus"
+
+  /events/sync-google:
+    post:
+      operationId: syncGoogleCalendar
+      tags: [events]
+      summary: Sync events from Google Calendar for a date range
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoogleCalendarSyncInput"
+      responses:
+        "200":
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoogleCalendarSyncResult"
+
   /events/{id}:
     get:
       operationId: getEvent
@@ -1519,6 +1551,9 @@ components:
         category:
           type: string
           enum: [school, sport, appointment, birthday, family, other]
+        googleEventId:
+          type: ["string", "null"]
+          description: Google Calendar event ID for synced events
         assignedMembers:
           type: array
           items:
@@ -1533,6 +1568,39 @@ components:
         - category
         - assignedMembers
         - createdAt
+
+    GoogleCalendarSyncInput:
+      type: object
+      properties:
+        startDate:
+          type: string
+          description: Start date YYYY-MM-DD
+        endDate:
+          type: string
+          description: End date YYYY-MM-DD
+      required:
+        - startDate
+        - endDate
+
+    GoogleCalendarSyncResult:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        synced:
+          type: integer
+          description: Number of events upserted from Google Calendar
+      required:
+        - connected
+        - synced
+
+    GoogleCalendarStatus:
+      type: object
+      properties:
+        connected:
+          type: boolean
+      required:
+        - connected
 
     EventInput:
       type: object

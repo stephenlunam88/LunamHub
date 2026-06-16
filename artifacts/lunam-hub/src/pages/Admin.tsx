@@ -16,7 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload } from "lucide-react";
+import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload, CalendarDays } from "lucide-react";
+import { useGetGoogleCalendarStatus } from "@workspace/api-client-react";
 import type { FamilyMemberInput, RewardInput, RewardUpdate, Reward } from "@workspace/api-client-react";
 
 export default function Admin() {
@@ -192,6 +193,53 @@ function AvatarUploadButton({ memberId, currentAvatarUrl }: { memberId: number; 
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
       {error && <span className="text-xs text-red-600">{error}</span>}
     </div>
+  );
+}
+
+function GoogleCalendarCard() {
+  const { data: status, isLoading } = useGetGoogleCalendarStatus();
+  const connected = status?.connected ?? false;
+
+  return (
+    <Card className="rounded-3xl border-0 shadow-sm">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <CalendarDays className="w-5 h-5" /> Google Calendar
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading ? (
+          <p className="text-muted-foreground text-sm">Checking connection…</p>
+        ) : connected ? (
+          <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-2xl p-4">
+            <span className="w-3 h-3 rounded-full bg-green-500 shrink-0" />
+            <div>
+              <div className="font-semibold text-green-800">Connected</div>
+              <p className="text-sm text-green-700 mt-0.5">
+                Calendar events sync automatically when you open the Calendar page. Events you add in LunamHub are also pushed to Google Calendar.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 bg-muted rounded-2xl p-4">
+              <span className="w-3 h-3 rounded-full bg-gray-400 shrink-0" />
+              <div>
+                <div className="font-semibold">Not connected</div>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Google Calendar sync is not active.
+                </p>
+              </div>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-800 space-y-1">
+              <p className="font-semibold">How to connect:</p>
+              <p>Ask your Replit assistant: <span className="font-mono bg-amber-100 px-1.5 py-0.5 rounded">"Connect Google Calendar"</span></p>
+              <p className="text-xs text-amber-700 mt-1">Your family's Google Calendar events will then appear here automatically, and events you add in LunamHub will sync back.</p>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -437,6 +485,8 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
           </div>
         </CardContent>
       </Card>
+
+      <GoogleCalendarCard />
     </div>
   );
 }

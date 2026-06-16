@@ -107,8 +107,30 @@ export interface Event {
   endTime?: string | null;
   allDay: boolean;
   category: EventCategory;
+  /**
+     * Google Calendar event ID for synced events
+     * @nullable
+     */
+  googleEventId?: string | null;
   assignedMembers: number[];
   createdAt: string;
+}
+
+export interface GoogleCalendarSyncInput {
+  /** Start date YYYY-MM-DD */
+  startDate: string;
+  /** End date YYYY-MM-DD */
+  endDate: string;
+}
+
+export interface GoogleCalendarSyncResult {
+  connected: boolean;
+  /** Number of events upserted from Google Calendar */
+  synced: number;
+}
+
+export interface GoogleCalendarStatus {
+  connected: boolean;
 }
 
 export type EventInputCategory = typeof EventInputCategory[keyof typeof EventInputCategory];
