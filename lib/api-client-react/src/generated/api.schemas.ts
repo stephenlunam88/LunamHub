@@ -131,6 +131,9 @@ export interface GoogleCalendarSyncResult {
 
 export interface GoogleCalendarStatus {
   connected: boolean;
+  /** True when a Google Calendar OAuth connection exists in the Replit integrations panel but has not yet been activated in this app. Used to distinguish "needs first-time OAuth" from "OAuth done, just needs activating".
+   */
+  oauthAvailable?: boolean;
 }
 
 export type EventInputCategory = typeof EventInputCategory[keyof typeof EventInputCategory];

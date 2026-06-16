@@ -1625,6 +1625,13 @@ components:
       properties:
         connected:
           type: boolean
+        oauthAvailable:
+          type: boolean
+          description: >
+            True when a Google Calendar OAuth connection exists in the Replit
+            integrations panel but has not yet been activated in this app.
+            Used to distinguish "needs first-time OAuth" from "OAuth done,
+            just needs activating".
       required:
         - connected
 

@@ -17,6 +17,7 @@ import {
 } from "@workspace/api-zod";
 import {
   isGCalConnected,
+  checkOAuthAvailable,
   listGCalEvents,
   createGCalEvent,
   deleteGCalEvent,
@@ -84,10 +85,15 @@ function gcalToLocal(ge: GCalEvent): {
 // ── Google Calendar status (before /:id to avoid route conflict) ──────────────
 router.get("/google-calendar-status", async (req, res): Promise<void> => {
   const connected = await isGCalConnected();
-  res.json({ connected });
+  // oauthAvailable: true means Replit has an OAuth connection even if not activated
+  const oauthAvailable = connected ? true : await checkOAuthAvailable();
+  res.json({ connected, oauthAvailable });
 });
 
 // ── Google Calendar connect (discover + store connection ID) ──────────────────
+// This endpoint is called after the user has authorized Google Calendar via the
+// Replit integrations panel. It discovers the active connection and stores its ID
+// in settings so the app can use it for all subsequent Google Calendar calls.
 router.post("/google-calendar-connect", async (req, res): Promise<void> => {
   const connId = await discoverAndStoreConnectionId();
   req.log.info({ connId: connId ? "found" : "none" }, "gcal: connect");

@@ -150,7 +150,8 @@ export const CreateEventBody = zod.object({
  * @summary Get Google Calendar connection status
  */
 export const GetGoogleCalendarStatusResponse = zod.object({
-  "connected": zod.boolean()
+  "connected": zod.boolean(),
+  "oauthAvailable": zod.boolean().optional().describe('True when a Google Calendar OAuth connection exists in the Replit integrations panel but has not yet been activated in this app. Used to distinguish \"needs first-time OAuth\" from \"OAuth done, just needs activating\".\n')
 })
 
 
@@ -172,7 +173,8 @@ export const SyncGoogleCalendarResponse = zod.object({
  * @summary Discover and store the active Google Calendar connection ID
  */
 export const ConnectGoogleCalendarResponse = zod.object({
-  "connected": zod.boolean()
+  "connected": zod.boolean(),
+  "oauthAvailable": zod.boolean().optional().describe('True when a Google Calendar OAuth connection exists in the Replit integrations panel but has not yet been activated in this app. Used to distinguish \"needs first-time OAuth\" from \"OAuth done, just needs activating\".\n')
 })
 
 
@@ -180,7 +182,8 @@ export const ConnectGoogleCalendarResponse = zod.object({
  * @summary Clear the stored Google Calendar connection ID
  */
 export const DisconnectGoogleCalendarResponse = zod.object({
-  "connected": zod.boolean()
+  "connected": zod.boolean(),
+  "oauthAvailable": zod.boolean().optional().describe('True when a Google Calendar OAuth connection exists in the Replit integrations panel but has not yet been activated in this app. Used to distinguish \"needs first-time OAuth\" from \"OAuth done, just needs activating\".\n')
 })
 
 

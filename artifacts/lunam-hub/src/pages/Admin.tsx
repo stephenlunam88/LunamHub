@@ -205,6 +205,7 @@ function GoogleCalendarCard() {
   const qc = useQueryClient();
   const { data: status, isLoading } = useGetGoogleCalendarStatus();
   const connected = status?.connected ?? false;
+  const oauthAvailable = status?.oauthAvailable ?? false;
 
   const invalidate = () => qc.invalidateQueries({ queryKey: getGetGoogleCalendarStatusQueryKey() });
 
@@ -222,6 +223,7 @@ function GoogleCalendarCard() {
         {isLoading ? (
           <p className="text-muted-foreground text-sm">Checking connection…</p>
         ) : connected ? (
+          /* ── State 3: Connected and active ── */
           <>
             <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-2xl p-4">
               <span className="w-3 h-3 rounded-full bg-green-500 shrink-0" />
@@ -241,14 +243,15 @@ function GoogleCalendarCard() {
               {disconnect.isPending ? "Disconnecting…" : "Disconnect Google Calendar"}
             </Button>
           </>
-        ) : (
+        ) : oauthAvailable ? (
+          /* ── State 2: OAuth authorised in Replit but not yet activated in this app ── */
           <>
-            <div className="flex items-center gap-3 bg-muted rounded-2xl p-4">
-              <span className="w-3 h-3 rounded-full bg-gray-400 shrink-0" />
+            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4">
+              <span className="w-3 h-3 rounded-full bg-amber-400 shrink-0" />
               <div>
-                <div className="font-semibold">Not connected</div>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Google Calendar sync is not active.
+                <div className="font-semibold text-amber-800">Google account authorised</div>
+                <p className="text-sm text-amber-700 mt-0.5">
+                  Your Google account is linked — click below to activate calendar sync in LunamHub.
                 </p>
               </div>
             </div>
@@ -257,13 +260,36 @@ function GoogleCalendarCard() {
               onClick={() => connect.mutate()}
               disabled={connect.isPending}
             >
-              {connect.isPending ? "Connecting…" : "Connect Google Calendar"}
+              {connect.isPending ? "Activating…" : "Activate Google Calendar Sync"}
             </Button>
-            {connect.isSuccess && !connected && (
-              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                No Google Calendar account found. Make sure your account is connected via the Replit integration panel, then try again.
-              </p>
-            )}
+          </>
+        ) : (
+          /* ── State 1: No OAuth yet — guide the user through authorisation ── */
+          <>
+            <div className="flex items-center gap-3 bg-muted rounded-2xl p-4">
+              <span className="w-3 h-3 rounded-full bg-gray-400 shrink-0" />
+              <div>
+                <div className="font-semibold">Not connected</div>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Google Calendar sync is not set up yet.
+                </p>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border p-4 space-y-3 text-sm">
+              <p className="font-semibold">To connect Google Calendar:</p>
+              <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
+                <li>Open this project in the Replit workspace.</li>
+                <li>Go to <span className="font-medium text-foreground">Tools → Integrations</span> and connect your Google Calendar account.</li>
+                <li>Return here and click <span className="font-medium text-foreground">Activate Google Calendar Sync</span>.</li>
+              </ol>
+            </div>
+            <Button
+              className="w-full rounded-xl h-11"
+              onClick={() => connect.mutate()}
+              disabled={connect.isPending}
+            >
+              {connect.isPending ? "Checking…" : "Check for Google Account"}
+            </Button>
           </>
         )}
       </CardContent>

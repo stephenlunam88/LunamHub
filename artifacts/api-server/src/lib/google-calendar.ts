@@ -87,6 +87,18 @@ async function proxyGCal(
   }
 }
 
+// Check whether a Google Calendar OAuth connection exists in Replit (without storing)
+export async function checkOAuthAvailable(): Promise<boolean> {
+  const connectors = getConnectors();
+  if (!connectors) return false;
+  try {
+    const conns = await connectors.listConnections({ connector_names: "google-calendar" });
+    return conns.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function isGCalConnected(): Promise<boolean> {
   const connId = await getStoredConnectionId();
   if (!connId) return false;
