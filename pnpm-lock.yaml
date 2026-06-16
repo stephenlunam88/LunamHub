@@ -169,6 +169,9 @@ importers:
       '@google-cloud/storage':
         specifier: ^7.21.0
         version: 7.21.0
+      '@replit/connectors-sdk':
+        specifier: ^0.4.1
+        version: 0.4.1
       '@workspace/api-zod':
         specifier: workspace:*
         version: link:../../lib/api-zod
@@ -1530,6 +1533,9 @@ packages:
 
   '@radix-ui/rect@1.1.1':
     resolution: {integrity: sha512-HPwpGIzkl28mWyZqG52jiqDJ12waP11Pa1lGoiyUkIEuMLBP0oeK/C89esbXrxsky5we7dfd8U58nm0SgAWpVw==}
+
+  '@replit/connectors-sdk@0.4.1':
+    resolution: {integrity: sha512-iw0uy95+Qul8MPc/bBo8hBfYk1wm6RpBZ9sHyCpcA9A9T4zcUT9deSQxdyMyI0w3sv3+5uGmdfq1TpFTMrjD1g==}
 
   '@replit/vite-plugin-cartographer@0.5.21':
     resolution: {integrity: sha512-E5rco8Mov05QDfUOjoim3MVJdDX0/pBYql5Jay3w9cqmU/QOL6cEOUAjsBZPB/V8FEChsk++sZUrcWt1bHaAoQ==}
@@ -3263,6 +3269,7 @@ packages:
   tsconfck@3.1.6:
     resolution: {integrity: sha512-ks6Vjr/jEw0P1gmOVwutM3B7fWxoWBL2KRDb1JfqGVawBmO5UsvmWOQFGHBPl5yxYz4eERr19E6L7NMv+Fej4w==}
     engines: {node: ^18 || >=20}
+    deprecated: unmaintained
     hasBin: true
     peerDependencies:
       typescript: ^5.0.0
@@ -4500,6 +4507,8 @@ snapshots:
       '@types/react-dom': 19.2.3(@types/react@19.2.14)
 
   '@radix-ui/rect@1.1.1': {}
+
+  '@replit/connectors-sdk@0.4.1': {}
 
   '@replit/vite-plugin-cartographer@0.5.21':
     dependencies:
