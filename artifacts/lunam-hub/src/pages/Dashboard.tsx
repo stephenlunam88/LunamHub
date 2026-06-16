@@ -307,13 +307,6 @@ export default function Dashboard() {
   const tomorrowStr = format(addDays(now, 1), "yyyy-MM-dd");
   const tomorrowEvents = summary.upcomingEvents.filter(e => e.date === tomorrowStr);
 
-  // How many tomorrow rows to show: give today full priority
-  // If today has >= 3 events, only show a "+N tomorrow" pill; otherwise show up to 3
-  const TOMORROW_MAX = 3;
-  const todayHasManyEvents = summary.todayEvents.length >= 3;
-  const tomorrowVisible = todayHasManyEvents ? [] : tomorrowEvents.slice(0, TOMORROW_MAX);
-  const tomorrowHidden = tomorrowEvents.length - (todayHasManyEvents ? 0 : tomorrowVisible.length);
-
   return (
     <div className="h-full p-4 grid grid-cols-3 grid-rows-[auto_1fr] gap-4 animate-in fade-in duration-300">
 
@@ -384,59 +377,10 @@ export default function Dashboard() {
                 {/* Tomorrow section */}
                 {tomorrowEvents.length > 0 && (
                   <>
-                    <div className="flex items-center gap-2 pt-1">
-                      <div className="flex-1 h-px bg-border/60" />
-                      <span className="text-xs font-semibold text-muted-foreground shrink-0">Tomorrow</span>
-                      <div className="flex-1 h-px bg-border/60" />
-                    </div>
-
-                    {todayHasManyEvents ? (
-                      /* Today is full — show compact "+N tomorrow" pill */
-                      <div className="text-center">
-                        <span className="text-xs font-semibold text-muted-foreground bg-muted/60 rounded-full px-3 py-1">
-                          +{tomorrowEvents.length} event{tomorrowEvents.length !== 1 ? "s" : ""}
-                        </span>
-                      </div>
-                    ) : (
-                      <>
-                        {tomorrowVisible.map(e => (
-                          <div key={e.id} className="bg-card/70 rounded-xl p-3 shadow-sm opacity-80">
-                            <div className="flex items-start gap-2">
-                              {(e.assignedMembers ?? []).length > 0 && (
-                                <div className="flex -space-x-1.5 shrink-0 mt-0.5">
-                                  {(e.assignedMembers ?? []).slice(0, 3).map(id => {
-                                    const m = memberById[id];
-                                    if (!m) return null;
-                                    return (
-                                      <div key={id} title={m.name} className="w-6 h-6 rounded-full ring-2 ring-background overflow-hidden flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ backgroundColor: m.color }}>
-                                        {m.avatarUrl
-                                          ? <img src={m.avatarUrl} alt={m.name} className="w-full h-full object-cover" />
-                                          : m.emoji}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <div className="font-semibold text-sm truncate">{e.title}</div>
-                                {e.startTime && (
-                                  <div className="text-xs text-muted-foreground mt-0.5">
-                                    {fmt12(e.startTime)}{e.endTime ? ` – ${fmt12(e.endTime)}` : ""}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                        {tomorrowHidden > 0 && (
-                          <div className="text-center">
-                            <span className="text-xs font-semibold text-muted-foreground bg-muted/60 rounded-full px-3 py-1">
-                              +{tomorrowHidden} more
-                            </span>
-                          </div>
-                        )}
-                      </>
-                    )}
+                    <div className="font-bold text-base pt-1">Tomorrow's Events</div>
+                    {tomorrowEvents.map(e => (
+                      <EventRow key={e.id} e={e} memberById={memberById} />
+                    ))}
                   </>
                 )}
               </>
