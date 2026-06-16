@@ -57,14 +57,28 @@ export default function Calendar() {
   const createEvent = useCreateEvent({
     mutation: {
       onSuccess: () => {
-        qc.invalidateQueries({ queryKey: getListEventsQueryKey() });
         setOpen(false);
         setForm({ title: "", date: format(selectedDay, "yyyy-MM-dd"), allDay: true, category: "other" });
+        // Sync Google Calendar after creating an event (pushes local → Google and pulls latest)
+        if (isConnected) {
+          sync.mutate({ data: { startDate, endDate } });
+        } else {
+          qc.invalidateQueries({ queryKey: getListEventsQueryKey() });
+        }
       }
     }
   });
   const deleteEvent = useDeleteEvent({
-    mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getListEventsQueryKey() }) }
+    mutation: {
+      onSettled: () => {
+        // Sync Google Calendar after deleting an event (best-effort delete on Google side + refresh)
+        if (isConnected) {
+          sync.mutate({ data: { startDate, endDate } });
+        } else {
+          qc.invalidateQueries({ queryKey: getListEventsQueryKey() });
+        }
+      }
+    }
   });
 
   const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });

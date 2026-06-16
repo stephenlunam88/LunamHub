@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useGetSettings, useVerifyPin, useUpdateSettings,
   useCreateFamilyMember, useDeleteFamilyMember, useListFamilyMembers,
@@ -207,6 +207,28 @@ function GoogleCalendarCard() {
   const connected = status?.connected ?? false;
   const oauthAvailable = status?.oauthAvailable ?? false;
 
+  // Polling: when the user clicks "Check for Google Account" and no OAuth is found yet,
+  // poll every 5 s so the card auto-advances once they complete OAuth in Replit integrations.
+  const [polling, setPolling] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (polling && !oauthAvailable && !connected) {
+      pollRef.current = setInterval(() => {
+        qc.invalidateQueries({ queryKey: getGetGoogleCalendarStatusQueryKey() });
+      }, 5000);
+    } else {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      if (oauthAvailable || connected) setPolling(false);
+    }
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [polling, oauthAvailable, connected, qc]);
+
   const invalidate = () => qc.invalidateQueries({ queryKey: getGetGoogleCalendarStatusQueryKey() });
 
   const connect = useConnectGoogleCalendar({ mutation: { onSuccess: invalidate } });
@@ -267,29 +289,41 @@ function GoogleCalendarCard() {
           /* ── State 1: No OAuth yet — guide the user through authorisation ── */
           <>
             <div className="flex items-center gap-3 bg-muted rounded-2xl p-4">
-              <span className="w-3 h-3 rounded-full bg-gray-400 shrink-0" />
+              <span className={`w-3 h-3 rounded-full shrink-0 ${polling ? "bg-amber-400 animate-pulse" : "bg-gray-400"}`} />
               <div>
-                <div className="font-semibold">Not connected</div>
+                <div className="font-semibold">{polling ? "Waiting for Google authorisation…" : "Not connected"}</div>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  Google Calendar sync is not set up yet.
+                  {polling
+                    ? "Complete the OAuth flow in Replit, then return here — this card will update automatically."
+                    : "Google Calendar sync is not set up yet."}
                 </p>
               </div>
             </div>
-            <div className="rounded-2xl border border-border p-4 space-y-3 text-sm">
-              <p className="font-semibold">To connect Google Calendar:</p>
-              <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
-                <li>Open this project in the Replit workspace.</li>
-                <li>Go to <span className="font-medium text-foreground">Tools → Integrations</span> and connect your Google Calendar account.</li>
-                <li>Return here and click <span className="font-medium text-foreground">Activate Google Calendar Sync</span>.</li>
-              </ol>
-            </div>
+            {!polling && (
+              <div className="rounded-2xl border border-border p-4 space-y-3 text-sm">
+                <p className="font-semibold">To connect Google Calendar:</p>
+                <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
+                  <li>Open this project in the <span className="font-medium text-foreground">Replit workspace</span>.</li>
+                  <li>Go to <span className="font-medium text-foreground">Tools → Integrations</span> and authorise your Google Calendar account.</li>
+                  <li>Return here — the page will update automatically, then click <span className="font-medium text-foreground">Activate Google Calendar Sync</span>.</li>
+                </ol>
+              </div>
+            )}
             <Button
               className="w-full rounded-xl h-11"
-              onClick={() => connect.mutate()}
-              disabled={connect.isPending}
+              onClick={() => {
+                setPolling(true);
+                connect.mutate();
+              }}
+              disabled={connect.isPending || polling}
             >
-              {connect.isPending ? "Checking…" : "Check for Google Account"}
+              {connect.isPending ? "Checking…" : polling ? "Waiting for authorisation…" : "Connect Google Calendar"}
             </Button>
+            {polling && (
+              <Button variant="ghost" className="w-full rounded-xl h-9 text-muted-foreground text-xs" onClick={() => setPolling(false)}>
+                Cancel
+              </Button>
+            )}
           </>
         )}
       </CardContent>
