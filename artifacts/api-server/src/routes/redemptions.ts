@@ -42,6 +42,8 @@ async function formatRedemption(r: typeof redemptionsTable.$inferSelect) {
     status: r.status,
     approvedByParentId: r.approvedByParentId ?? null,
     approvedAt: r.approvedAt?.toISOString() ?? null,
+    fulfilledByParentId: r.fulfilledByParentId ?? null,
+    fulfilledAt: r.fulfilledAt?.toISOString() ?? null,
     createdAt: r.createdAt.toISOString(),
   };
 }
@@ -170,6 +172,32 @@ router.post("/:id/reject", async (req, res) => {
     .returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
   res.json(await formatRedemption(updated));
+});
+
+// POST /api/redemptions/:id/fulfill — parent marks an approved redemption as delivered
+router.post("/:id/fulfill", async (req, res) => {
+  const id = Number(req.params.id);
+  const bodyParse = RedemptionApproveBodySchema.safeParse(req.body);
+  const parentId = bodyParse.success ? (bodyParse.data.parentId ?? null) : null;
+  const pin = bodyParse.success ? (bodyParse.data.pin ?? null) : null;
+
+  const auth = await verifyParentPin(parentId, pin, res);
+  if (!auth.ok) return;
+
+  const [redemption] = await db.select().from(redemptionsTable).where(eq(redemptionsTable.id, id));
+  if (!redemption) { res.status(404).json({ error: "Not found" }); return; }
+  if (redemption.status !== "approved") {
+    res.status(400).json({ error: "Only approved redemptions can be marked as fulfilled" }); return;
+  }
+
+  const now = new Date();
+  const [updated] = await db
+    .update(redemptionsTable)
+    .set({ status: "fulfilled", fulfilledByParentId: parentId, fulfilledAt: now })
+    .where(eq(redemptionsTable.id, id))
+    .returning();
+
+  res.json(await formatRedemption(updated!));
 });
 
 export { router as redemptionsRouter };

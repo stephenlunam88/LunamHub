@@ -21,5 +21,9 @@ export interface Redemption {
   approvedByParentId?: number | null;
   /** @nullable */
   approvedAt?: string | null;
+  /** @nullable */
+  fulfilledByParentId?: number | null;
+  /** @nullable */
+  fulfilledAt?: string | null;
   createdAt: string;
 }

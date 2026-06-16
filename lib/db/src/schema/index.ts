@@ -25,7 +25,7 @@ export const choreInstanceStatusEnum = pgEnum("chore_instance_status", [
   "todo", "pending_approval", "done", "missed", "rejected",
 ]);
 export const eventCategoryEnum = pgEnum("event_category", ["school", "sport", "appointment", "birthday", "family", "other"]);
-export const redemptionStatusEnum = pgEnum("redemption_status", ["pending", "approved", "rejected"]);
+export const redemptionStatusEnum = pgEnum("redemption_status", ["pending", "approved", "rejected", "fulfilled"]);
 export const listCategoryEnum = pgEnum("list_category", ["grocery", "packing", "school", "reminders", "other"]);
 export const mealTypeEnum = pgEnum("meal_type", ["breakfast", "lunch", "dinner", "snack"]);
 export const timeOfDayEnum = pgEnum("time_of_day", ["morning", "afternoon", "evening", "bedtime"]);
@@ -180,6 +180,8 @@ export const redemptionsTable = pgTable("reward_redemptions", {
   status: redemptionStatusEnum("status").notNull().default("pending"),
   approvedByParentId: integer("approved_by_parent_id").references(() => familyMembersTable.id, { onDelete: "set null" }),
   approvedAt: timestamp("approved_at"),
+  fulfilledByParentId: integer("fulfilled_by_parent_id").references(() => familyMembersTable.id, { onDelete: "set null" }),
+  fulfilledAt: timestamp("fulfilled_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

@@ -2453,6 +2453,78 @@ export const useRejectRedemption = <TError = ErrorType<unknown>,
       return useMutation(getRejectRedemptionMutationOptions(options));
     }
 
+export const getFulfillRedemptionUrl = (id: number,) => {
+
+
+
+
+  return `/api/redemptions/${id}/fulfill`
+}
+
+/**
+ * @summary Mark an approved redemption as fulfilled/delivered (parent action)
+ */
+export const fulfillRedemption = async (id: number,
+    redemptionApproveBody?: RedemptionApproveBody, options?: RequestInit): Promise<Redemption> => {
+
+  return customFetch<Redemption>(getFulfillRedemptionUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      redemptionApproveBody,)
+  }
+);}
+
+
+
+
+export const getFulfillRedemptionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof fulfillRedemption>>, TError,{id: number;data?: BodyType<RedemptionApproveBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof fulfillRedemption>>, TError,{id: number;data?: BodyType<RedemptionApproveBody>}, TContext> => {
+
+const mutationKey = ['fulfillRedemption'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof fulfillRedemption>>, {id: number;data?: BodyType<RedemptionApproveBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  fulfillRedemption(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type FulfillRedemptionMutationResult = NonNullable<Awaited<ReturnType<typeof fulfillRedemption>>>
+    export type FulfillRedemptionMutationBody = BodyType<RedemptionApproveBody> | undefined
+    export type FulfillRedemptionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Mark an approved redemption as fulfilled/delivered (parent action)
+ */
+export const useFulfillRedemption = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof fulfillRedemption>>, TError,{id: number;data?: BodyType<RedemptionApproveBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof fulfillRedemption>>,
+        TError,
+        {id: number;data?: BodyType<RedemptionApproveBody>},
+        TContext
+      > => {
+      return useMutation(getFulfillRedemptionMutationOptions(options));
+    }
+
 export const getListListsUrl = () => {
 
 

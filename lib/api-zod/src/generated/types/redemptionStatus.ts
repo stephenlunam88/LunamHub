@@ -13,4 +13,5 @@ export const RedemptionStatus = {
   pending: 'pending',
   approved: 'approved',
   rejected: 'rejected',
+  fulfilled: 'fulfilled',
 } as const;

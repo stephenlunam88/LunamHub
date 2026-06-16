@@ -651,9 +651,11 @@ export const ListRedemptionsResponseItem = zod.object({
   "createdAt": zod.string()
 }).optional(),
   "pointsCost": zod.number(),
-  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'fulfilled']),
   "approvedByParentId": zod.number().nullish(),
   "approvedAt": zod.string().nullish(),
+  "fulfilledByParentId": zod.number().nullish(),
+  "fulfilledAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 export const ListRedemptionsResponse = zod.array(ListRedemptionsResponseItem)
@@ -705,9 +707,11 @@ export const ApproveRedemptionResponse = zod.object({
   "createdAt": zod.string()
 }).optional(),
   "pointsCost": zod.number(),
-  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'fulfilled']),
   "approvedByParentId": zod.number().nullish(),
   "approvedAt": zod.string().nullish(),
+  "fulfilledByParentId": zod.number().nullish(),
+  "fulfilledAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -749,9 +753,57 @@ export const RejectRedemptionResponse = zod.object({
   "createdAt": zod.string()
 }).optional(),
   "pointsCost": zod.number(),
-  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'fulfilled']),
   "approvedByParentId": zod.number().nullish(),
   "approvedAt": zod.string().nullish(),
+  "fulfilledByParentId": zod.number().nullish(),
+  "fulfilledAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Mark an approved redemption as fulfilled/delivered (parent action)
+ */
+export const FulfillRedemptionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const FulfillRedemptionBody = zod.object({
+  "parentId": zod.number().optional(),
+  "pin": zod.string().optional()
+})
+
+export const FulfillRedemptionResponse = zod.object({
+  "id": zod.number(),
+  "rewardId": zod.number(),
+  "reward": zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "pointsCost": zod.number(),
+  "active": zod.boolean(),
+  "createdAt": zod.string()
+}).optional(),
+  "memberId": zod.number(),
+  "member": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "role": zod.enum(['parent', 'child']),
+  "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
+  "createdAt": zod.string()
+}).optional(),
+  "pointsCost": zod.number(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'fulfilled']),
+  "approvedByParentId": zod.number().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "fulfilledByParentId": zod.number().nullish(),
+  "fulfilledAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
 

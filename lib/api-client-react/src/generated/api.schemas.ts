@@ -420,6 +420,7 @@ export const RedemptionStatus = {
   pending: 'pending',
   approved: 'approved',
   rejected: 'rejected',
+  fulfilled: 'fulfilled',
 } as const;
 
 export interface Redemption {
@@ -434,6 +435,10 @@ export interface Redemption {
   approvedByParentId?: number | null;
   /** @nullable */
   approvedAt?: string | null;
+  /** @nullable */
+  fulfilledByParentId?: number | null;
+  /** @nullable */
+  fulfilledAt?: string | null;
   createdAt: string;
 }
 

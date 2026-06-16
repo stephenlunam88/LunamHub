@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   useListRewards, useListRedemptions, useListFamilyMembers,
-  useRequestRedemption, useApproveRedemption, useRejectRedemption,
+  useRequestRedemption, useApproveRedemption, useRejectRedemption, useFulfillRedemption,
   getListRewardsQueryKey, getListRedemptionsQueryKey, getListFamilyMembersQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Gift, Check, X, Star, Lock, AlertTriangle } from "lucide-react";
+import { Gift, Check, X, Star, Lock, AlertTriangle, PackageCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { RedemptionInput } from "@workspace/api-client-react";
 
@@ -123,6 +123,7 @@ export default function Rewards() {
   const [redeemForm, setRedeemForm] = useState<RedemptionInput>({ rewardId: 0, memberId: 0 });
   const [approveErrors, setApproveErrors] = useState<Record<number, string>>({});
   const [rejectErrors, setRejectErrors] = useState<Record<number, string>>({});
+  const [fulfillErrors, setFulfillErrors] = useState<Record<number, string>>({});
 
   const selectedChild = children.find(m => m.id === redeemForm.memberId) ?? null;
   const selectedReward = rewards.find(r => r.id === redeemForm.rewardId) ?? null;
@@ -183,8 +184,21 @@ export default function Rewards() {
     }
   });
 
+  const fulfillRedemption = useFulfillRedemption({
+    mutation: {
+      onSuccess: invalidateAll,
+      onError: (err: unknown, variables) => {
+        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "";
+        if (msg.includes("PIN") || msg.includes("Invalid")) {
+          setFulfillErrors(prev => ({ ...prev, [variables.id]: "Incorrect PIN — try again" }));
+        }
+      }
+    }
+  });
+
   const pending = redemptions.filter(r => r.status === "pending");
-  const settled = redemptions.filter(r => r.status === "approved" || r.status === "rejected");
+  const approved = redemptions.filter(r => r.status === "approved");
+  const settled = redemptions.filter(r => r.status === "fulfilled" || r.status === "rejected");
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -313,6 +327,45 @@ export default function Rewards() {
         </Card>
       )}
 
+      {approved.length > 0 && (
+        <Card className="rounded-3xl border-0 shadow-sm bg-green-50">
+          <CardHeader><CardTitle className="flex items-center gap-2"><PackageCheck className="w-5 h-5 text-green-700" /> Ready to Collect ({approved.length})</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            {approved.map(r => (
+              <div key={r.id} className="bg-white rounded-2xl p-4 flex items-center gap-4">
+                <div className="shrink-0">
+                  {r.member?.avatarUrl
+                    ? <img src={r.member.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover border border-muted" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                    : <span className="text-3xl">{r.member?.emoji}</span>}
+                </div>
+                <div className="flex-1">
+                  <div className="font-bold">{r.member?.name}</div>
+                  <div className="text-muted-foreground">{r.reward?.title} — {r.pointsCost} pts</div>
+                  <div className="text-xs text-green-700 font-medium mt-0.5">Approved ✓ — waiting to be delivered</div>
+                </div>
+                {parents.length > 0 ? (
+                  <PinActionDialog
+                    triggerIcon={<PackageCheck className="w-5 h-5" />}
+                    triggerClassName="rounded-xl h-12 px-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium gap-2"
+                    title="Mark as Delivered"
+                    description={`Confirm that "${r.reward?.title}" has been given to ${r.member?.name}?`}
+                    parents={parents}
+                    onConfirm={(parentId, pin) => fulfillRedemption.mutate({ id: r.id, data: { parentId, pin } })}
+                    isPending={fulfillRedemption.isPending}
+                    errorFromParent={fulfillErrors[r.id]}
+                    clearError={() => setFulfillErrors(prev => { const n = { ...prev }; delete n[r.id]; return n; })}
+                  />
+                ) : (
+                  <Button className="rounded-xl h-12 px-4 bg-green-600 hover:bg-green-700 text-sm gap-2" onClick={() => fulfillRedemption.mutate({ id: r.id })}>
+                    <PackageCheck className="w-4 h-4" /> Mark Delivered
+                  </Button>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {rewards.filter(r => r.active).map(r => (
           <Card key={r.id} className="rounded-3xl border-0 shadow-sm hover:shadow-md transition-shadow">
@@ -340,10 +393,11 @@ export default function Rewards() {
 
       {settled.length > 0 && (
         <Card className="rounded-3xl border-0 shadow-sm bg-muted/50">
-          <CardHeader><CardTitle className="text-base text-muted-foreground">Recent Decisions</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base text-muted-foreground">History</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {settled.slice(0, 10).map(r => {
-              const approver = r.approvedByParentId ? members.find(m => m.id === r.approvedByParentId) : null;
+              const actorId = r.status === "fulfilled" ? r.fulfilledByParentId : r.approvedByParentId;
+              const actor = actorId ? members.find(m => m.id === actorId) : null;
               return (
                 <div key={r.id} className="bg-background rounded-2xl px-4 py-3 flex items-center gap-3">
                   <div className="text-2xl">{r.member?.emoji}</div>
@@ -352,11 +406,14 @@ export default function Rewards() {
                     <div className="text-xs text-muted-foreground">for {r.member?.name}</div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className={`text-xs font-semibold px-2 py-0.5 rounded-full ${r.status === "approved" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                      {r.status === "approved" ? "Approved" : "Rejected"}
+                    <div className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                      r.status === "fulfilled" ? "bg-purple-100 text-purple-700"
+                      : "bg-red-100 text-red-700"
+                    }`}>
+                      {r.status === "fulfilled" ? "✓ Delivered" : "Rejected"}
                     </div>
-                    {approver && (
-                      <div className="text-xs text-muted-foreground mt-0.5">by {approver.emoji} {approver.name}</div>
+                    {actor && (
+                      <div className="text-xs text-muted-foreground mt-0.5">by {actor.emoji} {actor.name}</div>
                     )}
                   </div>
                 </div>

@@ -644,6 +644,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/Redemption"
 
+  /redemptions/{id}/fulfill:
+    post:
+      operationId: fulfillRedemption
+      tags: [rewards]
+      summary: Mark an approved redemption as fulfilled/delivered (parent action)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RedemptionApproveBody"
+      responses:
+        "200":
+          description: Fulfilled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Redemption"
+
   # ── Lists ─────────────────────────────────────────────────────────────────────
   /lists:
     get:
@@ -1955,10 +1980,14 @@ components:
           type: integer
         status:
           type: string
-          enum: [pending, approved, rejected]
+          enum: [pending, approved, rejected, fulfilled]
         approvedByParentId:
           type: ["integer", "null"]
         approvedAt:
+          type: ["string", "null"]
+        fulfilledByParentId:
+          type: ["integer", "null"]
+        fulfilledAt:
           type: ["string", "null"]
         createdAt:
           type: string
