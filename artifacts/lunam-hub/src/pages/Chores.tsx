@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   useListChores, useListFamilyMembers, useCreateChore, useCompleteChore,
-  useApproveChore, useRejectChore, useDeleteChore, useGetChoresSummary, useListBadges, useVerifyPin,
+  useApproveChore, useRejectChore, useDeleteChore, useGetChoresSummary, useListBadges, useVerifyPin, useVerifyFamilyMemberPin,
   getListChoresQueryKey, getGetChoresSummaryQueryKey, getListFamilyMembersQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -213,33 +213,50 @@ function PinDismissDialog({ choreId, choreTitle, parents, onSuccess }: {
   );
 }
 
-function PinDeleteDialog({ choreId, choreTitle, onSuccess }: {
+const ADMIN_OPTION = "__admin__";
+
+function PinDeleteDialog({ choreId, choreTitle, parents, onSuccess }: {
   choreId: number;
   choreTitle: string;
+  parents: ParentInfo[];
   onSuccess: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<string>(parents[0] ? String(parents[0].id) : ADMIN_OPTION);
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const deleteChore = useDeleteChore({
-    mutation: { onSuccess: () => { setOpen(false); setPin(""); setError(null); onSuccess(); } }
-  });
-
-  const verifyPin = useVerifyPin({
-    mutation: {
-      onSuccess: () => {
-        deleteChore.mutate({ id: choreId });
-      },
-      onError: () => {
-        setError("Incorrect PIN — try again");
-        setPin("");
-      }
-    }
-  });
-
   const reset = () => { setPin(""); setError(null); };
-  const handleConfirm = () => verifyPin.mutate({ data: { pin } });
+
+  const deleteChore = useDeleteChore({
+    mutation: { onSuccess: () => { setOpen(false); reset(); onSuccess(); } }
+  });
+
+  const onVerifySuccess = () => deleteChore.mutate({ id: choreId });
+  const onVerifyError = () => { setError("Incorrect PIN — try again"); setPin(""); };
+
+  const verifyAdmin = useVerifyPin({
+    mutation: { onSuccess: onVerifySuccess, onError: onVerifyError }
+  });
+
+  const verifyParent = useVerifyFamilyMemberPin({
+    mutation: { onSuccess: onVerifySuccess, onError: onVerifyError }
+  });
+
+  const isPending = verifyAdmin.isPending || verifyParent.isPending || deleteChore.isPending;
+
+  const handleConfirm = () => {
+    if (selected === ADMIN_OPTION) {
+      verifyAdmin.mutate({ data: { pin } });
+    } else {
+      verifyParent.mutate({ id: Number(selected), data: { pin } });
+    }
+  };
+
+  const options = [
+    ...parents.map(p => ({ value: String(p.id), label: `${p.emoji} ${p.name}` })),
+    { value: ADMIN_OPTION, label: "🔑 Admin PIN" },
+  ];
 
   return (
     <Dialog open={open} onOpenChange={o => { setOpen(o); reset(); }}>
@@ -255,9 +272,20 @@ function PinDeleteDialog({ choreId, choreTitle, onSuccess }: {
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <p className="text-muted-foreground text-sm">Delete "{choreTitle}"? Enter the admin PIN to confirm.</p>
+          <p className="text-muted-foreground text-sm">Delete "{choreTitle}"?</p>
+          {options.length > 1 && (
+            <div>
+              <Label>Authorising as</Label>
+              <Select value={selected} onValueChange={v => { setSelected(v); reset(); }}>
+                <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div>
-            <Label>Admin PIN</Label>
+            <Label>{selected === ADMIN_OPTION ? "Admin PIN" : "Parent PIN"}</Label>
             <Input
               type="password"
               inputMode="numeric"
@@ -274,9 +302,9 @@ function PinDeleteDialog({ choreId, choreTitle, onSuccess }: {
             variant="destructive"
             className="w-full h-12 rounded-xl"
             onClick={handleConfirm}
-            disabled={!pin || verifyPin.isPending || deleteChore.isPending}
+            disabled={!pin || isPending}
           >
-            {verifyPin.isPending || deleteChore.isPending ? "Deleting…" : "Delete Chore"}
+            {isPending ? "Deleting…" : "Delete Chore"}
           </Button>
         </div>
       </DialogContent>
@@ -532,7 +560,7 @@ export default function Chores() {
                       onClick={() => completeChore.mutate({ id: c.id })}>
                       <CheckCircle2 className="w-6 h-6" />
                     </Button>
-                    <PinDeleteDialog choreId={c.id} choreTitle={c.title} onSuccess={invalidate} />
+                    <PinDeleteDialog choreId={c.id} choreTitle={c.title} parents={parents} onSuccess={invalidate} />
                   </div>
                 </CardContent>
               </Card>
