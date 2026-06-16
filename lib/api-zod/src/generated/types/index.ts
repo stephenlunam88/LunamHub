@@ -86,6 +86,7 @@ export * from './sharedListInputCategory';
 export * from './sharedListUpdate';
 export * from './sharedListUpdateCategory';
 export * from './sharedListWithItems';
+export * from './streakEntry';
 export * from './uploadUrlRequest';
 export * from './uploadUrlResponse';
 export * from './verifyFamilyMemberPin200';

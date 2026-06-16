@@ -2321,6 +2321,17 @@ components:
         - weeklyPoints
         - rank
 
+    StreakEntry:
+      type: object
+      properties:
+        memberId:
+          type: integer
+        currentStreak:
+          type: integer
+      required:
+        - memberId
+        - currentStreak
+
     DashboardSummary:
       type: object
       properties:
@@ -2352,6 +2363,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/LeaderboardEntry"
+        streaks:
+          type: array
+          items:
+            $ref: "#/components/schemas/StreakEntry"
       required:
         - todayEvents
         - upcomingEvents
@@ -2361,6 +2376,7 @@ components:
         - todayMeals
         - pendingRedemptions
         - weeklyLeaderboard
+        - streaks
 
     # ── Settings ──────────────────────────────────────────────────────────────
     Settings:

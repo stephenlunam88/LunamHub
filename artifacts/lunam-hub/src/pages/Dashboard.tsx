@@ -9,8 +9,8 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trophy, CheckCircle2, Clock, Star } from "lucide-react";
-import type { Chore } from "@workspace/api-client-react";
+import { Trophy, CheckCircle2, Clock, Star, Flame } from "lucide-react";
+import type { Chore, FamilyMember } from "@workspace/api-client-react";
 
 function AvatarOrEmoji({
   avatarUrl,
@@ -185,6 +185,48 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {children.length > 0 && summary.streaks.length > 0 && (
+        <Card className="rounded-3xl shadow-sm border-0 bg-orange-500/10">
+          <CardHeader>
+            <CardTitle className="text-xl flex items-center gap-2">
+              <Flame className="w-5 h-5 text-orange-500" /> Chore Streaks
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {summary.streaks.map(({ memberId, currentStreak }) => {
+                const member = children.find((m: FamilyMember) => m.id === memberId);
+                if (!member) return null;
+                return (
+                  <div
+                    key={memberId}
+                    className="bg-background rounded-2xl p-4 flex flex-col items-center gap-2 shadow-sm"
+                  >
+                    <AvatarOrEmoji
+                      avatarUrl={member.avatarUrl}
+                      emoji={member.emoji}
+                      sizeCls="w-12 h-12 text-4xl"
+                    />
+                    <div className="font-semibold text-sm text-center truncate w-full text-center">
+                      {member.name}
+                    </div>
+                    {currentStreak > 0 ? (
+                      <div className="flex items-center gap-1.5">
+                        <Flame className="w-5 h-5 text-orange-500 shrink-0" />
+                        <span className="text-xl font-bold text-orange-500">{currentStreak}</span>
+                        <span className="text-xs text-muted-foreground">{currentStreak === 1 ? "day" : "days"}</span>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground">— no streak yet</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {children.length > 0 && (
         <Card className="rounded-3xl shadow-sm border-0 bg-muted/40">

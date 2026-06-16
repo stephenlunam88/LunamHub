@@ -161,6 +161,42 @@ router.get("/summary", async (_req, res) => {
   const allRedemptions = await db.select().from(redemptionsTable);
   const pendingRedemptions = allRedemptions.filter((r) => r.status === "pending").length;
 
+  // Per-child chore streaks — computed from all historical chore_instances
+  const allInstances = await db.select().from(choreInstancesTable);
+
+  function computeStreak(childId: number): number {
+    const childInstances = allInstances.filter((i) => i.childId === childId);
+    const byDate: Record<string, typeof choreInstancesTable.$inferSelect[]> = {};
+    for (const inst of childInstances) {
+      if (!byDate[inst.dueDate]) byDate[inst.dueDate] = [];
+      byDate[inst.dueDate]!.push(inst);
+    }
+    // Walk backwards from yesterday; skip days with no chores; stop at first incomplete day
+    let streak = 0;
+    let cursor = todayStr;
+    for (let i = 0; i < 365; i++) {
+      // Step back one day
+      const d = new Date(cursor);
+      d.setDate(d.getDate() - 1);
+      cursor = d.toISOString().split("T")[0]!;
+      const dayInstances = byDate[cursor];
+      if (!dayInstances || dayInstances.length === 0) continue; // no chores that day — skip, don't break
+      const allDone = dayInstances.every((inst) => inst.status === "done");
+      if (allDone) {
+        streak++;
+      } else {
+        break; // incomplete day — streak ends
+      }
+    }
+    return streak;
+  }
+
+  const children = familyMembers.filter((m) => m.role === "child");
+  const streaks = children.map((m) => ({
+    memberId: m.id,
+    currentStreak: computeStreak(m.id),
+  }));
+
   res.json({
     todayEvents,
     upcomingEvents,
@@ -170,6 +206,7 @@ router.get("/summary", async (_req, res) => {
     todayMeals,
     pendingRedemptions,
     weeklyLeaderboard,
+    streaks,
   });
 });
 

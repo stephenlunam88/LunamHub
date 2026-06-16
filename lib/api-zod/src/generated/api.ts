@@ -1176,6 +1176,10 @@ export const GetDashboardSummaryResponse = zod.object({
   "avatarUrl": zod.string().nullish(),
   "weeklyPoints": zod.number(),
   "rank": zod.number()
+})),
+  "streaks": zod.array(zod.object({
+  "memberId": zod.number(),
+  "currentStreak": zod.number()
 }))
 })
 

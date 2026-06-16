@@ -10,6 +10,7 @@ import type { Event } from './event';
 import type { FamilyMember } from './familyMember';
 import type { LeaderboardEntry } from './leaderboardEntry';
 import type { MealPlanEntry } from './mealPlanEntry';
+import type { StreakEntry } from './streakEntry';
 
 export interface DashboardSummary {
   todayEvents: Event[];
@@ -20,4 +21,5 @@ export interface DashboardSummary {
   todayMeals: MealPlanEntry[];
   pendingRedemptions: number;
   weeklyLeaderboard: LeaderboardEntry[];
+  streaks: StreakEntry[];
 }

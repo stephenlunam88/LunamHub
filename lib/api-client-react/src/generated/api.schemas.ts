@@ -669,6 +669,11 @@ export interface LeaderboardEntry {
   rank: number;
 }
 
+export interface StreakEntry {
+  memberId: number;
+  currentStreak: number;
+}
+
 export interface DashboardSummary {
   todayEvents: Event[];
   upcomingEvents: Event[];
@@ -678,6 +683,7 @@ export interface DashboardSummary {
   todayMeals: MealPlanEntry[];
   pendingRedemptions: number;
   weeklyLeaderboard: LeaderboardEntry[];
+  streaks: StreakEntry[];
 }
 
 export interface Settings {
