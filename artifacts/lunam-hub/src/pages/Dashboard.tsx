@@ -4,7 +4,7 @@ import {
   useGetLeaderboard,
   useGetWeeklyLeaderboard,
 } from "@workspace/api-client-react";
-import { format, parseISO } from "date-fns";
+import { format, addDays, parseISO } from "date-fns";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -239,6 +239,39 @@ function DinnerTonightCard({ meals }: { meals: MealPlanEntry[] }) {
   );
 }
 
+/** Render a single event row in the events card */
+function EventRow({ e, memberById }: { e: Event; memberById: Record<number, FamilyMember> }) {
+  return (
+    <div className="bg-card rounded-xl p-3 shadow-sm">
+      <div className="flex items-start gap-2">
+        {(e.assignedMembers ?? []).length > 0 && (
+          <div className="flex -space-x-1.5 shrink-0 mt-0.5">
+            {(e.assignedMembers ?? []).slice(0, 3).map(id => {
+              const m = memberById[id];
+              if (!m) return null;
+              return (
+                <div key={id} title={m.name} className="w-6 h-6 rounded-full ring-2 ring-background overflow-hidden flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ backgroundColor: m.color }}>
+                  {m.avatarUrl
+                    ? <img src={m.avatarUrl} alt={m.name} className="w-full h-full object-cover" />
+                    : m.emoji}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-sm truncate">{e.title}</div>
+          {e.startTime && (
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {fmt12(e.startTime)}{e.endTime ? ` – ${fmt12(e.endTime)}` : ""}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { data: summary, isLoading } = useGetDashboardSummary();
   const { data: allTimeBoard = [] } = useGetLeaderboard();
@@ -270,10 +303,21 @@ export default function Dashboard() {
   const approvalChores = allChores.filter(c => c.status === "pending_approval");
   const doneChores = allChores.filter(c => c.status === "done");
 
+  // Tomorrow's events — filter from upcomingEvents by date
+  const tomorrowStr = format(addDays(now, 1), "yyyy-MM-dd");
+  const tomorrowEvents = summary.upcomingEvents.filter(e => e.date === tomorrowStr);
+
+  // How many tomorrow rows to show: give today full priority
+  // If today has >= 3 events, only show a "+N tomorrow" pill; otherwise show up to 3
+  const TOMORROW_MAX = 3;
+  const todayHasManyEvents = summary.todayEvents.length >= 3;
+  const tomorrowVisible = todayHasManyEvents ? [] : tomorrowEvents.slice(0, TOMORROW_MAX);
+  const tomorrowHidden = tomorrowEvents.length - (todayHasManyEvents ? 0 : tomorrowVisible.length);
+
   return (
     <div className="h-full p-4 grid grid-cols-3 grid-rows-[auto_1fr] gap-4 animate-in fade-in duration-300">
 
-      {/* ── Hero strip: clock + date + next event + streak ── */}
+      {/* ── Hero strip: clock + date + next event + streaks ── */}
       <header className="col-span-3 flex items-center justify-between gap-4 px-1">
         <div className="shrink-0">
           <div className="text-5xl font-serif font-bold tabular-nums leading-none">
@@ -292,14 +336,25 @@ export default function Dashboard() {
             now={now}
           />
 
-          {summary.streaks.slice(0, 4).filter(s => s.currentStreak > 0).map(({ memberId, currentStreak }) => {
+          {/* Streak chips — show all children, dim when streak is 0 */}
+          {summary.streaks.slice(0, 5).map(({ memberId, currentStreak }) => {
             const member = children.find(m => m.id === memberId);
             if (!member) return null;
+            const active = currentStreak > 0;
             return (
-              <div key={memberId} className="flex items-center gap-1.5 bg-orange-50 border border-orange-200 rounded-2xl px-3 py-2 shrink-0">
+              <div
+                key={memberId}
+                className={`flex items-center gap-1.5 border rounded-2xl px-3 py-2 shrink-0 transition-colors ${
+                  active
+                    ? "bg-orange-50 border-orange-200"
+                    : "bg-muted/40 border-border"
+                }`}
+              >
                 <AvatarOrEmoji avatarUrl={member.avatarUrl} emoji={member.emoji} sizeCls="w-6 h-6 text-base" />
-                <Flame className="w-4 h-4 text-orange-500" />
-                <span className="text-sm font-bold text-orange-600">{currentStreak}</span>
+                <Flame className={`w-4 h-4 ${active ? "text-orange-500" : "text-muted-foreground/50"}`} />
+                <span className={`text-sm font-bold ${active ? "text-orange-600" : "text-muted-foreground/60"}`}>
+                  {currentStreak}
+                </span>
               </div>
             );
           })}
@@ -313,38 +368,78 @@ export default function Dashboard() {
             <CardTitle className="text-base font-bold">Today's Events</CardTitle>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto min-h-0 pt-0 space-y-2 pr-2">
-            {summary.todayEvents.length === 0 ? (
+            {summary.todayEvents.length === 0 && tomorrowEvents.length === 0 ? (
               <p className="text-muted-foreground text-sm py-4">Nothing on today 🌤️</p>
             ) : (
-              summary.todayEvents.map(e => (
-                <div key={e.id} className="bg-card rounded-xl p-3 shadow-sm">
-                  <div className="flex items-start gap-2">
-                    {(e.assignedMembers ?? []).length > 0 && (
-                      <div className="flex -space-x-1.5 shrink-0 mt-0.5">
-                        {(e.assignedMembers ?? []).slice(0, 3).map(id => {
-                          const m = memberById[id];
-                          if (!m) return null;
-                          return (
-                            <div key={id} title={m.name} className="w-6 h-6 rounded-full ring-2 ring-background overflow-hidden flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ backgroundColor: m.color }}>
-                              {m.avatarUrl
-                                ? <img src={m.avatarUrl} alt={m.name} className="w-full h-full object-cover" />
-                                : m.emoji}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-sm truncate">{e.title}</div>
-                      {e.startTime && (
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          {fmt12(e.startTime)}{e.endTime ? ` – ${fmt12(e.endTime)}` : ""}
-                        </div>
-                      )}
+              <>
+                {/* Today */}
+                {summary.todayEvents.length === 0 ? (
+                  <p className="text-muted-foreground text-xs py-1 text-center">Nothing today</p>
+                ) : (
+                  summary.todayEvents.map(e => (
+                    <EventRow key={e.id} e={e} memberById={memberById} />
+                  ))
+                )}
+
+                {/* Tomorrow section */}
+                {tomorrowEvents.length > 0 && (
+                  <>
+                    <div className="flex items-center gap-2 pt-1">
+                      <div className="flex-1 h-px bg-border/60" />
+                      <span className="text-xs font-semibold text-muted-foreground shrink-0">Tomorrow</span>
+                      <div className="flex-1 h-px bg-border/60" />
                     </div>
-                  </div>
-                </div>
-              ))
+
+                    {todayHasManyEvents ? (
+                      /* Today is full — show compact "+N tomorrow" pill */
+                      <div className="text-center">
+                        <span className="text-xs font-semibold text-muted-foreground bg-muted/60 rounded-full px-3 py-1">
+                          +{tomorrowEvents.length} event{tomorrowEvents.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        {tomorrowVisible.map(e => (
+                          <div key={e.id} className="bg-card/70 rounded-xl p-3 shadow-sm opacity-80">
+                            <div className="flex items-start gap-2">
+                              {(e.assignedMembers ?? []).length > 0 && (
+                                <div className="flex -space-x-1.5 shrink-0 mt-0.5">
+                                  {(e.assignedMembers ?? []).slice(0, 3).map(id => {
+                                    const m = memberById[id];
+                                    if (!m) return null;
+                                    return (
+                                      <div key={id} title={m.name} className="w-6 h-6 rounded-full ring-2 ring-background overflow-hidden flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ backgroundColor: m.color }}>
+                                        {m.avatarUrl
+                                          ? <img src={m.avatarUrl} alt={m.name} className="w-full h-full object-cover" />
+                                          : m.emoji}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold text-sm truncate">{e.title}</div>
+                                {e.startTime && (
+                                  <div className="text-xs text-muted-foreground mt-0.5">
+                                    {fmt12(e.startTime)}{e.endTime ? ` – ${fmt12(e.endTime)}` : ""}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {tomorrowHidden > 0 && (
+                          <div className="text-center">
+                            <span className="text-xs font-semibold text-muted-foreground bg-muted/60 rounded-full px-3 py-1">
+                              +{tomorrowHidden} more
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -425,8 +520,8 @@ export default function Dashboard() {
                     <div className="text-xs text-green-600 font-semibold">+{weekly?.weeklyPoints ?? 0} this week</div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="font-bold">{entry.pointsBalance}</div>
-                    <div className="text-xs text-muted-foreground">pts</div>
+                    <div className="font-bold text-base leading-tight">{entry.lifetimePoints}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide">score</div>
                   </div>
                 </div>
               );
