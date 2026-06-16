@@ -449,7 +449,7 @@ paths:
     post:
       operationId: rejectChore
       tags: [chores]
-      summary: Reject a completed chore (parent action, resets to todo for retry)
+      summary: Reject a completed chore (parent action — reset to todo or missed)
       parameters:
         - name: id
           in: path
@@ -461,10 +461,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ChoreApproveBody"
+              $ref: "#/components/schemas/ChoreRejectBody"
       responses:
         "200":
-          description: Rejected — status reset to todo
+          description: Rejected — status reset to todo or missed
           content:
             application/json:
               schema:
@@ -1772,6 +1772,17 @@ components:
           type: integer
         pin:
           type: string
+
+    ChoreRejectBody:
+      type: object
+      properties:
+        parentId:
+          type: integer
+        pin:
+          type: string
+        markAsMissed:
+          type: boolean
+          description: When true, sends the chore to missed instead of back to todo
 
     ChoreInput:
       type: object

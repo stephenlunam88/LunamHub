@@ -28,6 +28,12 @@ const ChoreApproveBodySchema = z.object({
   pin: z.string().optional(),
 });
 
+const ChoreRejectBodySchema = z.object({
+  parentId: z.number().int().positive().optional(),
+  pin: z.string().optional(),
+  markAsMissed: z.boolean().optional(),
+});
+
 const CreateChoreSchema = z.object({
   title: z.string(),
   description: z.string().optional(),
@@ -635,20 +641,23 @@ router.post("/:id/approve", async (req, res) => {
   res.json(formatInstance(updated, await getMemberById(updated.childId)));
 });
 
-// ── POST /api/chores/:id/reject — parent rejects, resets to todo ──────────────
+// ── POST /api/chores/:id/reject — parent rejects, resets to todo or missed ─────
 
 router.post("/:id/reject", async (req, res) => {
   const id = Number(req.params.id);
-  const bodyParse = ChoreApproveBodySchema.safeParse(req.body);
+  const bodyParse = ChoreRejectBodySchema.safeParse(req.body);
   const parentId = bodyParse.success ? (bodyParse.data.parentId ?? null) : null;
   const pin = bodyParse.success ? (bodyParse.data.pin ?? null) : null;
+  const markAsMissed = bodyParse.success ? (bodyParse.data.markAsMissed ?? false) : false;
 
   const ok = await verifyParentPin(parentId, pin, res);
   if (!ok) return;
 
+  const newStatus = markAsMissed ? ("missed" as const) : ("todo" as const);
+
   const [inst] = await db
     .update(choreInstancesTable)
-    .set({ status: "todo", completedAt: null })
+    .set({ status: newStatus, completedAt: null })
     .where(
       and(
         eq(choreInstancesTable.id, id),

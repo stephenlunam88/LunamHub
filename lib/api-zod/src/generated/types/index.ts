@@ -17,6 +17,7 @@ export * from './chore';
 export * from './choreApproveBody';
 export * from './choreInput';
 export * from './choreInputRepeatType';
+export * from './choreRejectBody';
 export * from './choreRepeatType';
 export * from './choreStatus';
 export * from './choreSummary';

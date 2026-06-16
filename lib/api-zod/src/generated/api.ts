@@ -498,7 +498,7 @@ export const ApproveChoreResponse = zod.object({
 
 
 /**
- * @summary Reject a completed chore (parent action, resets to todo for retry)
+ * @summary Reject a completed chore (parent action — reset to todo or missed)
  */
 export const RejectChoreParams = zod.object({
   "id": zod.coerce.number()
@@ -506,7 +506,8 @@ export const RejectChoreParams = zod.object({
 
 export const RejectChoreBody = zod.object({
   "parentId": zod.number().optional(),
-  "pin": zod.string().optional()
+  "pin": zod.string().optional(),
+  "markAsMissed": zod.boolean().optional().describe('When true, sends the chore to missed instead of back to todo')
 })
 
 export const RejectChoreResponse = zod.object({

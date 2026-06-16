@@ -307,6 +307,13 @@ export interface ChoreApproveBody {
   pin?: string;
 }
 
+export interface ChoreRejectBody {
+  parentId?: number;
+  pin?: string;
+  /** When true, sends the chore to missed instead of back to todo */
+  markAsMissed?: boolean;
+}
+
 export type ChoreInputRepeatType = typeof ChoreInputRepeatType[keyof typeof ChoreInputRepeatType];
 
 

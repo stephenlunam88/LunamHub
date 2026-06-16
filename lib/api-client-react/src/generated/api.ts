@@ -28,6 +28,7 @@ import type {
   Chore,
   ChoreApproveBody,
   ChoreInput,
+  ChoreRejectBody,
   ChoreSummary,
   ChoreUpdate,
   DashboardSummary,
@@ -1730,10 +1731,10 @@ export const getRejectChoreUrl = (id: number,) => {
 }
 
 /**
- * @summary Reject a completed chore (parent action, resets to todo for retry)
+ * @summary Reject a completed chore (parent action — reset to todo or missed)
  */
 export const rejectChore = async (id: number,
-    choreApproveBody?: ChoreApproveBody, options?: RequestInit): Promise<Chore> => {
+    choreRejectBody?: ChoreRejectBody, options?: RequestInit): Promise<Chore> => {
 
   return customFetch<Chore>(getRejectChoreUrl(id),
   {
@@ -1741,7 +1742,7 @@ export const rejectChore = async (id: number,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(
-      choreApproveBody,)
+      choreRejectBody,)
   }
 );}
 
@@ -1749,8 +1750,8 @@ export const rejectChore = async (id: number,
 
 
 export const getRejectChoreMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectChore>>, TError,{id: number;data?: BodyType<ChoreApproveBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof rejectChore>>, TError,{id: number;data?: BodyType<ChoreApproveBody>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectChore>>, TError,{id: number;data?: BodyType<ChoreRejectBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rejectChore>>, TError,{id: number;data?: BodyType<ChoreRejectBody>}, TContext> => {
 
 const mutationKey = ['rejectChore'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1762,7 +1763,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rejectChore>>, {id: number;data?: BodyType<ChoreApproveBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rejectChore>>, {id: number;data?: BodyType<ChoreRejectBody>}> = (props) => {
           const {id,data} = props ?? {};
 
           return  rejectChore(id,data,requestOptions)
@@ -1776,18 +1777,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type RejectChoreMutationResult = NonNullable<Awaited<ReturnType<typeof rejectChore>>>
-    export type RejectChoreMutationBody = BodyType<ChoreApproveBody> | undefined
+    export type RejectChoreMutationBody = BodyType<ChoreRejectBody> | undefined
     export type RejectChoreMutationError = ErrorType<unknown>
 
     /**
- * @summary Reject a completed chore (parent action, resets to todo for retry)
+ * @summary Reject a completed chore (parent action — reset to todo or missed)
  */
 export const useRejectChore = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectChore>>, TError,{id: number;data?: BodyType<ChoreApproveBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectChore>>, TError,{id: number;data?: BodyType<ChoreRejectBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof rejectChore>>,
         TError,
-        {id: number;data?: BodyType<ChoreApproveBody>},
+        {id: number;data?: BodyType<ChoreRejectBody>},
         TContext
       > => {
       return useMutation(getRejectChoreMutationOptions(options));
