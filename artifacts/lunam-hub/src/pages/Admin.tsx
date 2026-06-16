@@ -11,6 +11,7 @@ import {
   useListPointMilestones, useCreatePointMilestone, useUpdatePointMilestone, useDeletePointMilestone,
   useListChoreMilestones, useCreateChoreMilestone, useUpdateChoreMilestone, useDeleteChoreMilestone,
   useAwardBonusPoints,
+  useListPointTransactions,
   getGetSettingsQueryKey, getListFamilyMembersQueryKey,
   getListRewardsQueryKey, getListStreakMilestonesQueryKey, getListScreensaverPhotosQueryKey,
   getListPointMilestonesQueryKey, getListChoreMilestonesQueryKey,
@@ -23,7 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload, CalendarDays, Flame, ImagePlay, Star, ListChecks } from "lucide-react";
+import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload, CalendarDays, Flame, ImagePlay, Star, ListChecks, History, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import {
   useGetGoogleCalendarStatus,
   useConnectGoogleCalendar,
@@ -431,6 +432,95 @@ function ThresholdMilestoneForm<T extends { threshold: number; title: string; de
         </div>
       </div>
     </div>
+  );
+}
+
+const TX_TYPE_CONFIG: Record<string, { label: string; chipClass: string; icon: React.ReactNode; sign: string }> = {
+  chore_earned: { label: "Chore earned",      chipClass: "bg-green-100 text-green-800",   icon: <TrendingUp className="w-3.5 h-3.5" />,   sign: "+" },
+  bonus:        { label: "Bonus",             chipClass: "bg-blue-100 text-blue-800",     icon: <Star className="w-3.5 h-3.5" />,         sign: "+" },
+  reward_spent: { label: "Reward redeemed",   chipClass: "bg-purple-100 text-purple-800", icon: <TrendingDown className="w-3.5 h-3.5" />, sign: "-" },
+  adjustment:   { label: "Adjustment",        chipClass: "bg-gray-100 text-gray-700",     icon: <Minus className="w-3.5 h-3.5" />,        sign: "" },
+};
+
+function PointsHistoryCard({ members }: { members: { id: number; name: string; emoji: string; role: string }[] }) {
+  const [selectedId, setSelectedId] = useState<string>("");
+  const memberId = selectedId ? Number(selectedId) : undefined;
+
+  const { data: txns = [], isLoading } = useListPointTransactions(
+    { memberId: memberId ?? null },
+    { query: { enabled: !!memberId, queryKey: ["listPointTransactions", memberId] } }
+  );
+
+  const sorted = [...txns].reverse();
+  const children = members.filter(m => m.role === "child");
+
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) +
+      " · " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const totalPoints = txns.reduce((sum, t) => sum + t.amount, 0);
+
+  return (
+    <Card className="rounded-3xl border-0 shadow-sm">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><History className="w-5 h-5" /> Points History</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">View every points transaction for a child — chores earned, bonuses awarded, and rewards spent.</p>
+        <Select value={selectedId} onValueChange={setSelectedId}>
+          <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Select a child…" /></SelectTrigger>
+          <SelectContent>
+            {children.map(m => (
+              <SelectItem key={m.id} value={String(m.id)}>{m.emoji} {m.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {memberId && (
+          <>
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">Loading transactions…</p>
+            ) : sorted.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic py-4 text-center">No transactions yet for this child.</p>
+            ) : (
+              <>
+                <div className="flex items-center justify-between text-sm px-1">
+                  <span className="text-muted-foreground">{sorted.length} transaction{sorted.length !== 1 ? "s" : ""}</span>
+                  <span className={`font-semibold ${totalPoints >= 0 ? "text-green-700" : "text-red-600"}`}>
+                    Total: {totalPoints >= 0 ? "+" : ""}{totalPoints} pts
+                  </span>
+                </div>
+                <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+                  {sorted.map(tx => {
+                    const cfg = TX_TYPE_CONFIG[tx.type] ?? TX_TYPE_CONFIG["adjustment"];
+                    const amountStr = `${cfg.sign}${Math.abs(tx.amount)} pts`;
+                    const isPositive = tx.amount > 0;
+                    return (
+                      <div key={tx.id} className="flex items-start gap-3 rounded-2xl bg-muted/50 px-4 py-3">
+                        <div className="mt-0.5 shrink-0">
+                          <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${cfg.chipClass}`}>
+                            {cfg.icon} {cfg.label}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium leading-snug">{tx.description}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{formatDate(tx.createdAt)}</p>
+                        </div>
+                        <span className={`text-sm font-bold shrink-0 ${isPositive ? "text-green-700" : "text-red-600"}`}>
+                          {amountStr}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1103,6 +1193,8 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
           </Button>
         </CardContent>
       </Card>
+
+      <PointsHistoryCard members={members} />
 
       <Card className="rounded-3xl border-0 shadow-sm">
         <CardHeader><CardTitle className="flex items-center gap-2"><SettingsIcon className="w-5 h-5" /> App Settings</CardTitle></CardHeader>
