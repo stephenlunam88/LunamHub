@@ -12,6 +12,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trophy, CheckCircle2, Clock, Star, Flame } from "lucide-react";
 import type { Chore, FamilyMember } from "@workspace/api-client-react";
 
+function fmt12(time: string): string {
+  const [hStr, mStr] = time.split(":");
+  const h = parseInt(hStr!, 10);
+  const m = parseInt(mStr!, 10);
+  const period = h >= 12 ? "pm" : "am";
+  const hour = h % 12 || 12;
+  return m === 0 ? `${hour}${period}` : `${hour}:${mStr}${period}`;
+}
+
 function AvatarOrEmoji({
   avatarUrl,
   emoji,
@@ -140,7 +149,9 @@ export default function Dashboard() {
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold truncate">{e.title}</div>
                       {e.startTime && (
-                        <div className="text-sm text-muted-foreground">{e.startTime}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {fmt12(e.startTime)}{e.endTime ? ` – ${fmt12(e.endTime)}` : ""}
+                        </div>
                       )}
                     </div>
                   </li>
