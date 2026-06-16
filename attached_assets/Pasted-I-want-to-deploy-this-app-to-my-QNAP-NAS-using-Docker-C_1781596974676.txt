@@ -1,0 +1,42 @@
+I want to deploy this app to my QNAP NAS using Docker Compose, the same way I deploy another app (SwimForge). Here's exactly how that setup works — please match it:
+
+NAS path: /share/Container/familyhub/ (create this folder structure)
+
+Docker Compose setup:
+
+The repo lives on GitHub and gets pulled to the NAS manually
+The NAS runs docker compose build && docker compose up -d to deploy
+There is a .env file on the NAS (not in the repo) that holds secrets like DB_PASSWORD, API keys, etc.
+The compose file uses ${VARIABLE:-default} syntax so it works without the .env if defaults are fine for dev
+Database:
+
+PostgreSQL running as a Docker service named db
+Credentials via env vars: POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD
+A docker/init.sql file in the repo initialises the schema on first run
+A named volume (pgdata) persists the data across restarts
+Healthcheck: pg_isready -U <user>
+Services needed:
+
+db — postgres:16-alpine
+api — Node.js Express backend, built from a Dockerfile, depends on db
+web — React/Vite frontend, built from a Dockerfile using nginx to serve the static build
+Dockerfile conventions from my other app:
+
+Multi-stage builds (build stage + slim runtime stage)
+API: builds with pnpm, runs the compiled JS with node
+Web: builds with pnpm/vite, copies dist/ into an nginx image
+After every GitHub push, I run this on the NAS:
+
+cd /share/Container/familyhub/<repo-folder> && \
+CACHE_BUST=$(date +%s) docker compose build api web && docker compose up -d
+Please create:
+
+A docker-compose.yml at the repo root
+A Dockerfile for the API (or backend)
+A Dockerfile for the web frontend
+A docker/init.sql with the initial DB schema
+A .env.example file listing all required secrets (but not their values)
+A .dockerignore for each service
+The GitHub repo will be at stephenlunam88/FamilyHub — please set that as the git remote named github-nas.
+
+Paste that in and it'll know exactly what to build toward. You may need to tweak service names or the repo path, but the structure will match SwimForge exactly.
