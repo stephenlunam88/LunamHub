@@ -290,7 +290,7 @@ export default function Rewards() {
                   <>
                     <PinActionDialog
                       triggerIcon={<Check className="w-5 h-5" />}
-                      triggerClassName="rounded-xl h-12 w-12 bg-green-600 hover:bg-green-700"
+                      triggerClassName="rounded-xl h-14 w-14 bg-green-600 hover:bg-green-700"
                       title="Approve Reward"
                       description={`Approve "${r.reward?.title}" for ${r.member?.name}?`}
                       parents={parents}
@@ -301,7 +301,7 @@ export default function Rewards() {
                     />
                     <PinActionDialog
                       triggerIcon={<X className="w-5 h-5" />}
-                      triggerClassName="rounded-xl h-12 w-12 border border-input bg-background hover:bg-accent text-foreground"
+                      triggerClassName="rounded-xl h-14 w-14 border border-input bg-background hover:bg-accent text-foreground"
                       title="Reject Reward"
                       description={`Reject "${r.reward?.title}" request from ${r.member?.name}?`}
                       parents={parents}
@@ -313,10 +313,10 @@ export default function Rewards() {
                   </>
                 ) : (
                   <>
-                    <Button size="icon" className="rounded-xl h-12 w-12 bg-green-600 hover:bg-green-700" onClick={() => approveRedemption.mutate({ id: r.id })}>
+                    <Button size="icon" className="rounded-xl h-14 w-14 bg-green-600 hover:bg-green-700" onClick={() => approveRedemption.mutate({ id: r.id })}>
                       <Check className="w-5 h-5" />
                     </Button>
-                    <Button size="icon" variant="outline" className="rounded-xl h-12 w-12" onClick={() => rejectRedemption.mutate({ id: r.id })}>
+                    <Button size="icon" variant="outline" className="rounded-xl h-14 w-14" onClick={() => rejectRedemption.mutate({ id: r.id })}>
                       <X className="w-5 h-5" />
                     </Button>
                   </>

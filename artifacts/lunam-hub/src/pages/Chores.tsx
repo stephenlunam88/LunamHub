@@ -75,7 +75,7 @@ function PinApproveDialog({ choreId, choreTitle, parents, onSuccess }: {
   return (
     <Dialog open={open} onOpenChange={o => { setOpen(o); reset(); }}>
       <DialogTrigger asChild>
-        <Button className="rounded-xl h-12 px-6 bg-green-600 hover:bg-green-700 shrink-0">
+        <Button className="rounded-xl h-14 px-6 bg-green-600 hover:bg-green-700 shrink-0">
           <Star className="w-4 h-4 mr-2" /> Approve
         </Button>
       </DialogTrigger>
@@ -160,7 +160,7 @@ function PinDismissDialog({ choreId, choreTitle, parents, onSuccess }: {
   return (
     <Dialog open={open} onOpenChange={o => { setOpen(o); reset(); }}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="rounded-xl h-10 px-4 text-sm shrink-0">
+        <Button variant="outline" className="rounded-xl h-14 px-5 shrink-0">
           Dismiss
         </Button>
       </DialogTrigger>
@@ -246,7 +246,7 @@ function PinRejectDialog({ choreId, choreTitle, parents, onSuccess }: {
   return (
     <Dialog open={open} onOpenChange={o => { setOpen(o); reset(); }}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="rounded-xl h-12 px-4 border-red-300 text-red-600 hover:bg-red-50 shrink-0">
+        <Button variant="outline" className="rounded-xl h-14 px-5 border-red-300 text-red-600 hover:bg-red-50 shrink-0">
           <X className="w-4 h-4 mr-1.5" /> Reject
         </Button>
       </DialogTrigger>
@@ -354,7 +354,7 @@ function RedeemDialog({ memberId, memberName, memberBalance, parents, onSuccess 
   return (
     <Dialog open={open} onOpenChange={o => { setOpen(o); if (!o) reset(); }}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="rounded-xl h-10 px-4 text-sm shrink-0 gap-1.5">
+        <Button variant="outline" className="rounded-xl h-14 px-5 shrink-0 gap-1.5">
           <Gift className="w-4 h-4" /> Redeem
         </Button>
       </DialogTrigger>
@@ -1006,7 +1006,7 @@ export default function Chores() {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <div className="bg-primary/10 text-primary font-bold px-4 py-2 rounded-2xl text-lg mr-2">{c.pointsValue} pts</div>
-                    <Button size="icon" variant="ghost" className="h-12 w-12 rounded-xl text-green-600 hover:text-green-700 hover:bg-green-50"
+                    <Button size="icon" variant="ghost" className="h-14 w-14 rounded-xl text-green-600 hover:text-green-700 hover:bg-green-50"
                       onClick={() => completeChore.mutate({ id: c.id })}>
                       <CheckCircle2 className="w-6 h-6" />
                     </Button>
@@ -1052,7 +1052,7 @@ export default function Chores() {
                     </>
                   ) : (
                     <Button
-                      className="rounded-xl h-12 px-6 bg-green-600 hover:bg-green-700 shrink-0"
+                      className="rounded-xl h-14 px-6 bg-green-600 hover:bg-green-700 shrink-0"
                       onClick={() => approveChore.mutate({ id: c.id })}
                       disabled={approveChore.isPending}
                     >
@@ -1134,7 +1134,7 @@ export default function Chores() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="rounded-xl h-10 px-4 text-sm shrink-0"
+                      className="rounded-xl h-14 px-5 shrink-0"
                       onClick={() => { /* no-op: require parent PIN when parents exist */ }}
                       disabled
                     >

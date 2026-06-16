@@ -428,7 +428,7 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
               </div>
             )}
             <Button
-              className="w-full h-12 rounded-xl gap-2"
+              className="w-full h-14 rounded-xl gap-2"
               onClick={() => {
                 const data = memberForm.role === "parent"
                   ? { ...memberForm, pin: newMemberPin } as Parameters<typeof createMember.mutate>[0]["data"]
@@ -560,8 +560,8 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
             <p className="text-xs text-muted-foreground mb-2">This PIN gates the Admin area. Per-parent PINs above gate approvals.</p>
             <div className="flex gap-3">
               <Input type="password" inputMode="numeric" placeholder="New PIN (min 4 digits)" value={newPin}
-                onChange={e => setNewPin(e.target.value)} className="rounded-xl h-12 flex-1" />
-              <Button className="h-12 px-6 rounded-xl" onClick={() => { updateSettings.mutate({ data: { parentPin: newPin } }); setNewPin(""); }} disabled={!newPin || newPin.length < 4}>
+                onChange={e => setNewPin(e.target.value)} className="rounded-xl h-14 flex-1" />
+              <Button className="h-14 px-6 rounded-xl" onClick={() => { updateSettings.mutate({ data: { parentPin: newPin } }); setNewPin(""); }} disabled={!newPin || newPin.length < 4}>
                 Save PIN
               </Button>
             </div>

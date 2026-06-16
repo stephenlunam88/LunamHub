@@ -187,7 +187,7 @@ function ChoresWidget({ chores, children }: { chores: Chore[]; children: FamilyM
                 todoCount={todoForChild(child.id).length}
                 approvalCount={approvalForChild(child.id).length}
                 isSelected={selectedChildId === child.id}
-                onClick={() => setSelectedChildId(child.id)}
+                onClick={() => setSelectedChildId(prev => prev === child.id ? null : child.id)}
               />
             ))}
           </div>

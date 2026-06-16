@@ -650,7 +650,7 @@ export default function Calendar() {
             )}
             <Button
               variant="outline"
-              className="w-full rounded-xl h-12"
+              className="w-full rounded-xl h-14"
               onClick={() => openCreate(selectedDay)}
             >
               <Plus className="w-4 h-4 mr-2" /> Add to this day

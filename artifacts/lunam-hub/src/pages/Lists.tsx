@@ -80,7 +80,7 @@ export default function Lists() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button className="w-full h-12 rounded-xl" onClick={() => createList.mutate({ data: listForm })} disabled={!listForm.name || createList.isPending}>
+              <Button className="w-full h-14 rounded-xl" onClick={() => createList.mutate({ data: listForm })} disabled={!listForm.name || createList.isPending}>
                 {createList.isPending ? "Creating…" : "Create"}
               </Button>
             </div>
@@ -129,9 +129,9 @@ export default function Lists() {
                       if (e.key === "Enter" && newItemText.trim())
                         createItem.mutate({ listId: selectedListId, data: { text: newItemText.trim() } });
                     }}
-                    className="rounded-xl h-12 flex-1"
+                    className="rounded-xl h-14 flex-1"
                   />
-                  <Button className="h-12 px-5 rounded-xl" onClick={() => {
+                  <Button className="h-14 px-5 rounded-xl" onClick={() => {
                     if (newItemText.trim()) createItem.mutate({ listId: selectedListId, data: { text: newItemText.trim() } });
                   }}>
                     <Plus className="w-5 h-5" />
