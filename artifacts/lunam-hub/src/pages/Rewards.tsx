@@ -367,21 +367,39 @@ export default function Rewards() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {rewards.filter(r => r.active).map(r => (
-          <Card key={r.id} className="rounded-3xl border-0 shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="text-4xl mb-3">🎁</div>
-              <div className="font-bold text-xl">{r.title}</div>
-              {r.description && <div className="text-muted-foreground text-sm mt-1">{r.description}</div>}
-              <div className="mt-4 flex items-center justify-between">
-                <div className="bg-primary text-primary-foreground px-4 py-2 rounded-2xl font-bold text-lg">{r.pointsCost} pts</div>
-                <div className="text-sm text-muted-foreground">
-                  {children.filter(m => m.pointsBalance >= r.pointsCost).map(m => m.emoji).join(" ")} can afford
+        {rewards.filter(r => r.active).map(r => {
+          const canAffordList = children.filter(m => m.pointsBalance >= r.pointsCost);
+          return (
+            <Card
+              key={r.id}
+              className="rounded-3xl border-0 shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.98]"
+              onClick={() => { setRedeemForm({ rewardId: r.id, memberId: 0 }); setRedeemOpen(true); }}
+            >
+              <CardContent className="p-6">
+                <div className="text-4xl mb-3">🎁</div>
+                <div className="font-bold text-xl">{r.title}</div>
+                {r.description && <div className="text-muted-foreground text-sm mt-1">{r.description}</div>}
+                <div className="mt-4 flex items-center justify-between gap-2">
+                  <div className="bg-primary text-primary-foreground px-4 py-2 rounded-2xl font-bold text-lg shrink-0">{r.pointsCost} pts</div>
+                  {canAffordList.length > 0 ? (
+                    <div className="flex items-center gap-1">
+                      <div className="flex -space-x-1.5">
+                        {canAffordList.map(m => (
+                          m.avatarUrl
+                            ? <img key={m.id} src={m.avatarUrl} alt={m.name} title={m.name} className="w-8 h-8 rounded-full object-cover border-2 border-background" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                            : <span key={m.id} title={m.name} className="w-8 h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-base">{m.emoji}</span>
+                        ))}
+                      </div>
+                      <span className="text-xs text-muted-foreground ml-1">can afford</span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">No one can afford yet</span>
+                  )}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {rewards.filter(r => r.active).length === 0 && (
