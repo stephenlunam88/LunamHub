@@ -106,6 +106,32 @@ export async function isGCalConnected(): Promise<boolean> {
   return resp !== null && resp.status >= 200 && resp.status < 300;
 }
 
+// Fetch and cache the timezone configured on the user's primary Google Calendar.
+// This is the authoritative source — do not rely on the browser sending a timezone header.
+let _cachedTz: string | null = null;
+let _cachedTzAt = 0;
+const TZ_CACHE_MS = 60 * 60_000; // 1 hour
+
+export async function getCalendarTimezone(): Promise<string> {
+  const now = Date.now();
+  if (_cachedTz && now - _cachedTzAt < TZ_CACHE_MS) return _cachedTz;
+  try {
+    const resp = await proxyGCal("/calendars/primary");
+    if (resp && resp.status === 200) {
+      const data = (await resp.json()) as { timeZone?: string };
+      if (data.timeZone) {
+        _cachedTz = data.timeZone;
+        _cachedTzAt = now;
+        logger.info({ timeZone: data.timeZone }, "gcal: calendar timezone fetched");
+        return _cachedTz;
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "gcal: failed to fetch calendar timezone");
+  }
+  return "UTC";
+}
+
 export interface GCalEvent {
   id: string;
   summary?: string;
@@ -181,7 +207,7 @@ export async function createGCalEvent(event: {
   timezone?: string | null;
 }): Promise<string | null> {
   const allDay = event.allDay || !event.startTime;
-  const tz = event.timezone || "UTC";
+  const tz = event.timezone || await getCalendarTimezone();
   const startDt = allDay ? undefined : localTimeToUTC(event.date, event.startTime!, tz);
   const endDt = allDay ? undefined : localTimeToUTC(event.date, event.endTime ?? event.startTime!, tz);
 
@@ -218,7 +244,7 @@ export async function updateGCalEvent(
   },
 ): Promise<void> {
   const allDay = event.allDay || !event.startTime;
-  const tz = event.timezone || "UTC";
+  const tz = event.timezone || await getCalendarTimezone();
 
   const body: Record<string, unknown> = {
     summary: event.title,
