@@ -218,6 +218,7 @@ router.get("/", async (req, res): Promise<void> => {
 
 // ── Create event (also pushes to Google Calendar) ────────────────────────────
 router.post("/", async (req, res): Promise<void> => {
+  req.log.info({ rawTimezone: (req.body as Record<string, unknown>).timezone }, "create event: raw timezone from req.body");
   const body = CreateEventBody.parse(req.body);
   const assignedMembers: number[] = (body as { assignedMembers?: number[] }).assignedMembers ?? [];
   const timezone: string | undefined = (body as { timezone?: string }).timezone;
