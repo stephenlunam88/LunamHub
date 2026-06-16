@@ -6,7 +6,7 @@ import {
   getListEventsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay, parseISO } from "date-fns";
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay, parseISO, getDay, getDate, getMonth } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -35,6 +35,28 @@ const RECURRENCE_LABELS: Record<string, string> = {
   MONTHLY: "Monthly",
   YEARLY: "Yearly",
 };
+
+function doesEventOccurOnDay(event: Event, day: Date): boolean {
+  const eventStart = parseISO(event.date);
+  if (eventStart > day) return false;
+  if (!event.recurrence) return isSameDay(eventStart, day);
+  if (event.recurrenceEndDate) {
+    const endDate = parseISO(event.recurrenceEndDate as string);
+    if (day > endDate) return false;
+  }
+  switch (event.recurrence as string) {
+    case "DAILY":
+      return true;
+    case "WEEKLY":
+      return getDay(eventStart) === getDay(day);
+    case "MONTHLY":
+      return getDate(eventStart) === getDate(day);
+    case "YEARLY":
+      return getMonth(eventStart) === getMonth(day) && getDate(eventStart) === getDate(day);
+    default:
+      return isSameDay(eventStart, day);
+  }
+}
 
 type FormMode = "create" | "edit";
 
@@ -230,7 +252,7 @@ export default function Calendar() {
   const isPending = createEvent.isPending || updateEvent.isPending;
 
   const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
-  const selectedDayEvents = events.filter(e => isSameDay(parseISO(e.date), selectedDay));
+  const selectedDayEvents = events.filter(e => doesEventOccurOnDay(e, selectedDay));
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -443,7 +465,7 @@ export default function Calendar() {
             <div className="grid grid-cols-7 gap-1">
               {Array.from({ length: days[0].getDay() }).map((_, i) => <div key={`pad-${i}`} />)}
               {days.map(day => {
-                const hasEvents = events.some(e => isSameDay(parseISO(e.date), day));
+                const hasEvents = events.some(e => doesEventOccurOnDay(e, day));
                 const selected = isSameDay(day, selectedDay);
                 const todayDay = isToday(day);
                 return (

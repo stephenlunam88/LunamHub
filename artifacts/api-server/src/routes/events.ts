@@ -5,7 +5,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { eventsTable, eventMembersTable } from "@workspace/db";
-import { eq, gte, lte, inArray } from "drizzle-orm";
+import { eq, gte, lte, inArray, or, and, isNull, isNotNull } from "drizzle-orm";
 import {
   CreateEventBody,
   UpdateEventBody,
@@ -159,8 +159,33 @@ router.get("/", async (req, res): Promise<void> => {
   });
 
   let query = db.select().from(eventsTable).$dynamic();
-  if (params.startDate) query = query.where(gte(eventsTable.date, params.startDate));
-  if (params.endDate) query = query.where(lte(eventsTable.date, params.endDate));
+  if (params.startDate && params.endDate) {
+    // Include non-recurring events within the window AND recurring events
+    // that started before the window end and whose series overlaps the window.
+    query = query.where(
+      or(
+        // Non-recurring: date must fall within the requested window
+        and(
+          isNull(eventsTable.recurrence),
+          gte(eventsTable.date, params.startDate),
+          lte(eventsTable.date, params.endDate)
+        ),
+        // Recurring: event starts on or before the window end, and the series
+        // hasn't ended before the window start (or has no end date)
+        and(
+          isNotNull(eventsTable.recurrence),
+          lte(eventsTable.date, params.endDate),
+          or(
+            isNull(eventsTable.recurrenceEndDate),
+            gte(eventsTable.recurrenceEndDate, params.startDate)
+          )
+        )
+      )
+    );
+  } else {
+    if (params.startDate) query = query.where(gte(eventsTable.date, params.startDate));
+    if (params.endDate) query = query.where(lte(eventsTable.date, params.endDate));
+  }
 
   const events = await query.orderBy(eventsTable.date);
   const memberMap = await getEventMembers(events.map((e) => e.id));
