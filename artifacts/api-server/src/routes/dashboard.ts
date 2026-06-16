@@ -12,7 +12,7 @@ import {
   mealsTable,
   redemptionsTable,
 } from "@workspace/db";
-import { eq, gte, inArray, and } from "drizzle-orm";
+import { eq, gte, lte, inArray, and, or, isNull, isNotNull } from "drizzle-orm";
 import { pointTransactionsTable } from "@workspace/db";
 
 const router = Router();
@@ -27,16 +27,51 @@ function addDays(dateStr: string, days: number) {
   return d.toISOString().split("T")[0]!;
 }
 
+// Returns true if a recurring (or one-off) event occurs on the given YYYY-MM-DD date.
+// Mirrors doesEventOccurOnDay() in Calendar.tsx.
+function doesOccurOn(e: typeof eventsTable.$inferSelect, dateStr: string): boolean {
+  if (e.date > dateStr) return false;
+  if (!e.recurrence) return e.date === dateStr;
+  if (e.recurrenceEndDate && e.recurrenceEndDate < dateStr) return false;
+  const start = new Date(e.date + "T00:00:00");
+  const check = new Date(dateStr + "T00:00:00");
+  switch (e.recurrence) {
+    case "DAILY": return true;
+    case "WEEKLY": return start.getDay() === check.getDay();
+    case "MONTHLY": return start.getDate() === check.getDate();
+    case "YEARLY": return start.getMonth() === check.getMonth() && start.getDate() === check.getDate();
+    default: return e.date === dateStr;
+  }
+}
+
 // GET /api/dashboard/summary
 router.get("/summary", async (_req, res) => {
   const todayStr = today();
   const upcomingEnd = addDays(todayStr, 7);
 
-  // Fetch all events for today and upcoming week
+  // Fetch events that could appear today or in the upcoming week.
+  // Non-recurring: date falls within [today, upcomingEnd].
+  // Recurring: series started on or before upcomingEnd AND hasn't ended before today.
   const allEvents = await db
     .select()
     .from(eventsTable)
-    .where(gte(eventsTable.date, todayStr))
+    .where(
+      or(
+        and(
+          isNull(eventsTable.recurrence),
+          gte(eventsTable.date, todayStr),
+          lte(eventsTable.date, upcomingEnd),
+        ),
+        and(
+          isNotNull(eventsTable.recurrence),
+          lte(eventsTable.date, upcomingEnd),
+          or(
+            isNull(eventsTable.recurrenceEndDate),
+            gte(eventsTable.recurrenceEndDate, todayStr),
+          ),
+        ),
+      ),
+    )
     .orderBy(eventsTable.date);
 
   // Get member assignments for those events
@@ -63,8 +98,17 @@ router.get("/summary", async (_req, res) => {
     createdAt: e.createdAt.toISOString(),
   });
 
-  const todayEvents = allEvents.filter((e) => e.date === todayStr).map(formatEvent);
-  const upcomingEvents = allEvents.filter((e) => e.date > todayStr && e.date <= upcomingEnd).map(formatEvent);
+  // Apply recurrence logic to determine actual occurrences
+  const todayEvents = allEvents.filter((e) => doesOccurOn(e, todayStr)).map(formatEvent);
+
+  // For upcoming, expand each event into its actual occurrence dates within the window
+  const upcomingDates: string[] = [];
+  for (let i = 1; i <= 7; i++) upcomingDates.push(addDays(todayStr, i));
+  const upcomingEvents = upcomingDates.flatMap((dateStr) =>
+    allEvents
+      .filter((e) => doesOccurOn(e, dateStr))
+      .map((e) => ({ ...formatEvent(e), date: dateStr })),
+  ).sort((a, b) => a.date.localeCompare(b.date));
 
   // Family members
   const familyMembers = await db.select().from(familyMembersTable).orderBy(familyMembersTable.id);
