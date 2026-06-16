@@ -1,2 +1,3 @@
 - [Orval mutation call signatures](orval-mutations.md) — create=`{data:body}`, delete/complete/approve=`{id}`, nested=`{parentId,data}`; query hooks with enabled need `queryKey` too
 - [LunamHub pages complete](lunam-hub-pages.md) — all 9 pages typechecking clean and rendering real data; no mock data anywhere
+- [Replit connectors-sdk proxy path](connectors-sdk-proxy.md) — correct proxy path format and gotchas for Google Calendar and similar connectors
