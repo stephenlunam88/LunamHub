@@ -58,6 +58,14 @@ function formatEvent(e: typeof eventsTable.$inferSelect, memberIds: number[] = [
   };
 }
 
+// Strip any UTC/offset suffix from an RFC3339 dateTime string, leaving the local portion.
+// e.g. "2026-06-16T17:45:00+10:00" → "2026-06-16T17:45:00"
+//      "2026-06-17T03:45:00Z"       → "2026-06-17T03:45:00"  (best-effort for UTC events)
+//      "2026-06-16T17:45:00"        → "2026-06-16T17:45:00"  (floating, unchanged)
+function stripTzSuffix(dt: string): string {
+  return dt.replace(/Z$|[+-]\d{2}:\d{2}$/, "");
+}
+
 // Map a Google Calendar event to our local schema for upsert
 function gcalToLocal(ge: GCalEvent): {
   title: string;
@@ -70,9 +78,11 @@ function gcalToLocal(ge: GCalEvent): {
   googleEventId: string;
 } {
   const isAllDay = !!ge.start.date;
-  const date = ge.start.date ?? ge.start.dateTime?.slice(0, 10) ?? "";
-  const startTime = ge.start.dateTime ? ge.start.dateTime.slice(11, 16) : null;
-  const endTime = ge.end.dateTime ? ge.end.dateTime.slice(11, 16) : null;
+  const localStart = ge.start.dateTime ? stripTzSuffix(ge.start.dateTime) : null;
+  const localEnd = ge.end.dateTime ? stripTzSuffix(ge.end.dateTime) : null;
+  const date = ge.start.date ?? localStart?.slice(0, 10) ?? "";
+  const startTime = localStart ? localStart.slice(11, 16) : null;
+  const endTime = localEnd ? localEnd.slice(11, 16) : null;
   return {
     title: ge.summary ?? "(No title)",
     description: ge.description ?? null,

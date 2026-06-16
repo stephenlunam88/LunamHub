@@ -155,13 +155,10 @@ export async function createGCalEvent(event: {
     ...(event.description ? { description: event.description } : {}),
     start: allDay
       ? { date: event.date }
-      : { dateTime: `${event.date}T${event.startTime}:00`, timeZone: "UTC" },
+      : { dateTime: `${event.date}T${event.startTime}:00` },
     end: allDay
       ? { date: nextCalendarDay(event.date) }
-      : {
-          dateTime: `${event.date}T${event.endTime ?? event.startTime}:00`,
-          timeZone: "UTC",
-        },
+      : { dateTime: `${event.date}T${event.endTime ?? event.startTime}:00` },
   };
   const resp = await proxyGCal("/calendars/primary/events", {
     method: "POST",
@@ -199,13 +196,10 @@ export async function updateGCalEvent(
     description: event.description ?? "",
     start: allDay
       ? { date: event.date }
-      : { dateTime: `${event.date}T${event.startTime}:00`, timeZone: "UTC" },
+      : { dateTime: `${event.date}T${event.startTime}:00` },
     end: allDay
       ? { date: nextCalendarDay(event.date) }
-      : {
-          dateTime: `${event.date}T${event.endTime ?? event.startTime}:00`,
-          timeZone: "UTC",
-        },
+      : { dateTime: `${event.date}T${event.endTime ?? event.startTime}:00` },
   };
   const resp = await proxyGCal(`/calendars/primary/events/${encodeURIComponent(googleEventId)}`, {
     method: "PUT",
