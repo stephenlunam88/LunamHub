@@ -7,6 +7,7 @@ import {
   useListRewards, useCreateReward, useUpdateReward, useDeleteReward,
   useListStreakMilestones, useCreateStreakMilestone, useUpdateStreakMilestone, useDeleteStreakMilestone,
   useListScreensaverPhotos, useCreateScreensaverPhoto, useDeleteScreensaverPhoto,
+  useUpdateFamilyMember,
   getGetSettingsQueryKey, getListFamilyMembersQueryKey,
   getListRewardsQueryKey, getListStreakMilestonesQueryKey, getListScreensaverPhotosQueryKey,
 } from "@workspace/api-client-react";
@@ -25,7 +26,7 @@ import {
   useDisconnectGoogleCalendar,
   getGetGoogleCalendarStatusQueryKey,
 } from "@workspace/api-client-react";
-import type { FamilyMemberInput, RewardInput, RewardUpdate, Reward, StreakMilestone, StreakMilestoneInput, ScreensaverPhoto } from "@workspace/api-client-react";
+import type { FamilyMemberInput, FamilyMemberUpdate, RewardInput, RewardUpdate, Reward, StreakMilestone, StreakMilestoneInput, ScreensaverPhoto } from "@workspace/api-client-react";
 
 export default function Admin() {
   const [pin, setPin] = useState("");
@@ -405,6 +406,9 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
   const [editMilestoneOpen, setEditMilestoneOpen] = useState(false);
   const [editMilestoneTarget, setEditMilestoneTarget] = useState<StreakMilestone | null>(null);
   const [editMilestoneForm, setEditMilestoneForm] = useState<StreakMilestoneInput>(BLANK_MILESTONE);
+  const [editMemberOpen, setEditMemberOpen] = useState(false);
+  const [editMemberTarget, setEditMemberTarget] = useState<{ id: number; name: string } | null>(null);
+  const [editMemberForm, setEditMemberForm] = useState<FamilyMemberUpdate>({});
 
   const invalidateRewards = () => qc.invalidateQueries({ queryKey: getListRewardsQueryKey() });
   const invalidateMilestones = () => qc.invalidateQueries({ queryKey: getListStreakMilestonesQueryKey() });
@@ -430,8 +434,10 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
   };
 
   const updateSettings = useUpdateSettings({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getGetSettingsQueryKey() }) } });
-  const createMember = useCreateFamilyMember({ mutation: { onSuccess: () => { qc.invalidateQueries({ queryKey: getListFamilyMembersQueryKey() }); setMemberForm({ name: "", emoji: "😊", color: "#6366f1", role: "child" }); } } });
-  const deleteMember = useDeleteFamilyMember({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getListFamilyMembersQueryKey() }) } });
+  const invalidateMembers = () => qc.invalidateQueries({ queryKey: getListFamilyMembersQueryKey() });
+  const createMember = useCreateFamilyMember({ mutation: { onSuccess: () => { invalidateMembers(); setMemberForm({ name: "", emoji: "😊", color: "#6366f1", role: "child" }); } } });
+  const updateMember = useUpdateFamilyMember({ mutation: { onSuccess: () => { invalidateMembers(); setEditMemberOpen(false); setEditMemberTarget(null); } } });
+  const deleteMember = useDeleteFamilyMember({ mutation: { onSuccess: invalidateMembers } });
   const createReward = useCreateReward({ mutation: { onSuccess: () => { invalidateRewards(); setRewardOpen(false); setRewardForm({ title: "", pointsCost: 100 }); } } });
   const updateReward = useUpdateReward({ mutation: { onSuccess: () => { invalidateRewards(); setEditRewardOpen(false); setEditRewardTarget(null); } } });
   const deleteReward = useDeleteReward({ mutation: { onSuccess: invalidateRewards } });
@@ -468,10 +474,70 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
       <Card className="rounded-3xl border-0 shadow-sm">
         <CardHeader><CardTitle className="flex items-center gap-2"><Users className="w-5 h-5" /> Family Members</CardTitle></CardHeader>
         <CardContent className="space-y-4">
+          {/* Edit Member Dialog */}
+          <Dialog open={editMemberOpen} onOpenChange={setEditMemberOpen}>
+            <DialogContent className="rounded-3xl max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Edit {editMemberTarget?.name}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 pt-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Name</Label>
+                    <Input
+                      value={editMemberForm.name ?? ""}
+                      onChange={e => setEditMemberForm(f => ({ ...f, name: e.target.value }))}
+                      className="rounded-xl h-12 mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Emoji</Label>
+                    <Input
+                      value={editMemberForm.emoji ?? ""}
+                      onChange={e => setEditMemberForm(f => ({ ...f, emoji: e.target.value }))}
+                      className="rounded-xl h-12 mt-1"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Role</Label>
+                    <Select
+                      value={editMemberForm.role ?? "child"}
+                      onValueChange={v => setEditMemberForm(f => ({ ...f, role: v as FamilyMemberUpdate["role"] }))}
+                    >
+                      <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="child">Child</SelectItem>
+                        <SelectItem value="parent">Parent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Colour</Label>
+                    <Input
+                      type="color"
+                      value={editMemberForm.color ?? "#6366f1"}
+                      onChange={e => setEditMemberForm(f => ({ ...f, color: e.target.value }))}
+                      className="rounded-xl h-12 mt-1 p-1"
+                    />
+                  </div>
+                </div>
+                <Button
+                  className="w-full h-12 rounded-xl"
+                  disabled={!editMemberForm.name || updateMember.isPending}
+                  onClick={() => editMemberTarget && updateMember.mutate({ id: editMemberTarget.id, data: editMemberForm })}
+                >
+                  {updateMember.isPending ? "Saving…" : "Save Changes"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           {members.map(m => (
             <div key={m.id} className="flex items-center gap-4 bg-muted rounded-2xl p-4">
               <div className="text-3xl">{m.emoji}</div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <div className="font-bold">{m.name}</div>
                 <div className="text-sm text-muted-foreground capitalize">
                   {m.role}{m.role === "child" ? ` · ${m.pointsBalance} pts · ${m.lifetimePoints ?? 0} all-time` : ""}
@@ -483,6 +549,17 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
                   <SetPinDialog memberId={m.id} memberName={m.name} memberEmoji={m.emoji} hasPin={m.hasPin} />
                 )}
               </div>
+              <button
+                onClick={() => {
+                  setEditMemberTarget({ id: m.id, name: m.name });
+                  setEditMemberForm({ name: m.name, emoji: m.emoji ?? "😊", color: m.color ?? "#6366f1", role: m.role as FamilyMemberUpdate["role"] });
+                  setEditMemberOpen(true);
+                }}
+                className="text-muted-foreground hover:text-primary p-2"
+                title="Edit profile"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
               <button onClick={() => deleteMember.mutate({ id: m.id })} className="text-muted-foreground hover:text-destructive p-2">
                 <Trash2 className="w-5 h-5" />
               </button>
@@ -774,6 +851,18 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
                 defaultValue={settings?.screensaverTimeout ?? 5}
                 className="rounded-xl h-12"
                 onBlur={e => updateSettings.mutate({ data: { screensaverTimeout: Number(e.target.value) } })}
+              />
+            </div>
+            <div>
+              <Label>Photo display duration</Label>
+              <p className="text-xs text-muted-foreground mb-1.5">Seconds each photo is shown before rotating</p>
+              <Input
+                type="number"
+                min={5}
+                max={120}
+                defaultValue={settings?.screensaverPhotoInterval ?? 15}
+                className="rounded-xl h-12"
+                onBlur={e => updateSettings.mutate({ data: { screensaverPhotoInterval: Number(e.target.value) } })}
               />
             </div>
           </div>

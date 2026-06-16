@@ -13,4 +13,5 @@ export interface SettingsUpdate {
   displayMode?: boolean;
   weatherCity?: string;
   screensaverTimeout?: number;
+  screensaverPhotoInterval?: number;
 }

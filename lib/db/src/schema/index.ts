@@ -348,6 +348,7 @@ export const settingsTable = pgTable("settings", {
   googleCalendarConnectionId: text("google_calendar_connection_id"),
   weatherCity: text("weather_city"),
   screensaverTimeout: integer("screensaver_timeout").notNull().default(5),
+  screensaverPhotoInterval: integer("screensaver_photo_interval").notNull().default(15),
 });
 
 // ── Screensaver Photos ────────────────────────────────────────────────────────

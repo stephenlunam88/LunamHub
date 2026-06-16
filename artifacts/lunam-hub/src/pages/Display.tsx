@@ -77,7 +77,8 @@ export default function Display() {
     return () => clearInterval(t);
   }, []);
 
-  // Photo crossfade every 15 s
+  // Photo crossfade every N seconds (from settings, default 15)
+  const photoIntervalMs = (settings?.screensaverPhotoInterval ?? 15) * 1000;
   useEffect(() => {
     if (photos.length <= 1) return;
     const t = setInterval(() => {
@@ -86,9 +87,9 @@ export default function Display() {
         setPhotoIdx(i => (i + 1) % photos.length);
         setFade(true);
       }, 800);
-    }, 15_000);
+    }, photoIntervalMs);
     return () => clearInterval(t);
-  }, [photos.length]);
+  }, [photos.length, photoIntervalMs]);
 
   // Weather: fetch on mount + every 30 min
   useEffect(() => {

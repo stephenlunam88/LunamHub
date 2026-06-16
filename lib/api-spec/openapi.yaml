@@ -2743,6 +2743,8 @@ components:
           type: ["string", "null"]
         screensaverTimeout:
           type: integer
+        screensaverPhotoInterval:
+          type: integer
       required:
         - id
         - parentPin
@@ -2750,6 +2752,7 @@ components:
         - timezone
         - displayMode
         - screensaverTimeout
+        - screensaverPhotoInterval
 
     SettingsUpdate:
       type: object
@@ -2765,6 +2768,8 @@ components:
         weatherCity:
           type: string
         screensaverTimeout:
+          type: integer
+        screensaverPhotoInterval:
           type: integer
 
     # ── Screensaver Photos ─────────────────────────────────────────────────────

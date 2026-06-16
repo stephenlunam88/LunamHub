@@ -847,6 +847,7 @@ export interface Settings {
   /** @nullable */
   weatherCity?: string | null;
   screensaverTimeout: number;
+  screensaverPhotoInterval: number;
 }
 
 export interface SettingsUpdate {
@@ -856,6 +857,7 @@ export interface SettingsUpdate {
   displayMode?: boolean;
   weatherCity?: string;
   screensaverTimeout?: number;
+  screensaverPhotoInterval?: number;
 }
 
 export interface ScreensaverPhoto {

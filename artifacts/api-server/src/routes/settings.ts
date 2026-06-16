@@ -24,6 +24,7 @@ function formatSettings(s: typeof settingsTable.$inferSelect) {
     displayMode: s.displayMode,
     weatherCity: s.weatherCity ?? null,
     screensaverTimeout: s.screensaverTimeout,
+    screensaverPhotoInterval: s.screensaverPhotoInterval,
   };
 }
 

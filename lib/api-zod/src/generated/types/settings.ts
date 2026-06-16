@@ -15,4 +15,5 @@ export interface Settings {
   /** @nullable */
   weatherCity?: string | null;
   screensaverTimeout: number;
+  screensaverPhotoInterval: number;
 }

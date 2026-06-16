@@ -1316,7 +1316,8 @@ export const GetSettingsResponse = zod.object({
   "timezone": zod.string(),
   "displayMode": zod.boolean(),
   "weatherCity": zod.string().nullish(),
-  "screensaverTimeout": zod.number()
+  "screensaverTimeout": zod.number(),
+  "screensaverPhotoInterval": zod.number()
 })
 
 
@@ -1329,7 +1330,8 @@ export const UpdateSettingsBody = zod.object({
   "timezone": zod.string().optional(),
   "displayMode": zod.boolean().optional(),
   "weatherCity": zod.string().optional(),
-  "screensaverTimeout": zod.number().optional()
+  "screensaverTimeout": zod.number().optional(),
+  "screensaverPhotoInterval": zod.number().optional()
 })
 
 export const UpdateSettingsResponse = zod.object({
@@ -1339,7 +1341,8 @@ export const UpdateSettingsResponse = zod.object({
   "timezone": zod.string(),
   "displayMode": zod.boolean(),
   "weatherCity": zod.string().nullish(),
-  "screensaverTimeout": zod.number()
+  "screensaverTimeout": zod.number(),
+  "screensaverPhotoInterval": zod.number()
 })
 
 
