@@ -138,17 +138,26 @@ router.post("/sync-google", async (req, res): Promise<void> => {
 
   let synced = 0;
   for (const ge of gcalEvents) {
+    // Log raw GCal datetimes so we can verify timezone parsing
+    req.log.info(
+      { gcalId: ge.id, startDt: ge.start.dateTime, endDt: ge.end.dateTime, startDate: ge.start.date },
+      "gcal: raw event datetime",
+    );
+
     const local = gcalToLocal(ge);
-    // Upsert: if we already have a local row with this googleEventId, update it; otherwise insert
+    // Find existing local row with this googleEventId
     const [existing] = await db
-      .select({ id: eventsTable.id })
+      .select({ id: eventsTable.id, date: eventsTable.date, startTime: eventsTable.startTime })
       .from(eventsTable)
       .where(eq(eventsTable.googleEventId, ge.id));
 
     if (existing) {
+      // Only overwrite title/description from GCal — never overwrite date/time for events
+      // that already exist locally. Dates stored in LunamHub are timezone-naive (user's local time)
+      // while GCal returns timezone-aware datetimes that can be misinterpreted server-side.
       await db
         .update(eventsTable)
-        .set({ title: local.title, description: local.description, date: local.date, startTime: local.startTime, endTime: local.endTime, allDay: local.allDay })
+        .set({ title: local.title, description: local.description })
         .where(eq(eventsTable.id, existing.id));
     } else {
       await db.insert(eventsTable).values(local);
