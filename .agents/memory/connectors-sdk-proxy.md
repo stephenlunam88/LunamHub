@@ -34,6 +34,10 @@ connectors.proxy("google-calendar", "/calendar/v3/calendars/primary/events?...",
 
 Connection ID is stored in `settingsTable.googleCalendarConnectionId` (nullable text). Use `discoverAndStoreConnectionId()` to discover via `connectors.listConnections({ connector_names: "google-calendar" })` and upsert. Never hardcode — the ID changes if the user reconnects.
 
+## OAuth initiation is agent-only
+
+`proposeIntegration` and `addIntegration` are pre-registered callbacks ONLY in the agent's `code_execution` sandbox. They cannot be called from Express server code or React. For deployed apps, OAuth is done at the platform level (once, during setup by the agent). The app itself can only discover existing connections via `listConnections`.
+
 ## SDK version
 
 `@replit/connectors-sdk@0.4.1` — proxy method sends to `${baseUrl}/api/v2/proxy${path}` with auth headers built from `replit identity create` CLI or `REPL_IDENTITY` env var.
