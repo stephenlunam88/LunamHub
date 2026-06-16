@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   useListEvents, useCreateEvent, useDeleteEvent, useUpdateEvent,
   useSyncGoogleCalendar, useGetGoogleCalendarStatus,
+  useListFamilyMembers,
   getListEventsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -14,9 +15,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, ChevronRight, Plus, Trash2, Clock, RefreshCw, Pencil } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Trash2, Clock, RefreshCw, Pencil, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { EventInput, EventUpdate, Event } from "@workspace/api-client-react";
+import type { EventInput, EventUpdate, Event, FamilyMember } from "@workspace/api-client-react";
 import type { EventInputRecurrence, EventUpdateRecurrence } from "@workspace/api-client-react";
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -47,6 +48,7 @@ interface EventForm {
   description?: string;
   recurrence?: string;
   recurrenceEndDate?: string;
+  assignedMembers: number[];
 }
 
 const DEFAULT_FORM = (date: string): EventForm => ({
@@ -57,7 +59,32 @@ const DEFAULT_FORM = (date: string): EventForm => ({
   description: "",
   recurrence: "",
   recurrenceEndDate: "",
+  assignedMembers: [],
 });
+
+function MemberAvatar({ member, size = "sm" }: { member: FamilyMember; size?: "sm" | "xs" }) {
+  const initials = member.name.slice(0, 2).toUpperCase();
+  const sizeClass = size === "xs" ? "w-5 h-5 text-[10px]" : "w-6 h-6 text-xs";
+  if (member.avatarUrl) {
+    return (
+      <img
+        src={member.avatarUrl}
+        alt={member.name}
+        title={member.name}
+        className={cn("rounded-full object-cover ring-2 ring-background", sizeClass)}
+      />
+    );
+  }
+  return (
+    <div
+      title={member.name}
+      className={cn("rounded-full flex items-center justify-center font-semibold ring-2 ring-background", sizeClass)}
+      style={{ backgroundColor: member.color, color: "#fff" }}
+    >
+      {initials}
+    </div>
+  );
+}
 
 export default function Calendar() {
   const qc = useQueryClient();
@@ -67,10 +94,17 @@ export default function Calendar() {
   const [mode, setMode] = useState<FormMode>("create");
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
   const [form, setForm] = useState<EventForm>(DEFAULT_FORM(format(new Date(), "yyyy-MM-dd")));
+  const [filterMemberId, setFilterMemberId] = useState<number | null>(null);
 
   const startDate = format(startOfMonth(currentMonth), "yyyy-MM-dd");
   const endDate = format(endOfMonth(currentMonth), "yyyy-MM-dd");
-  const { data: events = [] } = useListEvents({ startDate, endDate });
+
+  const { data: familyMembers = [] } = useListFamilyMembers();
+  const memberById = Object.fromEntries(familyMembers.map(m => [m.id, m]));
+
+  const { data: events = [] } = useListEvents(
+    filterMemberId ? { startDate, endDate, memberId: filterMemberId } : { startDate, endDate }
+  );
   const { data: gcalStatus } = useGetGoogleCalendarStatus();
   const isConnected = gcalStatus?.connected ?? false;
 
@@ -141,8 +175,18 @@ export default function Calendar() {
       description: e.description ?? "",
       recurrence: (e.recurrence as string | undefined) ?? "",
       recurrenceEndDate: (e.recurrenceEndDate as string | undefined) ?? "",
+      assignedMembers: e.assignedMembers ?? [],
     });
     setOpen(true);
+  }
+
+  function toggleMember(id: number) {
+    setForm(f => ({
+      ...f,
+      assignedMembers: f.assignedMembers.includes(id)
+        ? f.assignedMembers.filter(m => m !== id)
+        : [...f.assignedMembers, id],
+    }));
   }
 
   function handleSubmit() {
@@ -163,6 +207,7 @@ export default function Calendar() {
         ...(cleanedRecurrenceEndDate ? { recurrenceEndDate: cleanedRecurrenceEndDate } : {}),
         ...(cleanedStartTime ? { startTime: cleanedStartTime } : {}),
         ...(cleanedEndTime ? { endTime: cleanedEndTime } : {}),
+        assignedMembers: form.assignedMembers,
       };
       createEvent.mutate({ data });
     } else if (editingEventId !== null) {
@@ -176,6 +221,7 @@ export default function Calendar() {
         recurrenceEndDate: cleanedRecurrenceEndDate ?? null,
         startTime: cleanedStartTime,
         endTime: cleanedEndTime,
+        assignedMembers: form.assignedMembers,
       };
       updateEvent.mutate({ id: editingEventId, data });
     }
@@ -188,7 +234,7 @@ export default function Calendar() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <h1 className="text-4xl font-serif font-bold">Calendar</h1>
           {isConnected && (
@@ -199,9 +245,53 @@ export default function Calendar() {
             </span>
           )}
         </div>
-        <Button className="h-14 px-6 rounded-2xl text-lg gap-2" onClick={() => openCreate(selectedDay)}>
-          <Plus className="w-5 h-5" /> Add Event
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Member filter toggle */}
+          {familyMembers.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-muted/60 rounded-2xl p-1">
+              <button
+                onClick={() => setFilterMemberId(null)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-colors",
+                  filterMemberId === null
+                    ? "bg-background shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Users className="w-3.5 h-3.5" />
+                All
+              </button>
+              {familyMembers.map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => setFilterMemberId(prev => prev === m.id ? null : m.id)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-colors",
+                    filterMemberId === m.id
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title={m.name}
+                >
+                  {m.avatarUrl ? (
+                    <img src={m.avatarUrl} alt={m.name} className="w-5 h-5 rounded-full object-cover" />
+                  ) : (
+                    <span
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
+                      style={{ backgroundColor: m.color }}
+                    >
+                      {m.name.slice(0, 1).toUpperCase()}
+                    </span>
+                  )}
+                  <span className="hidden sm:inline">{m.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <Button className="h-14 px-6 rounded-2xl text-lg gap-2" onClick={() => openCreate(selectedDay)}>
+            <Plus className="w-5 h-5" /> Add Event
+          </Button>
+        </div>
       </div>
 
       {/* ── Add / Edit Dialog ─────────────────────────────────────────────── */}
@@ -260,6 +350,43 @@ export default function Calendar() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* ── Family members multi-select ───────────────────────────── */}
+            {familyMembers.length > 0 && (
+              <div>
+                <Label>Family Members</Label>
+                <div className="flex flex-wrap gap-2 mt-1.5">
+                  {familyMembers.map(m => {
+                    const selected = form.assignedMembers.includes(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => toggleMember(m.id)}
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border-2 transition-all",
+                          selected
+                            ? "border-transparent shadow-sm text-white"
+                            : "border-muted bg-muted/30 text-muted-foreground hover:border-muted-foreground/30"
+                        )}
+                        style={selected ? { backgroundColor: m.color } : {}}
+                      >
+                        {m.avatarUrl ? (
+                          <img src={m.avatarUrl} alt={m.name} className="w-4 h-4 rounded-full object-cover" />
+                        ) : (
+                          <span className="text-base leading-none">{m.emoji}</span>
+                        )}
+                        {m.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                {form.assignedMembers.length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">Leave blank to assign to everyone</p>
+                )}
+              </div>
+            )}
+
             <div>
               <Label>Repeat</Label>
               <Select value={form.recurrence ?? ""} onValueChange={v => setForm(f => ({ ...f, recurrence: v, recurrenceEndDate: v ? f.recurrenceEndDate : "" }))}>
@@ -349,50 +476,65 @@ export default function Calendar() {
             {selectedDayEvents.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No events this day</p>
             ) : (
-              selectedDayEvents.map(e => (
-                <div key={e.id} className="bg-muted rounded-2xl p-4 flex gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-base">{e.title}</span>
-                      {e.googleEventId && (
-                        <span className="text-[10px] font-medium text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">GCal</span>
-                      )}
-                      {e.recurrence && (
-                        <span className="text-[10px] font-medium text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded-full">
-                          {RECURRENCE_LABELS[e.recurrence as string] ?? e.recurrence}
-                        </span>
-                      )}
-                    </div>
-                    {e.startTime && (
-                      <div className="flex items-center gap-1 text-muted-foreground text-sm mt-1">
-                        <Clock className="w-3 h-3" />{e.startTime}{e.endTime ? ` – ${e.endTime}` : ""}
+              selectedDayEvents.map(e => {
+                const assignedMemberObjects = (e.assignedMembers ?? [])
+                  .map(id => memberById[id])
+                  .filter(Boolean) as FamilyMember[];
+                return (
+                  <div key={e.id} className="bg-muted rounded-2xl p-4 flex gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-base">{e.title}</span>
+                        {e.googleEventId && (
+                          <span className="text-[10px] font-medium text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">GCal</span>
+                        )}
+                        {e.recurrence && (
+                          <span className="text-[10px] font-medium text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded-full">
+                            {RECURRENCE_LABELS[e.recurrence as string] ?? e.recurrence}
+                          </span>
+                        )}
                       </div>
-                    )}
-                    {e.description && (
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{e.description}</p>
-                    )}
-                    <Badge className={cn("mt-2 text-xs", CATEGORY_COLORS[e.category ?? "other"])} variant="outline">
-                      {e.category}
-                    </Badge>
+                      {e.startTime && (
+                        <div className="flex items-center gap-1 text-muted-foreground text-sm mt-1">
+                          <Clock className="w-3 h-3" />{e.startTime}{e.endTime ? ` – ${e.endTime}` : ""}
+                        </div>
+                      )}
+                      {e.description && (
+                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{e.description}</p>
+                      )}
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        <Badge className={cn("text-xs", CATEGORY_COLORS[e.category ?? "other"])} variant="outline">
+                          {e.category}
+                        </Badge>
+                        {/* Assigned member avatars */}
+                        {assignedMemberObjects.length > 0 && (
+                          <div className="flex -space-x-1">
+                            {assignedMemberObjects.map(m => (
+                              <MemberAvatar key={m.id} member={m} size="xs" />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1 shrink-0">
+                      <button
+                        onClick={() => openEdit(e)}
+                        className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                        aria-label="Edit event"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => deleteEvent.mutate({ id: e.id })}
+                        className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                        aria-label="Delete event"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-1 shrink-0">
-                    <button
-                      onClick={() => openEdit(e)}
-                      className="text-muted-foreground hover:text-foreground transition-colors p-1"
-                      aria-label="Edit event"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => deleteEvent.mutate({ id: e.id })}
-                      className="text-muted-foreground hover:text-destructive transition-colors p-1"
-                      aria-label="Delete event"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
             <Button
               variant="outline"
