@@ -20,6 +20,7 @@ import {
   checkOAuthAvailable,
   listGCalEvents,
   createGCalEvent,
+  updateGCalEvent,
   deleteGCalEvent,
   discoverAndStoreConnectionId,
   clearConnectionId,
@@ -49,6 +50,8 @@ function formatEvent(e: typeof eventsTable.$inferSelect, memberIds: number[] = [
     endTime: e.endTime ?? null,
     allDay: e.allDay,
     category: e.category,
+    recurrence: e.recurrence ?? null,
+    recurrenceEndDate: e.recurrenceEndDate ?? null,
     googleEventId: e.googleEventId ?? null,
     assignedMembers: memberIds,
     createdAt: e.createdAt.toISOString(),
@@ -207,7 +210,7 @@ router.get("/:id", async (req, res): Promise<void> => {
   res.json(formatEvent(event, memberMap[id] ?? []));
 });
 
-// ── Update event ──────────────────────────────────────────────────────────────
+// ── Update event (also updates Google Calendar if synced) ─────────────────────
 router.patch("/:id", async (req, res): Promise<void> => {
   const { id } = UpdateEventParams.parse({ id: Number(req.params.id) });
   const body = UpdateEventBody.parse(req.body);
@@ -216,6 +219,18 @@ router.patch("/:id", async (req, res): Promise<void> => {
 
   const [event] = await db.update(eventsTable).set(eventData).where(eq(eventsTable.id, id)).returning();
   if (!event) { res.status(404).json({ error: "Not found" }); return; }
+
+  // Best-effort update on Google Calendar if this event was synced
+  if (event.googleEventId) {
+    updateGCalEvent(event.googleEventId, {
+      title: event.title,
+      description: event.description,
+      date: event.date,
+      startTime: event.startTime,
+      endTime: event.endTime,
+      allDay: event.allDay,
+    }).catch(() => {});
+  }
 
   if (assignedMembers !== undefined) {
     await db.delete(eventMembersTable).where(eq(eventMembersTable.eventId, id));

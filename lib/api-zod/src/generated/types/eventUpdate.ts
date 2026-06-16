@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { EventUpdateCategory } from './eventUpdateCategory';
+import type { EventUpdateRecurrence } from './eventUpdateRecurrence';
 
 export interface EventUpdate {
   title?: string;
@@ -15,5 +16,15 @@ export interface EventUpdate {
   endTime?: string;
   allDay?: boolean;
   category?: EventUpdateCategory;
+  /**
+     * Recurrence rule — set to null to clear
+     * @nullable
+     */
+  recurrence?: EventUpdateRecurrence;
+  /**
+     * Optional end date (YYYY-MM-DD) for the recurrence — set to null to clear
+     * @nullable
+     */
+  recurrenceEndDate?: string | null;
   assignedMembers?: number[];
 }

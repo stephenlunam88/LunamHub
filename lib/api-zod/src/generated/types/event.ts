@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { EventCategory } from './eventCategory';
+import type { EventRecurrence } from './eventRecurrence';
 
 export interface Event {
   id: number;
@@ -19,6 +20,16 @@ export interface Event {
   endTime?: string | null;
   allDay: boolean;
   category: EventCategory;
+  /**
+     * Recurrence rule for repeating events
+     * @nullable
+     */
+  recurrence?: EventRecurrence;
+  /**
+     * Optional end date (YYYY-MM-DD) for the recurrence
+     * @nullable
+     */
+  recurrenceEndDate?: string | null;
   /**
      * Google Calendar event ID for synced events
      * @nullable

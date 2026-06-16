@@ -95,6 +95,20 @@ export const EventCategory = {
   other: 'other',
 } as const;
 
+/**
+ * Recurrence rule for repeating events
+ * @nullable
+ */
+export type EventRecurrence = typeof EventRecurrence[keyof typeof EventRecurrence] | null;
+
+
+export const EventRecurrence = {
+  DAILY: 'DAILY',
+  WEEKLY: 'WEEKLY',
+  MONTHLY: 'MONTHLY',
+  YEARLY: 'YEARLY',
+} as const;
+
 export interface Event {
   id: number;
   title: string;
@@ -107,6 +121,16 @@ export interface Event {
   endTime?: string | null;
   allDay: boolean;
   category: EventCategory;
+  /**
+     * Recurrence rule for repeating events
+     * @nullable
+     */
+  recurrence?: EventRecurrence;
+  /**
+     * Optional end date (YYYY-MM-DD) for the recurrence
+     * @nullable
+     */
+  recurrenceEndDate?: string | null;
   /**
      * Google Calendar event ID for synced events
      * @nullable
@@ -148,6 +172,19 @@ export const EventInputCategory = {
   other: 'other',
 } as const;
 
+/**
+ * Recurrence rule for repeating events
+ */
+export type EventInputRecurrence = typeof EventInputRecurrence[keyof typeof EventInputRecurrence];
+
+
+export const EventInputRecurrence = {
+  DAILY: 'DAILY',
+  WEEKLY: 'WEEKLY',
+  MONTHLY: 'MONTHLY',
+  YEARLY: 'YEARLY',
+} as const;
+
 export interface EventInput {
   title: string;
   description?: string;
@@ -156,6 +193,10 @@ export interface EventInput {
   endTime?: string;
   allDay?: boolean;
   category: EventInputCategory;
+  /** Recurrence rule for repeating events */
+  recurrence?: EventInputRecurrence;
+  /** Optional end date (YYYY-MM-DD) for the recurrence */
+  recurrenceEndDate?: string;
   assignedMembers?: number[];
 }
 
@@ -171,6 +212,20 @@ export const EventUpdateCategory = {
   other: 'other',
 } as const;
 
+/**
+ * Recurrence rule — set to null to clear
+ * @nullable
+ */
+export type EventUpdateRecurrence = typeof EventUpdateRecurrence[keyof typeof EventUpdateRecurrence] | null;
+
+
+export const EventUpdateRecurrence = {
+  DAILY: 'DAILY',
+  WEEKLY: 'WEEKLY',
+  MONTHLY: 'MONTHLY',
+  YEARLY: 'YEARLY',
+} as const;
+
 export interface EventUpdate {
   title?: string;
   description?: string;
@@ -179,6 +234,16 @@ export interface EventUpdate {
   endTime?: string;
   allDay?: boolean;
   category?: EventUpdateCategory;
+  /**
+     * Recurrence rule — set to null to clear
+     * @nullable
+     */
+  recurrence?: EventUpdateRecurrence;
+  /**
+     * Optional end date (YYYY-MM-DD) for the recurrence — set to null to clear
+     * @nullable
+     */
+  recurrenceEndDate?: string | null;
   assignedMembers?: number[];
 }
 

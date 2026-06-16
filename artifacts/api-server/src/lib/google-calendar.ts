@@ -175,6 +175,47 @@ export async function createGCalEvent(event: {
   return data.id ?? null;
 }
 
+export async function updateGCalEvent(
+  googleEventId: string,
+  event: {
+    title: string;
+    description?: string | null;
+    date: string;
+    startTime?: string | null;
+    endTime?: string | null;
+    allDay: boolean;
+  },
+): Promise<void> {
+  const allDay = event.allDay || !event.startTime;
+
+  function nextCalendarDay(dateStr: string): string {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const next = new Date(Date.UTC(y, m - 1, d + 1));
+    return next.toISOString().slice(0, 10);
+  }
+
+  const body: Record<string, unknown> = {
+    summary: event.title,
+    description: event.description ?? "",
+    start: allDay
+      ? { date: event.date }
+      : { dateTime: `${event.date}T${event.startTime}:00`, timeZone: "UTC" },
+    end: allDay
+      ? { date: nextCalendarDay(event.date) }
+      : {
+          dateTime: `${event.date}T${event.endTime ?? event.startTime}:00`,
+          timeZone: "UTC",
+        },
+  };
+  const resp = await proxyGCal(`/calendars/primary/events/${encodeURIComponent(googleEventId)}`, {
+    method: "PUT",
+    body,
+  });
+  if (resp && resp.status >= 300) {
+    logger.warn({ status: resp.status, googleEventId }, "gcal: updateEvent failed");
+  }
+}
+
 export async function deleteGCalEvent(googleEventId: string): Promise<void> {
   const resp = await proxyGCal(
     `/calendars/primary/events/${encodeURIComponent(googleEventId)}`,

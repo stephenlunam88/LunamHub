@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { EventInputCategory } from './eventInputCategory';
+import type { EventInputRecurrence } from './eventInputRecurrence';
 
 export interface EventInput {
   title: string;
@@ -15,5 +16,9 @@ export interface EventInput {
   endTime?: string;
   allDay?: boolean;
   category: EventInputCategory;
+  /** Recurrence rule for repeating events */
+  recurrence?: EventInputRecurrence;
+  /** Optional end date (YYYY-MM-DD) for the recurrence */
+  recurrenceEndDate?: string;
   assignedMembers?: number[];
 }

@@ -1577,6 +1577,13 @@ components:
         category:
           type: string
           enum: [school, sport, appointment, birthday, family, other]
+        recurrence:
+          type: ["string", "null"]
+          enum: [DAILY, WEEKLY, MONTHLY, YEARLY, null]
+          description: Recurrence rule for repeating events
+        recurrenceEndDate:
+          type: ["string", "null"]
+          description: Optional end date (YYYY-MM-DD) for the recurrence
         googleEventId:
           type: ["string", "null"]
           description: Google Calendar event ID for synced events
@@ -1653,6 +1660,13 @@ components:
         category:
           type: string
           enum: [school, sport, appointment, birthday, family, other]
+        recurrence:
+          type: string
+          enum: [DAILY, WEEKLY, MONTHLY, YEARLY]
+          description: Recurrence rule for repeating events
+        recurrenceEndDate:
+          type: string
+          description: Optional end date (YYYY-MM-DD) for the recurrence
         assignedMembers:
           type: array
           items:
@@ -1680,6 +1694,13 @@ components:
         category:
           type: string
           enum: [school, sport, appointment, birthday, family, other]
+        recurrence:
+          type: ["string", "null"]
+          enum: [DAILY, WEEKLY, MONTHLY, YEARLY, null]
+          description: Recurrence rule — set to null to clear
+        recurrenceEndDate:
+          type: ["string", "null"]
+          description: Optional end date (YYYY-MM-DD) for the recurrence — set to null to clear
         assignedMembers:
           type: array
           items:
