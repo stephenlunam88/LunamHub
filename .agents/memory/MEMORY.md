@@ -1,3 +1,4 @@
 - [Orval mutation call signatures](orval-mutations.md) — create=`{data:body}`, delete/complete/approve=`{id}`, nested=`{parentId,data}`; query hooks with enabled need `queryKey` too
 - [LunamHub pages complete](lunam-hub-pages.md) — all 9 pages typechecking clean and rendering real data; no mock data anywhere
 - [Replit connectors-sdk proxy path](connectors-sdk-proxy.md) — correct proxy path format and gotchas for Google Calendar and similar connectors
+- [GCal timezone — embed offset in RFC3339](gcal-timezone-rfc3339.md) — Replit GCal proxy ignores separate timeZone field; must embed offset in dateTime string e.g. "2026-06-16T17:45:00+10:00"

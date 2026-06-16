@@ -133,6 +133,44 @@ export async function listGCalEvents(
   return data.items ?? [];
 }
 
+// Convert a local date+time to a UTC RFC3339 string (Z suffix).
+// The Replit connectors-sdk proxy strips timezone offsets from dateTime strings before
+// forwarding to Google Calendar, so any offset/timezone info embedded in the string is
+// silently discarded. Sending a true UTC time avoids this: even if the proxy strips the Z,
+// GCal receives the correct floating UTC time and stores it correctly.
+//
+// Example: localTimeToUTC("2026-06-16", "17:45", "Australia/Sydney") → "2026-06-16T07:45:00Z"
+//   Probe offset at noon UTC on date → "GMT+10:00" → offsetMinutes = +600
+//   UTC = 17:45 local − 10:00 = 07:45 UTC
+function localTimeToUTC(dateStr: string, timeStr: string, timezone: string): string {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const [hours, minutes] = timeStr.split(":").map(Number);
+  // Probe the timezone offset at noon UTC on the event date (avoids DST ambiguity at midnight).
+  const probeDate = new Date(`${dateStr}T12:00:00Z`);
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: timezone,
+    timeZoneName: "longOffset",
+  }).formatToParts(probeDate);
+  const offsetStr = parts.find((p) => p.type === "timeZoneName")?.value ?? "GMT+00:00";
+  const match = offsetStr.match(/GMT([+-])(\d{2}):(\d{2})/);
+  let offsetMinutes = 0;
+  if (match) {
+    const sign = match[1] === "+" ? 1 : -1;
+    offsetMinutes = sign * (parseInt(match[2]) * 60 + parseInt(match[3]));
+  }
+  // UTC = local − offset
+  const utcMs = Date.UTC(year, month - 1, day, hours, minutes, 0) - offsetMinutes * 60_000;
+  const u = new Date(utcMs);
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${u.getUTCFullYear()}-${pad(u.getUTCMonth() + 1)}-${pad(u.getUTCDate())}T${pad(u.getUTCHours())}:${pad(u.getUTCMinutes())}:00Z`;
+}
+
+function nextCalendarDay(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const next = new Date(Date.UTC(y, m - 1, d + 1));
+  return next.toISOString().slice(0, 10);
+}
+
 export async function createGCalEvent(event: {
   title: string;
   description?: string | null;
@@ -145,22 +183,15 @@ export async function createGCalEvent(event: {
   const allDay = event.allDay || !event.startTime;
   const tz = event.timezone || "UTC";
 
-  // Google Calendar all-day end.date is exclusive — must be the next calendar day
-  function nextCalendarDay(dateStr: string): string {
-    const [y, m, d] = dateStr.split("-").map(Number);
-    const next = new Date(Date.UTC(y, m - 1, d + 1));
-    return next.toISOString().slice(0, 10);
-  }
-
   const body: Record<string, unknown> = {
     summary: event.title,
     ...(event.description ? { description: event.description } : {}),
     start: allDay
       ? { date: event.date }
-      : { dateTime: `${event.date}T${event.startTime}:00`, timeZone: tz },
+      : { dateTime: localTimeToUTC(event.date, event.startTime!, tz) },
     end: allDay
       ? { date: nextCalendarDay(event.date) }
-      : { dateTime: `${event.date}T${event.endTime ?? event.startTime}:00`, timeZone: tz },
+      : { dateTime: localTimeToUTC(event.date, event.endTime ?? event.startTime!, tz) },
   };
   const resp = await proxyGCal("/calendars/primary/events", {
     method: "POST",
@@ -189,21 +220,15 @@ export async function updateGCalEvent(
   const allDay = event.allDay || !event.startTime;
   const tz = event.timezone || "UTC";
 
-  function nextCalendarDay(dateStr: string): string {
-    const [y, m, d] = dateStr.split("-").map(Number);
-    const next = new Date(Date.UTC(y, m - 1, d + 1));
-    return next.toISOString().slice(0, 10);
-  }
-
   const body: Record<string, unknown> = {
     summary: event.title,
     description: event.description ?? "",
     start: allDay
       ? { date: event.date }
-      : { dateTime: `${event.date}T${event.startTime}:00`, timeZone: tz },
+      : { dateTime: localTimeToUTC(event.date, event.startTime!, tz) },
     end: allDay
       ? { date: nextCalendarDay(event.date) }
-      : { dateTime: `${event.date}T${event.endTime ?? event.startTime}:00`, timeZone: tz },
+      : { dateTime: localTimeToUTC(event.date, event.endTime ?? event.startTime!, tz) },
   };
   const resp = await proxyGCal(`/calendars/primary/events/${encodeURIComponent(googleEventId)}`, {
     method: "PUT",
