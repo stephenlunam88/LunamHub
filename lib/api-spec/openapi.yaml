@@ -1391,6 +1391,77 @@ paths:
         "204":
           description: Deleted
 
+  # ── Streak Milestones ────────────────────────────────────────────────────────
+  /streak-milestones:
+    get:
+      operationId: listStreakMilestones
+      tags: [streakMilestones]
+      summary: List all streak milestones
+      responses:
+        "200":
+          description: Streak milestones list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StreakMilestone"
+    post:
+      operationId: createStreakMilestone
+      tags: [streakMilestones]
+      summary: Create a streak milestone
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StreakMilestoneInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreakMilestone"
+
+  /streak-milestones/{id}:
+    put:
+      operationId: updateStreakMilestone
+      tags: [streakMilestones]
+      summary: Update a streak milestone
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StreakMilestoneInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreakMilestone"
+    delete:
+      operationId: deleteStreakMilestone
+      tags: [streakMilestones]
+      summary: Delete a streak milestone
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   # ── Leaderboard ─────────────────────────────────────────────────────────────
   /leaderboard:
     get:
@@ -2061,6 +2132,60 @@ components:
           enum: [bronze, silver, gold]
       required:
         - memberId
+        - title
+
+    # ── Streak Milestones ─────────────────────────────────────────────────────
+    StreakMilestone:
+      type: object
+      properties:
+        id:
+          type: integer
+        days:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        emoji:
+          type: string
+        tier:
+          type: string
+          enum: [bronze, silver, gold]
+        bonusPoints:
+          type: integer
+        active:
+          type: boolean
+      required:
+        - id
+        - days
+        - title
+        - emoji
+        - tier
+        - bonusPoints
+        - active
+
+    StreakMilestoneInput:
+      type: object
+      properties:
+        days:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+        description:
+          type: string
+        emoji:
+          type: string
+        tier:
+          type: string
+          enum: [bronze, silver, gold]
+        bonusPoints:
+          type: integer
+          minimum: 0
+        active:
+          type: boolean
+      required:
+        - days
         - title
 
     # ── Point Transactions ────────────────────────────────────────────────────

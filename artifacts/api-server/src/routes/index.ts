@@ -15,6 +15,7 @@ import { settingsRouter } from "./settings";
 import { badgesRouter } from "./badges";
 import { pointTransactionsRouter } from "./point-transactions";
 import { leaderboardRouter } from "./leaderboard";
+import { streakMilestonesRouter } from "./streakMilestones";
 import storageRouter from "./storage";
 
 const router: IRouter = Router();
@@ -34,6 +35,7 @@ router.use("/settings", settingsRouter);
 router.use("/badges", badgesRouter);
 router.use("/point-transactions", pointTransactionsRouter);
 router.use("/leaderboard", leaderboardRouter);
+router.use("/streak-milestones", streakMilestonesRouter);
 router.use(storageRouter);
 
 export default router;

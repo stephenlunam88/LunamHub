@@ -81,6 +81,8 @@ import type {
   SharedListInput,
   SharedListUpdate,
   SharedListWithItems,
+  StreakMilestone,
+  StreakMilestoneInput,
   UploadUrlRequest,
   UploadUrlResponse,
   VerifyFamilyMemberPin200,
@@ -5164,6 +5166,296 @@ export const useDeleteBadge = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteBadgeMutationOptions(options));
+    }
+
+export const getListStreakMilestonesUrl = () => {
+
+
+
+
+  return `/api/streak-milestones`
+}
+
+/**
+ * @summary List all streak milestones
+ */
+export const listStreakMilestones = async ( options?: RequestInit): Promise<StreakMilestone[]> => {
+
+  return customFetch<StreakMilestone[]>(getListStreakMilestonesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListStreakMilestonesQueryKey = () => {
+    return [
+    `/api/streak-milestones`
+    ] as const;
+    }
+
+
+export const getListStreakMilestonesQueryOptions = <TData = Awaited<ReturnType<typeof listStreakMilestones>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listStreakMilestones>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListStreakMilestonesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listStreakMilestones>>> = ({ signal }) => listStreakMilestones({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listStreakMilestones>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListStreakMilestonesQueryResult = NonNullable<Awaited<ReturnType<typeof listStreakMilestones>>>
+export type ListStreakMilestonesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all streak milestones
+ */
+
+export function useListStreakMilestones<TData = Awaited<ReturnType<typeof listStreakMilestones>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listStreakMilestones>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListStreakMilestonesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateStreakMilestoneUrl = () => {
+
+
+
+
+  return `/api/streak-milestones`
+}
+
+/**
+ * @summary Create a streak milestone
+ */
+export const createStreakMilestone = async (streakMilestoneInput: StreakMilestoneInput, options?: RequestInit): Promise<StreakMilestone> => {
+
+  return customFetch<StreakMilestone>(getCreateStreakMilestoneUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      streakMilestoneInput,)
+  }
+);}
+
+
+
+
+export const getCreateStreakMilestoneMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createStreakMilestone>>, TError,{data: BodyType<StreakMilestoneInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createStreakMilestone>>, TError,{data: BodyType<StreakMilestoneInput>}, TContext> => {
+
+const mutationKey = ['createStreakMilestone'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createStreakMilestone>>, {data: BodyType<StreakMilestoneInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createStreakMilestone(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateStreakMilestoneMutationResult = NonNullable<Awaited<ReturnType<typeof createStreakMilestone>>>
+    export type CreateStreakMilestoneMutationBody = BodyType<StreakMilestoneInput>
+    export type CreateStreakMilestoneMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a streak milestone
+ */
+export const useCreateStreakMilestone = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createStreakMilestone>>, TError,{data: BodyType<StreakMilestoneInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createStreakMilestone>>,
+        TError,
+        {data: BodyType<StreakMilestoneInput>},
+        TContext
+      > => {
+      return useMutation(getCreateStreakMilestoneMutationOptions(options));
+    }
+
+export const getUpdateStreakMilestoneUrl = (id: number,) => {
+
+
+
+
+  return `/api/streak-milestones/${id}`
+}
+
+/**
+ * @summary Update a streak milestone
+ */
+export const updateStreakMilestone = async (id: number,
+    streakMilestoneInput: StreakMilestoneInput, options?: RequestInit): Promise<StreakMilestone> => {
+
+  return customFetch<StreakMilestone>(getUpdateStreakMilestoneUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      streakMilestoneInput,)
+  }
+);}
+
+
+
+
+export const getUpdateStreakMilestoneMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateStreakMilestone>>, TError,{id: number;data: BodyType<StreakMilestoneInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateStreakMilestone>>, TError,{id: number;data: BodyType<StreakMilestoneInput>}, TContext> => {
+
+const mutationKey = ['updateStreakMilestone'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateStreakMilestone>>, {id: number;data: BodyType<StreakMilestoneInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateStreakMilestone(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateStreakMilestoneMutationResult = NonNullable<Awaited<ReturnType<typeof updateStreakMilestone>>>
+    export type UpdateStreakMilestoneMutationBody = BodyType<StreakMilestoneInput>
+    export type UpdateStreakMilestoneMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a streak milestone
+ */
+export const useUpdateStreakMilestone = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateStreakMilestone>>, TError,{id: number;data: BodyType<StreakMilestoneInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateStreakMilestone>>,
+        TError,
+        {id: number;data: BodyType<StreakMilestoneInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateStreakMilestoneMutationOptions(options));
+    }
+
+export const getDeleteStreakMilestoneUrl = (id: number,) => {
+
+
+
+
+  return `/api/streak-milestones/${id}`
+}
+
+/**
+ * @summary Delete a streak milestone
+ */
+export const deleteStreakMilestone = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteStreakMilestoneUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteStreakMilestoneMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteStreakMilestone>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteStreakMilestone>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteStreakMilestone'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteStreakMilestone>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteStreakMilestone(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteStreakMilestoneMutationResult = NonNullable<Awaited<ReturnType<typeof deleteStreakMilestone>>>
+
+    export type DeleteStreakMilestoneMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a streak milestone
+ */
+export const useDeleteStreakMilestone = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteStreakMilestone>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteStreakMilestone>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteStreakMilestoneMutationOptions(options));
     }
 
 export const getGetLeaderboardUrl = () => {

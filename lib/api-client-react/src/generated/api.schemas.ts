@@ -489,6 +489,48 @@ export interface BadgeInput {
   tier?: BadgeInputTier;
 }
 
+export type StreakMilestoneTier = typeof StreakMilestoneTier[keyof typeof StreakMilestoneTier];
+
+
+export const StreakMilestoneTier = {
+  bronze: 'bronze',
+  silver: 'silver',
+  gold: 'gold',
+} as const;
+
+export interface StreakMilestone {
+  id: number;
+  days: number;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  emoji: string;
+  tier: StreakMilestoneTier;
+  bonusPoints: number;
+  active: boolean;
+}
+
+export type StreakMilestoneInputTier = typeof StreakMilestoneInputTier[keyof typeof StreakMilestoneInputTier];
+
+
+export const StreakMilestoneInputTier = {
+  bronze: 'bronze',
+  silver: 'silver',
+  gold: 'gold',
+} as const;
+
+export interface StreakMilestoneInput {
+  /** @minimum 1 */
+  days: number;
+  title: string;
+  description?: string;
+  emoji?: string;
+  tier?: StreakMilestoneInputTier;
+  /** @minimum 0 */
+  bonusPoints?: number;
+  active?: boolean;
+}
+
 export type PointTransactionType = typeof PointTransactionType[keyof typeof PointTransactionType];
 
 

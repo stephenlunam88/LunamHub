@@ -224,6 +224,23 @@ export const insertBadgeSchema = createInsertSchema(badgesTable).omit({ id: true
 export type InsertBadge = z.infer<typeof insertBadgeSchema>;
 export type Badge = typeof badgesTable.$inferSelect;
 
+// ── Streak Milestones ─────────────────────────────────────────────────────────
+
+export const streakMilestonesTable = pgTable("streak_milestones", {
+  id: serial("id").primaryKey(),
+  days: integer("days").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  emoji: text("emoji").notNull().default("🔥"),
+  tier: badgeTierEnum("tier").notNull().default("bronze"),
+  bonusPoints: integer("bonus_points").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+});
+
+export const insertStreakMilestoneSchema = createInsertSchema(streakMilestonesTable).omit({ id: true });
+export type InsertStreakMilestone = z.infer<typeof insertStreakMilestoneSchema>;
+export type StreakMilestone = typeof streakMilestonesTable.$inferSelect;
+
 // ── Lists ─────────────────────────────────────────────────────────────────────
 
 export const listsTable = pgTable("lists", {

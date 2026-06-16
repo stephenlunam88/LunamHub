@@ -1474,6 +1474,83 @@ export const DeleteBadgeParams = zod.object({
 
 
 /**
+ * @summary List all streak milestones
+ */
+export const ListStreakMilestonesResponseItem = zod.object({
+  "id": zod.number(),
+  "days": zod.number(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "emoji": zod.string(),
+  "tier": zod.enum(['bronze', 'silver', 'gold']),
+  "bonusPoints": zod.number(),
+  "active": zod.boolean()
+})
+export const ListStreakMilestonesResponse = zod.array(ListStreakMilestonesResponseItem)
+
+
+/**
+ * @summary Create a streak milestone
+ */
+
+export const createStreakMilestoneBodyBonusPointsMin = 0;
+
+
+
+export const CreateStreakMilestoneBody = zod.object({
+  "days": zod.number().min(1),
+  "title": zod.string(),
+  "description": zod.string().optional(),
+  "emoji": zod.string().optional(),
+  "tier": zod.enum(['bronze', 'silver', 'gold']).optional(),
+  "bonusPoints": zod.number().min(createStreakMilestoneBodyBonusPointsMin).optional(),
+  "active": zod.boolean().optional()
+})
+
+
+/**
+ * @summary Update a streak milestone
+ */
+export const UpdateStreakMilestoneParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+export const updateStreakMilestoneBodyBonusPointsMin = 0;
+
+
+
+export const UpdateStreakMilestoneBody = zod.object({
+  "days": zod.number().min(1),
+  "title": zod.string(),
+  "description": zod.string().optional(),
+  "emoji": zod.string().optional(),
+  "tier": zod.enum(['bronze', 'silver', 'gold']).optional(),
+  "bonusPoints": zod.number().min(updateStreakMilestoneBodyBonusPointsMin).optional(),
+  "active": zod.boolean().optional()
+})
+
+export const UpdateStreakMilestoneResponse = zod.object({
+  "id": zod.number(),
+  "days": zod.number(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "emoji": zod.string(),
+  "tier": zod.enum(['bronze', 'silver', 'gold']),
+  "bonusPoints": zod.number(),
+  "active": zod.boolean()
+})
+
+
+/**
+ * @summary Delete a streak milestone
+ */
+export const DeleteStreakMilestoneParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
  * @summary All-time leaderboard for children
  */
 export const GetLeaderboardResponseItem = zod.object({

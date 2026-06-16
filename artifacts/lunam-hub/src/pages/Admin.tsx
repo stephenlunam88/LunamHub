@@ -5,8 +5,9 @@ import {
   useSetFamilyMemberPin, useSetFamilyMemberAvatar,
   useRequestUploadUrl,
   useListRewards, useCreateReward, useUpdateReward, useDeleteReward,
+  useListStreakMilestones, useCreateStreakMilestone, useUpdateStreakMilestone, useDeleteStreakMilestone,
   getGetSettingsQueryKey, getListFamilyMembersQueryKey,
-  getListRewardsQueryKey,
+  getListRewardsQueryKey, getListStreakMilestonesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,14 +17,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload, CalendarDays } from "lucide-react";
+import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload, CalendarDays, Flame } from "lucide-react";
 import {
   useGetGoogleCalendarStatus,
   useConnectGoogleCalendar,
   useDisconnectGoogleCalendar,
   getGetGoogleCalendarStatusQueryKey,
 } from "@workspace/api-client-react";
-import type { FamilyMemberInput, RewardInput, RewardUpdate, Reward } from "@workspace/api-client-react";
+import type { FamilyMemberInput, RewardInput, RewardUpdate, Reward, StreakMilestone, StreakMilestoneInput } from "@workspace/api-client-react";
 
 export default function Admin() {
   const [pin, setPin] = useState("");
@@ -331,11 +332,62 @@ function GoogleCalendarCard() {
   );
 }
 
+function MilestoneForm({ form, setForm }: { form: StreakMilestoneInput; setForm: React.Dispatch<React.SetStateAction<StreakMilestoneInput>> }) {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label>Days threshold</Label>
+          <Input type="number" min={1} value={form.days} onChange={e => setForm(f => ({ ...f, days: Number(e.target.value) }))} className="rounded-xl h-12" />
+        </div>
+        <div>
+          <Label>Emoji</Label>
+          <Input value={form.emoji ?? "🔥"} onChange={e => setForm(f => ({ ...f, emoji: e.target.value }))} className="rounded-xl h-12" />
+        </div>
+      </div>
+      <div>
+        <Label>Title</Label>
+        <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. 7-Day Streak" className="rounded-xl h-12" />
+      </div>
+      <div>
+        <Label>Description (optional)</Label>
+        <Input value={form.description ?? ""} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="rounded-xl h-12" />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label>Tier</Label>
+          <Select value={form.tier ?? "bronze"} onValueChange={v => setForm(f => ({ ...f, tier: v as StreakMilestoneInput["tier"] }))}>
+            <SelectTrigger className="rounded-xl h-12"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="bronze">🥉 Bronze</SelectItem>
+              <SelectItem value="silver">🥈 Silver</SelectItem>
+              <SelectItem value="gold">🥇 Gold</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>Bonus points</Label>
+          <Input type="number" min={0} value={form.bonusPoints ?? 0} onChange={e => setForm(f => ({ ...f, bonusPoints: Number(e.target.value) }))} className="rounded-xl h-12" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const TIER_COLORS: Record<string, string> = {
+  bronze: "bg-amber-100 text-amber-800",
+  silver: "bg-slate-100 text-slate-700",
+  gold:   "bg-yellow-100 text-yellow-800",
+};
+
+const BLANK_MILESTONE: StreakMilestoneInput = { days: 7, title: "", emoji: "🔥", tier: "bronze", bonusPoints: 10, active: true };
+
 function AdminPanel({ onLock }: { onLock: () => void }) {
   const qc = useQueryClient();
   const { data: settings } = useGetSettings();
   const { data: members = [] } = useListFamilyMembers();
   const { data: rewards = [] } = useListRewards();
+  const { data: milestones = [] } = useListStreakMilestones();
   const [newPin, setNewPin] = useState("");
   const [memberForm, setMemberForm] = useState<FamilyMemberInput>({ name: "", emoji: "😊", color: "#6366f1", role: "child" });
   const [newMemberPin, setNewMemberPin] = useState("");
@@ -344,19 +396,34 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
   const [editRewardOpen, setEditRewardOpen] = useState(false);
   const [editRewardTarget, setEditRewardTarget] = useState<Reward | null>(null);
   const [editRewardForm, setEditRewardForm] = useState<RewardUpdate>({ title: "", pointsCost: 100 });
+  const [milestoneOpen, setMilestoneOpen] = useState(false);
+  const [milestoneForm, setMilestoneForm] = useState<StreakMilestoneInput>(BLANK_MILESTONE);
+  const [editMilestoneOpen, setEditMilestoneOpen] = useState(false);
+  const [editMilestoneTarget, setEditMilestoneTarget] = useState<StreakMilestone | null>(null);
+  const [editMilestoneForm, setEditMilestoneForm] = useState<StreakMilestoneInput>(BLANK_MILESTONE);
 
   const invalidateRewards = () => qc.invalidateQueries({ queryKey: getListRewardsQueryKey() });
+  const invalidateMilestones = () => qc.invalidateQueries({ queryKey: getListStreakMilestonesQueryKey() });
   const updateSettings = useUpdateSettings({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getGetSettingsQueryKey() }) } });
   const createMember = useCreateFamilyMember({ mutation: { onSuccess: () => { qc.invalidateQueries({ queryKey: getListFamilyMembersQueryKey() }); setMemberForm({ name: "", emoji: "😊", color: "#6366f1", role: "child" }); } } });
   const deleteMember = useDeleteFamilyMember({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getListFamilyMembersQueryKey() }) } });
   const createReward = useCreateReward({ mutation: { onSuccess: () => { invalidateRewards(); setRewardOpen(false); setRewardForm({ title: "", pointsCost: 100 }); } } });
   const updateReward = useUpdateReward({ mutation: { onSuccess: () => { invalidateRewards(); setEditRewardOpen(false); setEditRewardTarget(null); } } });
   const deleteReward = useDeleteReward({ mutation: { onSuccess: invalidateRewards } });
+  const createMilestone = useCreateStreakMilestone({ mutation: { onSuccess: () => { invalidateMilestones(); setMilestoneOpen(false); setMilestoneForm(BLANK_MILESTONE); } } });
+  const updateMilestone = useUpdateStreakMilestone({ mutation: { onSuccess: () => { invalidateMilestones(); setEditMilestoneOpen(false); setEditMilestoneTarget(null); } } });
+  const deleteMilestone = useDeleteStreakMilestone({ mutation: { onSuccess: invalidateMilestones } });
 
   function openEditReward(r: Reward) {
     setEditRewardTarget(r);
     setEditRewardForm({ title: r.title, description: r.description ?? undefined, pointsCost: r.pointsCost, active: r.active });
     setEditRewardOpen(true);
+  }
+
+  function openEditMilestone(m: StreakMilestone) {
+    setEditMilestoneTarget(m);
+    setEditMilestoneForm({ days: m.days, title: m.title, description: m.description ?? undefined, emoji: m.emoji, tier: m.tier as StreakMilestoneInput["tier"], bonusPoints: m.bonusPoints, active: m.active });
+    setEditMilestoneOpen(true);
   }
 
   const parents = members.filter(m => m.role === "parent");
@@ -543,6 +610,73 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
               {updateReward.isPending ? "Saving…" : "Save Changes"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Streak Milestones ─────────────────────────────────────────── */}
+      <Card className="rounded-3xl border-0 shadow-sm">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2"><Flame className="w-5 h-5" /> Streak Milestones</CardTitle>
+            <Dialog open={milestoneOpen} onOpenChange={o => { setMilestoneOpen(o); if (!o) setMilestoneForm(BLANK_MILESTONE); }}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="rounded-xl gap-1.5"><Plus className="w-4 h-4" /> Add Milestone</Button>
+              </DialogTrigger>
+              <DialogContent className="rounded-3xl">
+                <DialogHeader><DialogTitle className="text-xl font-serif">New Streak Milestone</DialogTitle></DialogHeader>
+                <MilestoneForm form={milestoneForm} setForm={setMilestoneForm} />
+                <Button className="w-full h-12 rounded-xl mt-2" onClick={() => createMilestone.mutate({ data: milestoneForm })} disabled={!milestoneForm.title || !milestoneForm.days || createMilestone.isPending}>
+                  {createMilestone.isPending ? "Adding…" : "Add Milestone"}
+                </Button>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">When a child reaches a consecutive-day streak, they earn a badge and bonus points. Configure your own thresholds here.</p>
+          {milestones.length === 0 && (
+            <p className="text-muted-foreground text-sm italic">No milestones yet — add one above.</p>
+          )}
+          {[...milestones].sort((a, b) => a.days - b.days).map(m => (
+            <div key={m.id} className={`flex items-center gap-4 rounded-2xl p-4 ${m.active ? "bg-muted" : "bg-muted/40 opacity-60"}`}>
+              <div className="text-2xl">{m.emoji}</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold flex items-center gap-2 flex-wrap">
+                  {m.title}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${TIER_COLORS[m.tier] ?? ""}`}>{m.tier}</span>
+                  {!m.active && <span className="text-xs bg-muted-foreground/20 text-muted-foreground px-2 py-0.5 rounded-full">Inactive</span>}
+                </div>
+                <div className="text-sm text-muted-foreground">{m.days} days · +{m.bonusPoints} bonus pts</div>
+              </div>
+              <button
+                onClick={() => updateMilestone.mutate({ id: m.id, data: { days: m.days, title: m.title, description: m.description ?? undefined, emoji: m.emoji, tier: m.tier as StreakMilestoneInput["tier"], bonusPoints: m.bonusPoints, active: !m.active } })}
+                className="text-muted-foreground hover:text-foreground p-2"
+                title={m.active ? "Deactivate" : "Activate"}
+              >
+                {m.active ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+              <button onClick={() => openEditMilestone(m)} className="text-muted-foreground hover:text-foreground p-2" title="Edit">
+                <Pencil className="w-4 h-4" />
+              </button>
+              <button onClick={() => deleteMilestone.mutate({ id: m.id })} className="text-muted-foreground hover:text-destructive p-2" title="Delete">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Dialog open={editMilestoneOpen} onOpenChange={setEditMilestoneOpen}>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader><DialogTitle className="text-xl font-serif">Edit Streak Milestone</DialogTitle></DialogHeader>
+          <MilestoneForm form={editMilestoneForm} setForm={setEditMilestoneForm} />
+          <Button
+            className="w-full h-12 rounded-xl mt-2"
+            onClick={() => editMilestoneTarget && updateMilestone.mutate({ id: editMilestoneTarget.id, data: editMilestoneForm })}
+            disabled={!editMilestoneForm.title || !editMilestoneForm.days || updateMilestone.isPending}
+          >
+            {updateMilestone.isPending ? "Saving…" : "Save Changes"}
+          </Button>
         </DialogContent>
       </Dialog>
 

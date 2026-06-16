@@ -18,6 +18,7 @@ import {
   familyMembersTable,
   pointTransactionsTable,
   badgesTable,
+  streakMilestonesTable,
 } from "@workspace/db";
 import { eq, sql, lt, and, count, inArray } from "drizzle-orm";
 import { z } from "zod";
@@ -723,10 +724,30 @@ async function checkAndAwardBadges(memberId: number, lifetimePoints: number) {
   const uniqueDates = [...new Set(txDates.map((t) => t.earnedOn))].sort();
   const longestStreak = maxConsecutiveDays(uniqueDates);
 
-  const streakMilestones = [
-    { threshold: 7,  emoji: "🔥", title: "7-Day Streak",  tier: "silver" as const, description: "Earned chores 7 days in a row" },
-    { threshold: 30, emoji: "🌋", title: "30-Day Streak", tier: "gold"   as const, description: "Earned chores 30 days in a row" },
-  ];
+  // Load active streak milestones from DB (with fallback defaults if none configured)
+  let dbStreakMilestones = await db
+    .select()
+    .from(streakMilestonesTable)
+    .where(eq(streakMilestonesTable.active, true));
+
+  if (dbStreakMilestones.length === 0) {
+    // Seed defaults on first use
+    dbStreakMilestones = await db.insert(streakMilestonesTable).values([
+      { days: 3,  title: "3-Day Streak",  emoji: "🔥", tier: "bronze", bonusPoints: 5,  description: "3 days of chores in a row",  active: true },
+      { days: 7,  title: "7-Day Streak",  emoji: "🔥", tier: "silver", bonusPoints: 15, description: "7 days of chores in a row",  active: true },
+      { days: 14, title: "2-Week Streak", emoji: "⚡", tier: "silver", bonusPoints: 30, description: "14 days of chores in a row", active: true },
+      { days: 30, title: "30-Day Streak", emoji: "🌋", tier: "gold",   bonusPoints: 75, description: "30 days of chores in a row", active: true },
+    ]).returning();
+  }
+
+  const streakMilestones = dbStreakMilestones.map((m) => ({
+    threshold: m.days,
+    emoji: m.emoji,
+    title: m.title,
+    tier: m.tier as "bronze" | "silver" | "gold",
+    description: m.description ?? `Earned chores ${m.days} days in a row`,
+    bonusPoints: m.bonusPoints,
+  }));
 
   const existing = await db.select().from(badgesTable).where(eq(badgesTable.memberId, memberId));
   const existingTitles = new Set(existing.map((b) => b.title));
@@ -740,8 +761,26 @@ async function checkAndAwardBadges(memberId: number, lifetimePoints: number) {
       await db.insert(badgesTable).values({ memberId, ...m });
   }
   for (const m of streakMilestones) {
-    if (longestStreak >= m.threshold && !existingTitles.has(m.title))
+    if (longestStreak >= m.threshold && !existingTitles.has(m.title)) {
       await db.insert(badgesTable).values({ memberId, ...m });
+      // Award bonus points for reaching this streak milestone
+      if (m.bonusPoints > 0) {
+        await db.insert(pointTransactionsTable).values({
+          memberId,
+          type: "bonus",
+          amount: m.bonusPoints,
+          description: `🔥 ${m.title} bonus`,
+        });
+        // Update member's points balance
+        await db
+          .update(familyMembersTable)
+          .set({
+            pointsBalance: sql`${familyMembersTable.pointsBalance} + ${m.bonusPoints}`,
+            lifetimePoints: sql`${familyMembersTable.lifetimePoints} + ${m.bonusPoints}`,
+          })
+          .where(eq(familyMembersTable.id, memberId));
+      }
+    }
   }
 }
 
