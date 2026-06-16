@@ -1,16 +1,67 @@
 // Google Calendar integration — uses @replit/connectors-sdk
-// Proxy base path: /calendar/v3 (prepended to all Google Calendar API paths)
-// Auth: Connection-Id header with the connection ID from env
+// Proxy path format: /calendar/v3/{path} with Connection-Id header
+// Connection ID is stored in the settings table (googleCalendarConnectionId)
+// and resolved dynamically at runtime via discoverConnectionId().
 
 import { ReplitConnectors } from "@replit/connectors-sdk";
+import { db } from "@workspace/db";
+import { settingsTable } from "@workspace/db";
 import { logger } from "./logger";
 
 const GCAL_PATH_BASE = "/calendar/v3";
-const CONN_ID = "conn_google-calendar_01KV6ZVBT2KG2NVAWJ8RJV9R6A";
 
 function getConnectors(): ReplitConnectors | null {
   try {
     return new ReplitConnectors();
+  } catch {
+    return null;
+  }
+}
+
+// Discover the active google-calendar connection ID via the SDK and store it in settings
+export async function discoverAndStoreConnectionId(): Promise<string | null> {
+  const connectors = getConnectors();
+  if (!connectors) return null;
+  try {
+    const conns = await connectors.listConnections({ connector_names: "google-calendar" });
+    const conn = conns.find((c) => c.status === "healthy" || !c.status) ?? conns[0];
+    if (!conn) return null;
+    const connId = conn.id as string;
+    // Upsert into settings row 1
+    await db
+      .insert(settingsTable)
+      .values({ id: 1, googleCalendarConnectionId: connId } as typeof settingsTable.$inferInsert)
+      .onConflictDoUpdate({
+        target: settingsTable.id,
+        set: { googleCalendarConnectionId: connId },
+      });
+    return connId;
+  } catch (err) {
+    logger.warn({ err }, "gcal: discoverConnectionId error");
+    return null;
+  }
+}
+
+// Clear the stored connection ID from settings
+export async function clearConnectionId(): Promise<void> {
+  try {
+    await db
+      .insert(settingsTable)
+      .values({ id: 1, googleCalendarConnectionId: null } as typeof settingsTable.$inferInsert)
+      .onConflictDoUpdate({
+        target: settingsTable.id,
+        set: { googleCalendarConnectionId: null },
+      });
+  } catch (err) {
+    logger.warn({ err }, "gcal: clearConnectionId error");
+  }
+}
+
+// Read the stored connection ID from settings
+async function getStoredConnectionId(): Promise<string | null> {
+  try {
+    const [row] = await db.select({ googleCalendarConnectionId: settingsTable.googleCalendarConnectionId }).from(settingsTable).limit(1);
+    return row?.googleCalendarConnectionId ?? null;
   } catch {
     return null;
   }
@@ -22,11 +73,13 @@ async function proxyGCal(
 ): Promise<Response | null> {
   const connectors = getConnectors();
   if (!connectors) return null;
+  const connId = await getStoredConnectionId();
+  if (!connId) return null;
   try {
     return await connectors.proxy("google-calendar", `${GCAL_PATH_BASE}${path}`, {
       method: options?.method ?? "GET",
       body: options?.body,
-      headers: { "Connection-Id": CONN_ID },
+      headers: { "Connection-Id": connId },
     });
   } catch (err) {
     logger.warn({ err, path }, "gcal: proxy error");
@@ -35,6 +88,8 @@ async function proxyGCal(
 }
 
 export async function isGCalConnected(): Promise<boolean> {
+  const connId = await getStoredConnectionId();
+  if (!connId) return false;
   const resp = await proxyGCal("/users/me/calendarList");
   return resp !== null && resp.status >= 200 && resp.status < 300;
 }

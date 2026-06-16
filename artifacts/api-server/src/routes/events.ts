@@ -20,6 +20,8 @@ import {
   listGCalEvents,
   createGCalEvent,
   deleteGCalEvent,
+  discoverAndStoreConnectionId,
+  clearConnectionId,
   type GCalEvent,
 } from "../lib/google-calendar";
 
@@ -83,6 +85,21 @@ function gcalToLocal(ge: GCalEvent): {
 router.get("/google-calendar-status", async (req, res): Promise<void> => {
   const connected = await isGCalConnected();
   res.json({ connected });
+});
+
+// ── Google Calendar connect (discover + store connection ID) ──────────────────
+router.post("/google-calendar-connect", async (req, res): Promise<void> => {
+  const connId = await discoverAndStoreConnectionId();
+  req.log.info({ connId: connId ? "found" : "none" }, "gcal: connect");
+  const connected = connId !== null;
+  res.json({ connected });
+});
+
+// ── Google Calendar disconnect (clear stored connection ID) ───────────────────
+router.post("/google-calendar-disconnect", async (req, res): Promise<void> => {
+  await clearConnectionId();
+  req.log.info("gcal: disconnect");
+  res.json({ connected: false });
 });
 
 // ── Google Calendar sync ──────────────────────────────────────────────────────

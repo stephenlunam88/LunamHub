@@ -30,9 +30,9 @@ connectors.proxy("google-calendar", "/calendar/v3/calendars/primary/events?...",
 - `Connector-Name: google-calendar` header instead of `Connection-Id` → proxied but Google 404
 - `connectors.replit.com/api/v2/proxy` without auth → returns 400 "Connector-Name or Connection-Id required"
 
-## The hardcoded connection ID
+## Connection ID storage
 
-`conn_google-calendar_01KV6ZVBT2KG2NVAWJ8RJV9R6A` — set at integration time. If the user reconnects Google Calendar, this ID will change and `google-calendar.ts` must be updated.
+Connection ID is stored in `settingsTable.googleCalendarConnectionId` (nullable text). Use `discoverAndStoreConnectionId()` to discover via `connectors.listConnections({ connector_names: "google-calendar" })` and upsert. Never hardcode — the ID changes if the user reconnects.
 
 ## SDK version
 

@@ -217,6 +217,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/GoogleCalendarSyncResult"
 
+  /events/google-calendar-connect:
+    post:
+      operationId: connectGoogleCalendar
+      tags: [events]
+      summary: Discover and store the active Google Calendar connection ID
+      responses:
+        "200":
+          description: Connection result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoogleCalendarStatus"
+
+  /events/google-calendar-disconnect:
+    post:
+      operationId: disconnectGoogleCalendar
+      tags: [events]
+      summary: Clear the stored Google Calendar connection ID
+      responses:
+        "200":
+          description: Disconnected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoogleCalendarStatus"
+
   /events/{id}:
     get:
       operationId: getEvent

@@ -169,6 +169,22 @@ export const SyncGoogleCalendarResponse = zod.object({
 
 
 /**
+ * @summary Discover and store the active Google Calendar connection ID
+ */
+export const ConnectGoogleCalendarResponse = zod.object({
+  "connected": zod.boolean()
+})
+
+
+/**
+ * @summary Clear the stored Google Calendar connection ID
+ */
+export const DisconnectGoogleCalendarResponse = zod.object({
+  "connected": zod.boolean()
+})
+
+
+/**
  * @summary Get an event
  */
 export const GetEventParams = zod.object({

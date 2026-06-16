@@ -323,6 +323,7 @@ export const settingsTable = pgTable("settings", {
   appName: text("app_name").notNull().default("LunamHub"),
   timezone: text("timezone").notNull().default("UTC"),
   displayMode: boolean("display_mode").notNull().default(false),
+  googleCalendarConnectionId: text("google_calendar_connection_id"),
 });
 
 export const insertSettingsSchema = createInsertSchema(settingsTable).omit({ id: true });
