@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   useListEvents, useCreateEvent, useDeleteEvent, useUpdateEvent,
   useSyncGoogleCalendar, useGetGoogleCalendarStatus,
@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, ChevronRight, Plus, Trash2, Clock, RefreshCw, Pencil, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Trash2, Clock, RefreshCw, Pencil, Users, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { EventInput, EventUpdate, Event, FamilyMember } from "@workspace/api-client-react";
 import type { EventInputRecurrence, EventUpdateRecurrence } from "@workspace/api-client-react";
@@ -34,6 +34,33 @@ const RECURRENCE_LABELS: Record<string, string> = {
   WEEKLY: "Weekly",
   MONTHLY: "Monthly",
   YEARLY: "Yearly",
+};
+
+function formatEventTime(time: string): string {
+  const [hStr, mStr] = time.split(":");
+  const h = parseInt(hStr, 10);
+  const m = parseInt(mStr, 10);
+  const period = h >= 12 ? "pm" : "am";
+  const hour = h % 12 || 12;
+  return m === 0 ? `${hour}${period}` : `${hour}:${mStr}${period}`;
+}
+
+const CATEGORY_PILL_BG: Record<string, string> = {
+  school: "bg-blue-500 text-white",
+  sport: "bg-green-500 text-white",
+  appointment: "bg-red-500 text-white",
+  birthday: "bg-yellow-400 text-yellow-900",
+  family: "bg-purple-500 text-white",
+  other: "bg-sky-500 text-white",
+};
+
+const CATEGORY_DOT_BG: Record<string, string> = {
+  school: "bg-blue-500",
+  sport: "bg-green-500",
+  appointment: "bg-red-500",
+  birthday: "bg-yellow-400",
+  family: "bg-purple-500",
+  other: "bg-sky-500",
 };
 
 function parseLocalDate(dateStr: string): Date {
@@ -72,6 +99,7 @@ interface EventForm {
   allDay?: boolean;
   category: EventInput["category"];
   description?: string;
+  location?: string;
   recurrence?: string;
   recurrenceEndDate?: string;
   assignedMembers: number[];
@@ -83,6 +111,7 @@ const DEFAULT_FORM = (date: string): EventForm => ({
   allDay: true,
   category: "other",
   description: "",
+  location: "",
   recurrence: undefined,
   recurrenceEndDate: undefined,
   assignedMembers: [],
@@ -199,6 +228,7 @@ export default function Calendar() {
       allDay: e.allDay,
       category: (e.category as EventInput["category"]) ?? "other",
       description: e.description ?? "",
+      location: e.location ?? "",
       recurrence: (e.recurrence as string | null | undefined) ?? undefined,
       recurrenceEndDate: (e.recurrenceEndDate as string | null | undefined) ?? undefined,
       assignedMembers: e.assignedMembers ?? [],
@@ -231,6 +261,7 @@ export default function Calendar() {
         category: form.category,
         timezone,
         ...(form.description ? { description: form.description } : {}),
+        ...(form.location ? { location: form.location } : {}),
         ...(cleanedRecurrence ? { recurrence: cleanedRecurrence } : {}),
         ...(cleanedRecurrenceEndDate ? { recurrenceEndDate: cleanedRecurrenceEndDate } : {}),
         ...(cleanedStartTime ? { startTime: cleanedStartTime } : {}),
@@ -245,6 +276,7 @@ export default function Calendar() {
         allDay: form.allDay ?? !cleanedStartTime,
         category: form.category as EventUpdate["category"],
         description: form.description || undefined,
+        location: form.location || undefined,
         recurrence: cleanedRecurrenceUpdate,
         recurrenceEndDate: cleanedRecurrenceEndDate ?? null,
         startTime: cleanedStartTime,
@@ -260,6 +292,15 @@ export default function Calendar() {
 
   const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
   const selectedDayEvents = events.filter(e => doesEventOccurOnDay(e, selectedDay));
+
+  const dayEventsMap = useMemo(() => {
+    const map = new Map<string, Event[]>();
+    for (const day of days) {
+      const key = format(day, "yyyy-MM-dd");
+      map.set(key, events.filter(e => doesEventOccurOnDay(e, day)));
+    }
+    return map;
+  }, [days, events]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -342,6 +383,15 @@ export default function Calendar() {
                 className="rounded-xl resize-none"
                 rows={3}
                 placeholder="Notes or details (optional)"
+              />
+            </div>
+            <div>
+              <Label>Location</Label>
+              <Input
+                value={form.location ?? ""}
+                onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
+                className="rounded-xl h-12"
+                placeholder="Address or place name (optional)"
               />
             </div>
             <div>
@@ -463,31 +513,59 @@ export default function Calendar() {
               <ChevronRight className="w-6 h-6" />
             </Button>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-7 mb-2">
+          <CardContent className="p-0 overflow-hidden rounded-b-3xl">
+            <div className="grid grid-cols-7 border-b border-border">
               {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
-                <div key={d} className="text-center text-sm font-semibold text-muted-foreground py-2">{d}</div>
+                <div key={d} className="text-center text-xs font-semibold text-muted-foreground py-2">{d}</div>
               ))}
             </div>
-            <div className="grid grid-cols-7 gap-1">
-              {Array.from({ length: days[0].getDay() }).map((_, i) => <div key={`pad-${i}`} />)}
-              {days.map(day => {
-                const hasEvents = events.some(e => doesEventOccurOnDay(e, day));
+            <div className="grid grid-cols-7">
+              {Array.from({ length: days[0].getDay() }).map((_, i) => (
+                <div key={`pad-${i}`} className="min-h-[80px] border-r border-b border-border last:border-r-0" />
+              ))}
+              {days.map((day, idx) => {
+                const dayKey = format(day, "yyyy-MM-dd");
+                const dayEvents = dayEventsMap.get(dayKey) ?? [];
                 const selected = isSameDay(day, selectedDay);
                 const todayDay = isToday(day);
+                const isLastCol = (days[0].getDay() + idx) % 7 === 6;
                 return (
                   <button
                     key={day.toISOString()}
                     onClick={() => setSelectedDay(day)}
                     className={cn(
-                      "aspect-square flex flex-col items-center justify-center rounded-2xl text-lg font-medium transition-colors relative touch-manipulation",
-                      selected ? "bg-primary text-primary-foreground" : todayDay ? "bg-primary/10 text-primary font-bold" : "hover:bg-muted",
-                      !isSameMonth(day, currentMonth) && "opacity-30"
+                      "min-h-[80px] flex flex-col items-stretch text-left p-1 transition-colors border-b border-border touch-manipulation",
+                      !isLastCol && "border-r",
+                      selected ? "bg-primary/5 ring-inset ring-2 ring-primary" : "hover:bg-muted/40",
+                      !isSameMonth(day, currentMonth) && "opacity-35"
                     )}
                   >
-                    {format(day, "d")}
-                    {hasEvents && (
-                      <span className={cn("absolute bottom-1 w-1.5 h-1.5 rounded-full", selected ? "bg-primary-foreground" : "bg-primary")} />
+                    <div className={cn(
+                      "w-6 h-6 text-xs font-semibold flex items-center justify-center rounded-full self-end mb-0.5 shrink-0",
+                      todayDay ? "bg-primary text-primary-foreground" : selected ? "text-primary" : "text-foreground"
+                    )}>
+                      {format(day, "d")}
+                    </div>
+                    {dayEvents.slice(0, 3).map(ev => {
+                      const cat = ev.category ?? "other";
+                      return ev.allDay ? (
+                        <div
+                          key={ev.id}
+                          className={cn("text-[10px] leading-tight px-1.5 py-0.5 rounded mb-0.5 font-medium truncate", CATEGORY_PILL_BG[cat] ?? "bg-sky-500 text-white")}
+                        >
+                          {ev.title}
+                        </div>
+                      ) : (
+                        <div key={ev.id} className="text-[10px] leading-tight flex items-center gap-0.5 mb-0.5 min-w-0">
+                          <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", CATEGORY_DOT_BG[cat] ?? "bg-sky-500")} />
+                          <span className="truncate text-foreground/80">
+                            {ev.startTime ? formatEventTime(ev.startTime) + " " : ""}{ev.title}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {dayEvents.length > 3 && (
+                      <div className="text-[9px] text-muted-foreground px-1 mt-auto">+{dayEvents.length - 3} more</div>
                     )}
                   </button>
                 );
@@ -525,7 +603,12 @@ export default function Calendar() {
                       </div>
                       {e.startTime && (
                         <div className="flex items-center gap-1 text-muted-foreground text-sm mt-1">
-                          <Clock className="w-3 h-3" />{e.startTime}{e.endTime ? ` – ${e.endTime}` : ""}
+                          <Clock className="w-3 h-3" />{formatEventTime(e.startTime)}{e.endTime ? ` – ${formatEventTime(e.endTime)}` : ""}
+                        </div>
+                      )}
+                      {e.location && (
+                        <div className="flex items-center gap-1 text-muted-foreground text-sm mt-1">
+                          <MapPin className="w-3 h-3 shrink-0" /><span className="line-clamp-1">{e.location}</span>
                         </div>
                       )}
                       {e.description && (

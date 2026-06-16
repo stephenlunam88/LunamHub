@@ -11,6 +11,7 @@ import type { EventUpdateRecurrence } from './eventUpdateRecurrence';
 export interface EventUpdate {
   title?: string;
   description?: string;
+  location?: string;
   date?: string;
   startTime?: string;
   endTime?: string;

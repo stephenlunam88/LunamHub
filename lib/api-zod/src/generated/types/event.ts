@@ -13,6 +13,8 @@ export interface Event {
   title: string;
   /** @nullable */
   description?: string | null;
+  /** @nullable */
+  location?: string | null;
   date: string;
   /** @nullable */
   startTime?: string | null;

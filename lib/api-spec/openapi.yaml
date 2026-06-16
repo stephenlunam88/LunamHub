@@ -1566,6 +1566,8 @@ components:
           type: string
         description:
           type: ["string", "null"]
+        location:
+          type: ["string", "null"]
         date:
           type: string
         startTime:
@@ -1649,6 +1651,8 @@ components:
           type: string
         description:
           type: string
+        location:
+          type: string
         date:
           type: string
         startTime:
@@ -1685,6 +1689,8 @@ components:
         title:
           type: string
         description:
+          type: string
+        location:
           type: string
         date:
           type: string

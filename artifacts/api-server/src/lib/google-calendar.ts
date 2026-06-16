@@ -136,6 +136,7 @@ export interface GCalEvent {
   id: string;
   summary?: string;
   description?: string;
+  location?: string;
   start: { date?: string; dateTime?: string; timeZone?: string };
   end: { date?: string; dateTime?: string; timeZone?: string };
 }
@@ -200,6 +201,7 @@ function nextCalendarDay(dateStr: string): string {
 export async function createGCalEvent(event: {
   title: string;
   description?: string | null;
+  location?: string | null;
   date: string;
   startTime?: string | null;
   endTime?: string | null;
@@ -216,6 +218,7 @@ export async function createGCalEvent(event: {
   const body: Record<string, unknown> = {
     summary: event.title,
     ...(event.description ? { description: event.description } : {}),
+    ...(event.location ? { location: event.location } : {}),
     start: allDay ? { date: event.date } : { dateTime: startDt },
     end: allDay ? { date: nextCalendarDay(event.date) } : { dateTime: endDt },
   };
@@ -236,6 +239,7 @@ export async function updateGCalEvent(
   event: {
     title: string;
     description?: string | null;
+    location?: string | null;
     date: string;
     startTime?: string | null;
     endTime?: string | null;
@@ -249,6 +253,7 @@ export async function updateGCalEvent(
   const body: Record<string, unknown> = {
     summary: event.title,
     description: event.description ?? "",
+    location: event.location ?? "",
     start: allDay
       ? { date: event.date }
       : { dateTime: localTimeToUTC(event.date, event.startTime!, tz) },

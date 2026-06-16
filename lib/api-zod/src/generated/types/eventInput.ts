@@ -11,6 +11,7 @@ import type { EventInputRecurrence } from './eventInputRecurrence';
 export interface EventInput {
   title: string;
   description?: string;
+  location?: string;
   date: string;
   startTime?: string;
   endTime?: string;

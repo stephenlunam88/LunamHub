@@ -45,6 +45,7 @@ function formatEvent(e: typeof eventsTable.$inferSelect, memberIds: number[] = [
     id: e.id,
     title: e.title,
     description: e.description ?? null,
+    location: e.location ?? null,
     date: e.date,
     startTime: e.startTime ?? null,
     endTime: e.endTime ?? null,
@@ -70,6 +71,7 @@ function stripTzSuffix(dt: string): string {
 function gcalToLocal(ge: GCalEvent): {
   title: string;
   description: string | null;
+  location: string | null;
   date: string;
   startTime: string | null;
   endTime: string | null;
@@ -86,6 +88,7 @@ function gcalToLocal(ge: GCalEvent): {
   return {
     title: ge.summary ?? "(No title)",
     description: ge.description ?? null,
+    location: ge.location ?? null,
     date,
     startTime,
     endTime,
@@ -152,12 +155,12 @@ router.post("/sync-google", async (req, res): Promise<void> => {
       .where(eq(eventsTable.googleEventId, ge.id));
 
     if (existing) {
-      // Only overwrite title/description from GCal — never overwrite date/time for events
+      // Only overwrite title/description/location from GCal — never overwrite date/time for events
       // that already exist locally. Dates stored in LunamHub are timezone-naive (user's local time)
       // while GCal returns timezone-aware datetimes that can be misinterpreted server-side.
       await db
         .update(eventsTable)
-        .set({ title: local.title, description: local.description })
+        .set({ title: local.title, description: local.description, location: local.location })
         .where(eq(eventsTable.id, existing.id));
     } else {
       await db.insert(eventsTable).values(local);

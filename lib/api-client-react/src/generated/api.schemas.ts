@@ -114,6 +114,8 @@ export interface Event {
   title: string;
   /** @nullable */
   description?: string | null;
+  /** @nullable */
+  location?: string | null;
   date: string;
   /** @nullable */
   startTime?: string | null;
@@ -188,6 +190,7 @@ export const EventInputRecurrence = {
 export interface EventInput {
   title: string;
   description?: string;
+  location?: string;
   date: string;
   startTime?: string;
   endTime?: string;
@@ -231,6 +234,7 @@ export const EventUpdateRecurrence = {
 export interface EventUpdate {
   title?: string;
   description?: string;
+  location?: string;
   date?: string;
   startTime?: string;
   endTime?: string;
