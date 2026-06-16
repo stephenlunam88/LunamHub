@@ -3,7 +3,8 @@
 # the musl (@esbuild/linux-x64-musl) binary — Alpine uses musl and would fail.
 FROM node:24-slim AS builder
 
-RUN npm install -g pnpm
+# Pin pnpm to match the workspace version for lockfile compatibility
+RUN npm install -g pnpm@10
 
 WORKDIR /app
 
@@ -16,9 +17,9 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @workspace/api-server run build
 
 # Create a self-contained production deployment folder.
-# This gives us a pruned node_modules containing only production deps
-# (e.g. bcrypt, @google-cloud/storage) for packages that esbuild externalises.
-RUN pnpm --filter @workspace/api-server deploy --prod /app/api-deploy
+# --legacy bypasses the ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE restriction in
+# pnpm v10 that requires inject-workspace-packages to be enabled.
+RUN pnpm --filter @workspace/api-server deploy --prod --legacy /app/api-deploy
 
 # ── Stage 2: runtime ──────────────────────────────────────────────────────────
 FROM node:24-slim AS runtime
@@ -28,7 +29,8 @@ WORKDIR /app
 # Bundled application — esbuild output + pino worker thread files
 COPY --from=builder /app/artifacts/api-server/dist ./dist
 
-# Production node_modules for externalized native/dynamic packages (e.g. bcrypt)
+# Production node_modules for externalized native/dynamic packages
+# (e.g. bcrypt, @google-cloud/storage)
 COPY --from=builder /app/api-deploy/node_modules ./node_modules
 
 ENV NODE_ENV=production
