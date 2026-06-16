@@ -554,11 +554,6 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
             <Input defaultValue={settings?.appName ?? "LunamHub"} className="rounded-xl h-12 mt-1"
               onBlur={e => updateSettings.mutate({ data: { appName: e.target.value } })} />
           </div>
-          <div>
-            <Label>Timezone</Label>
-            <Input defaultValue={settings?.timezone ?? "UTC"} className="rounded-xl h-12 mt-1"
-              onBlur={e => updateSettings.mutate({ data: { timezone: e.target.value } })} />
-          </div>
           <Separator />
           <div>
             <Label>Change Global Parent PIN</Label>
