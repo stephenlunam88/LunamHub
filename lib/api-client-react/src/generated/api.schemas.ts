@@ -844,6 +844,9 @@ export interface Settings {
   appName: string;
   timezone: string;
   displayMode: boolean;
+  /** @nullable */
+  weatherCity?: string | null;
+  screensaverTimeout: number;
 }
 
 export interface SettingsUpdate {
@@ -851,6 +854,21 @@ export interface SettingsUpdate {
   appName?: string;
   timezone?: string;
   displayMode?: boolean;
+  weatherCity?: string;
+  screensaverTimeout?: number;
+}
+
+export interface ScreensaverPhoto {
+  id: number;
+  url: string;
+  /** @nullable */
+  filename?: string | null;
+  createdAt: string;
+}
+
+export interface ScreensaverPhotoInput {
+  url: string;
+  filename?: string;
 }
 
 export interface PinInput {

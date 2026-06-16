@@ -6,13 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface Settings {
+export interface ScreensaverPhoto {
   id: number;
-  parentPin: string;
-  appName: string;
-  timezone: string;
-  displayMode: boolean;
+  url: string;
   /** @nullable */
-  weatherCity?: string | null;
-  screensaverTimeout: number;
+  filename?: string | null;
+  createdAt: string;
 }

@@ -346,7 +346,22 @@ export const settingsTable = pgTable("settings", {
   timezone: text("timezone").notNull().default("UTC"),
   displayMode: boolean("display_mode").notNull().default(false),
   googleCalendarConnectionId: text("google_calendar_connection_id"),
+  weatherCity: text("weather_city"),
+  screensaverTimeout: integer("screensaver_timeout").notNull().default(5),
 });
+
+// ── Screensaver Photos ────────────────────────────────────────────────────────
+
+export const screensaverPhotosTable = pgTable("screensaver_photos", {
+  id: serial("id").primaryKey(),
+  url: text("url").notNull(),
+  filename: text("filename"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertScreensaverPhotoSchema = createInsertSchema(screensaverPhotosTable).omit({ id: true, createdAt: true });
+export type InsertScreensaverPhoto = z.infer<typeof insertScreensaverPhotoSchema>;
+export type ScreensaverPhoto = typeof screensaverPhotosTable.$inferSelect;
 
 export const insertSettingsSchema = createInsertSchema(settingsTable).omit({ id: true });
 export type InsertSettings = z.infer<typeof insertSettingsSchema>;

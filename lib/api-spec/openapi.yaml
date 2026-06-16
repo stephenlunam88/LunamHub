@@ -1462,6 +1462,54 @@ paths:
         "204":
           description: Deleted
 
+  # ── Screensaver Photos ───────────────────────────────────────────────────────
+  /screensaver-photos:
+    get:
+      operationId: listScreensaverPhotos
+      tags: [screensaverPhotos]
+      summary: List all screensaver photos
+      responses:
+        "200":
+          description: Screensaver photos list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScreensaverPhoto"
+    post:
+      operationId: createScreensaverPhoto
+      tags: [screensaverPhotos]
+      summary: Add a screensaver photo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScreensaverPhotoInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScreensaverPhoto"
+
+  /screensaver-photos/{id}:
+    delete:
+      operationId: deleteScreensaverPhoto
+      tags: [screensaverPhotos]
+      summary: Delete a screensaver photo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   # ── Leaderboard ─────────────────────────────────────────────────────────────
   /leaderboard:
     get:
@@ -2691,12 +2739,17 @@ components:
           type: string
         displayMode:
           type: boolean
+        weatherCity:
+          type: ["string", "null"]
+        screensaverTimeout:
+          type: integer
       required:
         - id
         - parentPin
         - appName
         - timezone
         - displayMode
+        - screensaverTimeout
 
     SettingsUpdate:
       type: object
@@ -2709,6 +2762,37 @@ components:
           type: string
         displayMode:
           type: boolean
+        weatherCity:
+          type: string
+        screensaverTimeout:
+          type: integer
+
+    # ── Screensaver Photos ─────────────────────────────────────────────────────
+    ScreensaverPhoto:
+      type: object
+      properties:
+        id:
+          type: integer
+        url:
+          type: string
+        filename:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - url
+        - createdAt
+
+    ScreensaverPhotoInput:
+      type: object
+      properties:
+        url:
+          type: string
+        filename:
+          type: string
+      required:
+        - url
 
     PinInput:
       type: object

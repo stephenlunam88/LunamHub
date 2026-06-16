@@ -1314,7 +1314,9 @@ export const GetSettingsResponse = zod.object({
   "parentPin": zod.string(),
   "appName": zod.string(),
   "timezone": zod.string(),
-  "displayMode": zod.boolean()
+  "displayMode": zod.boolean(),
+  "weatherCity": zod.string().nullish(),
+  "screensaverTimeout": zod.number()
 })
 
 
@@ -1325,7 +1327,9 @@ export const UpdateSettingsBody = zod.object({
   "parentPin": zod.string().optional(),
   "appName": zod.string().optional(),
   "timezone": zod.string().optional(),
-  "displayMode": zod.boolean().optional()
+  "displayMode": zod.boolean().optional(),
+  "weatherCity": zod.string().optional(),
+  "screensaverTimeout": zod.number().optional()
 })
 
 export const UpdateSettingsResponse = zod.object({
@@ -1333,7 +1337,9 @@ export const UpdateSettingsResponse = zod.object({
   "parentPin": zod.string(),
   "appName": zod.string(),
   "timezone": zod.string(),
-  "displayMode": zod.boolean()
+  "displayMode": zod.boolean(),
+  "weatherCity": zod.string().nullish(),
+  "screensaverTimeout": zod.number()
 })
 
 
@@ -1546,6 +1552,35 @@ export const UpdateStreakMilestoneResponse = zod.object({
  * @summary Delete a streak milestone
  */
 export const DeleteStreakMilestoneParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List all screensaver photos
+ */
+export const ListScreensaverPhotosResponseItem = zod.object({
+  "id": zod.number(),
+  "url": zod.string(),
+  "filename": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListScreensaverPhotosResponse = zod.array(ListScreensaverPhotosResponseItem)
+
+
+/**
+ * @summary Add a screensaver photo
+ */
+export const CreateScreensaverPhotoBody = zod.object({
+  "url": zod.string(),
+  "filename": zod.string().optional()
+})
+
+
+/**
+ * @summary Delete a screensaver photo
+ */
+export const DeleteScreensaverPhotoParams = zod.object({
   "id": zod.coerce.number()
 })
 

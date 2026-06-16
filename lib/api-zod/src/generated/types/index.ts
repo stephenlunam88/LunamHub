@@ -83,6 +83,8 @@ export * from './routineTimeOfDay';
 export * from './routineUpdate';
 export * from './routineUpdateTimeOfDay';
 export * from './routineWithItems';
+export * from './screensaverPhoto';
+export * from './screensaverPhotoInput';
 export * from './setPinInput';
 export * from './settings';
 export * from './settingsUpdate';

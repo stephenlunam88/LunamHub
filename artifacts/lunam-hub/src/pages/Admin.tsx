@@ -6,8 +6,9 @@ import {
   useRequestUploadUrl,
   useListRewards, useCreateReward, useUpdateReward, useDeleteReward,
   useListStreakMilestones, useCreateStreakMilestone, useUpdateStreakMilestone, useDeleteStreakMilestone,
+  useListScreensaverPhotos, useCreateScreensaverPhoto, useDeleteScreensaverPhoto,
   getGetSettingsQueryKey, getListFamilyMembersQueryKey,
-  getListRewardsQueryKey, getListStreakMilestonesQueryKey,
+  getListRewardsQueryKey, getListStreakMilestonesQueryKey, getListScreensaverPhotosQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,14 +18,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload, CalendarDays, Flame } from "lucide-react";
+import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload, CalendarDays, Flame, ImagePlay } from "lucide-react";
 import {
   useGetGoogleCalendarStatus,
   useConnectGoogleCalendar,
   useDisconnectGoogleCalendar,
   getGetGoogleCalendarStatusQueryKey,
 } from "@workspace/api-client-react";
-import type { FamilyMemberInput, RewardInput, RewardUpdate, Reward, StreakMilestone, StreakMilestoneInput } from "@workspace/api-client-react";
+import type { FamilyMemberInput, RewardInput, RewardUpdate, Reward, StreakMilestone, StreakMilestoneInput, ScreensaverPhoto } from "@workspace/api-client-react";
 
 export default function Admin() {
   const [pin, setPin] = useState("");
@@ -388,7 +389,10 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
   const { data: members = [] } = useListFamilyMembers();
   const { data: rewards = [] } = useListRewards();
   const { data: milestones = [] } = useListStreakMilestones();
+  const { data: ssPhotos = [] } = useListScreensaverPhotos();
   const [newPin, setNewPin] = useState("");
+  const [ssUploading, setSsUploading] = useState(false);
+  const ssFileRef = useRef<HTMLInputElement>(null);
   const [memberForm, setMemberForm] = useState<FamilyMemberInput>({ name: "", emoji: "😊", color: "#6366f1", role: "child" });
   const [newMemberPin, setNewMemberPin] = useState("");
   const [rewardOpen, setRewardOpen] = useState(false);
@@ -404,6 +408,27 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
 
   const invalidateRewards = () => qc.invalidateQueries({ queryKey: getListRewardsQueryKey() });
   const invalidateMilestones = () => qc.invalidateQueries({ queryKey: getListStreakMilestonesQueryKey() });
+  const invalidatePhotos = () => qc.invalidateQueries({ queryKey: getListScreensaverPhotosQueryKey() });
+  const createPhoto = useCreateScreensaverPhoto({ mutation: { onSuccess: invalidatePhotos } });
+  const deletePhoto = useDeleteScreensaverPhoto({ mutation: { onSuccess: invalidatePhotos } });
+  const requestUrl = useRequestUploadUrl();
+
+  const handleSsPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSsUploading(true);
+    try {
+      const { uploadURL, objectPath } = await new Promise<{ uploadURL: string; objectPath: string }>((resolve, reject) => {
+        requestUrl.mutate({ data: { name: file.name, size: file.size, contentType: file.type } }, { onSuccess: resolve, onError: reject });
+      });
+      await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      createPhoto.mutate({ data: { url: `/api/storage${objectPath}`, filename: file.name } });
+    } catch { /* ignore */ } finally {
+      setSsUploading(false);
+      if (ssFileRef.current) ssFileRef.current.value = "";
+    }
+  };
+
   const updateSettings = useUpdateSettings({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getGetSettingsQueryKey() }) } });
   const createMember = useCreateFamilyMember({ mutation: { onSuccess: () => { qc.invalidateQueries({ queryKey: getListFamilyMembersQueryKey() }); setMemberForm({ name: "", emoji: "😊", color: "#6366f1", role: "child" }); } } });
   const deleteMember = useDeleteFamilyMember({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getListFamilyMembersQueryKey() }) } });
@@ -680,6 +705,45 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
         </DialogContent>
       </Dialog>
 
+      {/* ── Screensaver Photos ───────────────────────────────────────── */}
+      <Card className="rounded-3xl border-0 shadow-sm">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2"><ImagePlay className="w-5 h-5" /> Screensaver Photos</CardTitle>
+            <Button size="sm" className="rounded-xl gap-1.5" disabled={ssUploading} onClick={() => ssFileRef.current?.click()}>
+              <Upload className="w-4 h-4" />{ssUploading ? "Uploading…" : "Add Photo"}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Photos rotate on the screensaver/display screen. If no photos are uploaded, a gradient background is shown instead.
+          </p>
+          <input ref={ssFileRef} type="file" accept="image/*" className="hidden" onChange={handleSsPhotoUpload} />
+          {ssPhotos.length === 0 && !ssUploading && (
+            <p className="text-muted-foreground text-sm italic">No photos yet — add some family favourites!</p>
+          )}
+          <div className="grid grid-cols-3 gap-3">
+            {(ssPhotos as ScreensaverPhoto[]).map(p => (
+              <div key={p.id} className="relative group rounded-2xl overflow-hidden aspect-video bg-muted">
+                <img src={p.url} alt={p.filename ?? "photo"} className="w-full h-full object-cover" />
+                <button
+                  onClick={() => deletePhoto.mutate({ id: p.id })}
+                  className="absolute top-1 right-1 bg-black/60 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+                {p.filename && (
+                  <div className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-xs px-2 py-1 truncate opacity-0 group-hover:opacity-100 transition-opacity">
+                    {p.filename}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="rounded-3xl border-0 shadow-sm">
         <CardHeader><CardTitle className="flex items-center gap-2"><SettingsIcon className="w-5 h-5" /> App Settings</CardTitle></CardHeader>
         <CardContent className="space-y-5">
@@ -687,6 +751,31 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
             <Label>App Name</Label>
             <Input defaultValue={settings?.appName ?? "LunamHub"} className="rounded-xl h-12 mt-1"
               onBlur={e => updateSettings.mutate({ data: { appName: e.target.value } })} />
+          </div>
+          <Separator />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Weather City</Label>
+              <p className="text-xs text-muted-foreground mb-1.5">Shown on the screensaver. E.g. "Sydney" or "London"</p>
+              <Input
+                defaultValue={settings?.weatherCity ?? ""}
+                placeholder="e.g. Sydney"
+                className="rounded-xl h-12"
+                onBlur={e => updateSettings.mutate({ data: { weatherCity: e.target.value } })}
+              />
+            </div>
+            <div>
+              <Label>Screensaver timeout</Label>
+              <p className="text-xs text-muted-foreground mb-1.5">Minutes of inactivity before screensaver starts</p>
+              <Input
+                type="number"
+                min={1}
+                max={60}
+                defaultValue={settings?.screensaverTimeout ?? 5}
+                className="rounded-xl h-12"
+                onBlur={e => updateSettings.mutate({ data: { screensaverTimeout: Number(e.target.value) } })}
+              />
+            </div>
           </div>
           <Separator />
           <div>

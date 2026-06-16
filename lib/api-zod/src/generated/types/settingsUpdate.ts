@@ -11,4 +11,6 @@ export interface SettingsUpdate {
   appName?: string;
   timezone?: string;
   displayMode?: boolean;
+  weatherCity?: string;
+  screensaverTimeout?: number;
 }

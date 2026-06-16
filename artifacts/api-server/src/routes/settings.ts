@@ -22,6 +22,8 @@ function formatSettings(s: typeof settingsTable.$inferSelect) {
     appName: s.appName,
     timezone: s.timezone,
     displayMode: s.displayMode,
+    weatherCity: s.weatherCity ?? null,
+    screensaverTimeout: s.screensaverTimeout,
   };
 }
 

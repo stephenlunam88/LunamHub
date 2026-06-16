@@ -1,111 +1,187 @@
-import { useEffect, useState } from "react";
-import { useGetDashboardSummary, getGetDashboardSummaryQueryKey } from "@workspace/api-client-react";
+import { useEffect, useState, useCallback } from "react";
+import { useGetSettings, useListScreensaverPhotos, getGetSettingsQueryKey, getListScreensaverPhotosQueryKey } from "@workspace/api-client-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
-import { X } from "lucide-react";
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  school: "📚", sport: "⚽", appointment: "🏥", birthday: "🎂", family: "🏠", other: "📌"
+// WMO weather code → emoji + label
+const WMO: Record<number, { emoji: string; label: string }> = {
+  0:  { emoji: "☀️",  label: "Clear" },
+  1:  { emoji: "🌤️", label: "Mainly clear" },
+  2:  { emoji: "⛅",  label: "Partly cloudy" },
+  3:  { emoji: "☁️",  label: "Overcast" },
+  45: { emoji: "🌫️", label: "Foggy" },
+  48: { emoji: "🌫️", label: "Foggy" },
+  51: { emoji: "🌦️", label: "Light drizzle" },
+  53: { emoji: "🌦️", label: "Drizzle" },
+  55: { emoji: "🌧️", label: "Heavy drizzle" },
+  61: { emoji: "🌧️", label: "Light rain" },
+  63: { emoji: "🌧️", label: "Rain" },
+  65: { emoji: "🌧️", label: "Heavy rain" },
+  71: { emoji: "❄️",  label: "Light snow" },
+  73: { emoji: "❄️",  label: "Snow" },
+  75: { emoji: "❄️",  label: "Heavy snow" },
+  77: { emoji: "❄️",  label: "Snow grains" },
+  80: { emoji: "🌦️", label: "Rain showers" },
+  81: { emoji: "🌧️", label: "Showers" },
+  82: { emoji: "🌧️", label: "Heavy showers" },
+  85: { emoji: "❄️",  label: "Snow showers" },
+  86: { emoji: "❄️",  label: "Heavy snow showers" },
+  95: { emoji: "⛈️",  label: "Thunderstorm" },
+  96: { emoji: "⛈️",  label: "Thunderstorm + hail" },
+  99: { emoji: "⛈️",  label: "Thunderstorm + hail" },
 };
 
+function wmoInfo(code: number) {
+  return WMO[code] ?? { emoji: "🌡️", label: "" };
+}
+
+interface Weather {
+  temp: number;
+  code: number;
+  city: string;
+}
+
+async function fetchWeather(city: string): Promise<Weather | null> {
+  try {
+    const geoRes = await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en`,
+    );
+    const geo = await geoRes.json();
+    if (!geo.results?.length) return null;
+    const { latitude, longitude, name } = geo.results[0];
+    const wxRes = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&temperature_unit=celsius`,
+    );
+    const wx = await wxRes.json();
+    return { temp: Math.round(wx.current.temperature_2m), code: wx.current.weather_code, city: name };
+  } catch {
+    return null;
+  }
+}
+
 export default function Display() {
-  const [, navigate] = useLocation();
+  const [, navigate]  = useLocation();
   const [now, setNow] = useState(new Date());
-  const { data: summary } = useGetDashboardSummary({
-    query: { queryKey: getGetDashboardSummaryQueryKey(), refetchInterval: 60000 }
+  const [photoIdx, setPhotoIdx] = useState(0);
+  const [fade, setFade]         = useState(true);
+  const [weather, setWeather]   = useState<Weather | null>(null);
+
+  const { data: settings } = useGetSettings({ query: { queryKey: getGetSettingsQueryKey() } });
+  const { data: photos = [] } = useListScreensaverPhotos({
+    query: { queryKey: getListScreensaverPhotosQueryKey(), refetchInterval: 300_000 },
   });
 
+  // Clock tick
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
   }, []);
 
-  const children = summary?.familyMembers.filter(m => m.role === "child") ?? [];
-  const todayMeals = summary?.todayMeals ?? [];
-  const todayEvents = summary?.todayEvents ?? [];
-  const todayChores = summary?.todayChores ?? [];
-  const dinners = todayMeals.filter(m => m.mealType === "dinner");
+  // Photo crossfade every 15 s
+  useEffect(() => {
+    if (photos.length <= 1) return;
+    const t = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setPhotoIdx(i => (i + 1) % photos.length);
+        setFade(true);
+      }, 800);
+    }, 15_000);
+    return () => clearInterval(t);
+  }, [photos.length]);
+
+  // Weather: fetch on mount + every 30 min
+  useEffect(() => {
+    const city = settings?.weatherCity;
+    if (!city) return;
+    fetchWeather(city).then(w => { if (w) setWeather(w); });
+    const t = setInterval(() => fetchWeather(city).then(w => { if (w) setWeather(w); }), 30 * 60_000);
+    return () => clearInterval(t);
+  }, [settings?.weatherCity]);
+
+  const dismiss = useCallback(() => navigate("/"), [navigate]);
+
+  const currentPhoto = photos[photoIdx];
+  const wx = weather ? wmoInfo(weather.code) : null;
 
   return (
-    <div className="h-screen w-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white overflow-hidden relative">
-      <button onClick={() => navigate("/")}
-        className="absolute top-4 right-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors">
-        <X className="w-6 h-6" />
-      </button>
+    <div
+      className="h-screen w-screen overflow-hidden relative cursor-pointer select-none"
+      onClick={dismiss}
+    >
+      {/* ── Background ───────────────────────────────────────────────── */}
+      {currentPhoto ? (
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{
+            backgroundImage: `url(${currentPhoto.url})`,
+            opacity: fade ? 1 : 0,
+            transition: "opacity 800ms ease-in-out",
+          }}
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950" />
+      )}
 
-      <div className="h-full flex flex-col p-8 gap-6">
-        <header className="flex items-end justify-between">
-          <div>
-            <div className="text-8xl font-bold font-mono tabular-nums tracking-tight">
-              {format(now, "h:mm")}
-              <span className="text-5xl text-white/60 ml-3">{format(now, "a")}</span>
-            </div>
-            <div className="text-3xl text-white/70 mt-2 font-light">
-              {format(now, "EEEE, MMMM do")}
-            </div>
-          </div>
-          {dinners.length > 0 && (
-            <div className="text-right">
-              <div className="text-white/50 text-sm uppercase tracking-widest mb-1">Tonight's dinner</div>
-              {dinners.map(m => (
-                <div key={m.id} className="text-3xl font-semibold">🍽️ {m.meal?.name}</div>
-              ))}
-            </div>
-          )}
-        </header>
+      {/* Dark scrim */}
+      <div className="absolute inset-0 bg-black/55" />
 
-        <div className="flex-1 grid grid-cols-3 gap-6 min-h-0">
-          <div className="space-y-4 overflow-hidden">
-            <h2 className="text-white/50 text-sm uppercase tracking-widest font-semibold">Today's Events</h2>
-            {todayEvents.length === 0 && <p className="text-white/40 text-lg">Nothing scheduled</p>}
-            {todayEvents.slice(0, 6).map(e => (
-              <div key={e.id} className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm">
-                <div className="text-xl font-semibold">{CATEGORY_EMOJI[e.category ?? "other"]} {e.title}</div>
-                {e.startTime && <div className="text-white/60 mt-1">{e.startTime}{e.endTime ? ` – ${e.endTime}` : ""}</div>}
+      {/* ── Clock (centred) ──────────────────────────────────────────── */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none">
+        <div
+          className="font-bold font-mono tabular-nums leading-none tracking-tight text-white"
+          style={{ fontSize: "clamp(5rem, 18vw, 18rem)", textShadow: "0 4px 40px rgba(0,0,0,.7)" }}
+        >
+          {format(now, "h:mm")}
+          <span className="text-white/55 ml-2" style={{ fontSize: "clamp(2rem, 8vw, 8rem)" }}>
+            {format(now, "a")}
+          </span>
+        </div>
+        <div
+          className="text-white/75 font-light tracking-widest uppercase"
+          style={{ fontSize: "clamp(1.1rem, 3.5vw, 3.5rem)", textShadow: "0 2px 16px rgba(0,0,0,.6)" }}
+        >
+          {format(now, "EEEE, MMMM do")}
+        </div>
+      </div>
+
+      {/* ── Weather (bottom-left) ─────────────────────────────────────── */}
+      {weather && wx && (
+        <div className="absolute bottom-8 left-8 text-white pointer-events-none">
+          <div className="flex items-center gap-4">
+            <span style={{ fontSize: "clamp(2.5rem,5vw,4rem)" }}>{wx.emoji}</span>
+            <div>
+              <div className="font-bold" style={{ fontSize: "clamp(2rem,4vw,3.5rem)" }}>
+                {weather.temp}°C
               </div>
-            ))}
-          </div>
-
-          <div className="space-y-4 overflow-hidden">
-            <h2 className="text-white/50 text-sm uppercase tracking-widest font-semibold">Chores To Do</h2>
-            {todayChores.length === 0 && <p className="text-white/40 text-lg">All done! 🎉</p>}
-            {todayChores.slice(0, 6).map(c => (
-              <div key={c.id} className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm flex justify-between items-center">
-                <div className="text-lg font-medium">{c.title}</div>
-                <div className="bg-white/20 px-3 py-1 rounded-full text-sm font-bold">{c.pointsValue} pts</div>
+              <div className="text-white/65" style={{ fontSize: "clamp(0.9rem,1.5vw,1.4rem)" }}>
+                {wx.label}{weather.city ? ` · ${weather.city}` : ""}
               </div>
-            ))}
-          </div>
-
-          <div className="space-y-4 overflow-hidden">
-            <h2 className="text-white/50 text-sm uppercase tracking-widest font-semibold">Points Leaderboard</h2>
-            {[...children].sort((a, b) => b.pointsBalance - a.pointsBalance).map((m, i) => (
-              <div key={m.id} className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm flex items-center gap-4">
-                <div className="text-3xl font-bold text-white/30 w-8">#{i + 1}</div>
-                <div className="text-4xl">{m.emoji}</div>
-                <div className="flex-1">
-                  <div className="text-xl font-semibold">{m.name}</div>
-                </div>
-                <div className="text-3xl font-bold text-yellow-400">{m.pointsBalance}</div>
-              </div>
-            ))}
+            </div>
           </div>
         </div>
+      )}
 
-        {summary && (summary.pendingApprovals > 0 || summary.pendingRedemptions > 0) && (
-          <div className="flex gap-4 flex-wrap">
-            {summary.pendingApprovals > 0 && (
-              <div className="bg-blue-500/20 border border-blue-500/30 rounded-2xl px-5 py-3 text-blue-300 font-medium">
-                {summary.pendingApprovals} chore{summary.pendingApprovals !== 1 ? "s" : ""} awaiting approval
-              </div>
-            )}
-            {summary.pendingRedemptions > 0 && (
-              <div className="bg-amber-500/20 border border-amber-500/30 rounded-2xl px-5 py-3 text-amber-300 font-medium">
-                {summary.pendingRedemptions} reward request{summary.pendingRedemptions !== 1 ? "s" : ""} pending
-              </div>
-            )}
-          </div>
-        )}
+      {/* ── Photo dots (bottom-centre) ────────────────────────────────── */}
+      {photos.length > 1 && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2 pointer-events-none">
+          {photos.map((_, i) => (
+            <div
+              key={i}
+              className="rounded-full transition-all duration-500"
+              style={{
+                width: i === photoIdx ? "1.5rem" : "0.5rem",
+                height: "0.5rem",
+                backgroundColor: i === photoIdx ? "white" : "rgba(255,255,255,0.35)",
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ── Tap hint (bottom-right) ───────────────────────────────────── */}
+      <div className="absolute bottom-8 right-8 text-white/30 text-sm pointer-events-none">
+        Tap anywhere to return
       </div>
     </div>
   );

@@ -74,6 +74,8 @@ import type {
   RoutineItemUpdate,
   RoutineUpdate,
   RoutineWithItems,
+  ScreensaverPhoto,
+  ScreensaverPhotoInput,
   SetPinInput,
   Settings,
   SettingsUpdate,
@@ -5456,6 +5458,224 @@ export const useDeleteStreakMilestone = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteStreakMilestoneMutationOptions(options));
+    }
+
+export const getListScreensaverPhotosUrl = () => {
+
+
+
+
+  return `/api/screensaver-photos`
+}
+
+/**
+ * @summary List all screensaver photos
+ */
+export const listScreensaverPhotos = async ( options?: RequestInit): Promise<ScreensaverPhoto[]> => {
+
+  return customFetch<ScreensaverPhoto[]>(getListScreensaverPhotosUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListScreensaverPhotosQueryKey = () => {
+    return [
+    `/api/screensaver-photos`
+    ] as const;
+    }
+
+
+export const getListScreensaverPhotosQueryOptions = <TData = Awaited<ReturnType<typeof listScreensaverPhotos>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listScreensaverPhotos>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListScreensaverPhotosQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listScreensaverPhotos>>> = ({ signal }) => listScreensaverPhotos({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listScreensaverPhotos>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListScreensaverPhotosQueryResult = NonNullable<Awaited<ReturnType<typeof listScreensaverPhotos>>>
+export type ListScreensaverPhotosQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all screensaver photos
+ */
+
+export function useListScreensaverPhotos<TData = Awaited<ReturnType<typeof listScreensaverPhotos>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listScreensaverPhotos>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListScreensaverPhotosQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateScreensaverPhotoUrl = () => {
+
+
+
+
+  return `/api/screensaver-photos`
+}
+
+/**
+ * @summary Add a screensaver photo
+ */
+export const createScreensaverPhoto = async (screensaverPhotoInput: ScreensaverPhotoInput, options?: RequestInit): Promise<ScreensaverPhoto> => {
+
+  return customFetch<ScreensaverPhoto>(getCreateScreensaverPhotoUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      screensaverPhotoInput,)
+  }
+);}
+
+
+
+
+export const getCreateScreensaverPhotoMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createScreensaverPhoto>>, TError,{data: BodyType<ScreensaverPhotoInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createScreensaverPhoto>>, TError,{data: BodyType<ScreensaverPhotoInput>}, TContext> => {
+
+const mutationKey = ['createScreensaverPhoto'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createScreensaverPhoto>>, {data: BodyType<ScreensaverPhotoInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createScreensaverPhoto(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateScreensaverPhotoMutationResult = NonNullable<Awaited<ReturnType<typeof createScreensaverPhoto>>>
+    export type CreateScreensaverPhotoMutationBody = BodyType<ScreensaverPhotoInput>
+    export type CreateScreensaverPhotoMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add a screensaver photo
+ */
+export const useCreateScreensaverPhoto = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createScreensaverPhoto>>, TError,{data: BodyType<ScreensaverPhotoInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createScreensaverPhoto>>,
+        TError,
+        {data: BodyType<ScreensaverPhotoInput>},
+        TContext
+      > => {
+      return useMutation(getCreateScreensaverPhotoMutationOptions(options));
+    }
+
+export const getDeleteScreensaverPhotoUrl = (id: number,) => {
+
+
+
+
+  return `/api/screensaver-photos/${id}`
+}
+
+/**
+ * @summary Delete a screensaver photo
+ */
+export const deleteScreensaverPhoto = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteScreensaverPhotoUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteScreensaverPhotoMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteScreensaverPhoto>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteScreensaverPhoto>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteScreensaverPhoto'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteScreensaverPhoto>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteScreensaverPhoto(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteScreensaverPhotoMutationResult = NonNullable<Awaited<ReturnType<typeof deleteScreensaverPhoto>>>
+
+    export type DeleteScreensaverPhotoMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a screensaver photo
+ */
+export const useDeleteScreensaverPhoto = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteScreensaverPhoto>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteScreensaverPhoto>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteScreensaverPhotoMutationOptions(options));
     }
 
 export const getGetLeaderboardUrl = () => {
