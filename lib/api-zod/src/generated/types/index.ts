@@ -13,6 +13,7 @@ export * from './badge';
 export * from './badgeInput';
 export * from './badgeInputTier';
 export * from './badgeTier';
+export * from './bonusPointsInput';
 export * from './chore';
 export * from './choreApproveBody';
 export * from './choreInput';

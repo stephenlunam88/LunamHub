@@ -10,6 +10,7 @@ import {
   useUpdateFamilyMember,
   useListPointMilestones, useCreatePointMilestone, useUpdatePointMilestone, useDeletePointMilestone,
   useListChoreMilestones, useCreateChoreMilestone, useUpdateChoreMilestone, useDeleteChoreMilestone,
+  useAwardBonusPoints,
   getGetSettingsQueryKey, getListFamilyMembersQueryKey,
   getListRewardsQueryKey, getListStreakMilestonesQueryKey, getListScreensaverPhotosQueryKey,
   getListPointMilestonesQueryKey, getListChoreMilestonesQueryKey,
@@ -470,6 +471,10 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
   const [editChoreMilestoneOpen, setEditChoreMilestoneOpen] = useState(false);
   const [editChoreMilestoneTarget, setEditChoreMilestoneTarget] = useState<ChoreMilestone | null>(null);
   const [editChoreMilestoneForm, setEditChoreMilestoneForm] = useState<ChoreMilestoneInput>(BLANK_CHORE_MILESTONE);
+  const [bonusChildId, setBonusChildId] = useState<string>("");
+  const [bonusAmount, setBonusAmount] = useState<number>(10);
+  const [bonusReason, setBonusReason] = useState<string>("");
+  const [bonusSuccess, setBonusSuccess] = useState(false);
 
   const invalidateRewards = () => qc.invalidateQueries({ queryKey: getListRewardsQueryKey() });
   const invalidateMilestones = () => qc.invalidateQueries({ queryKey: getListStreakMilestonesQueryKey() });
@@ -513,6 +518,18 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
   const createChoreMilestone = useCreateChoreMilestone({ mutation: { onSuccess: () => { invalidateChoreMilestones(); setChoreMilestoneOpen(false); setChoreMilestoneForm(BLANK_CHORE_MILESTONE); } } });
   const updateChoreMilestone = useUpdateChoreMilestone({ mutation: { onSuccess: () => { invalidateChoreMilestones(); setEditChoreMilestoneOpen(false); setEditChoreMilestoneTarget(null); } } });
   const deleteChoreMilestone = useDeleteChoreMilestone({ mutation: { onSuccess: invalidateChoreMilestones } });
+  const awardBonus = useAwardBonusPoints({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListFamilyMembersQueryKey() });
+        setBonusChildId("");
+        setBonusAmount(10);
+        setBonusReason("");
+        setBonusSuccess(true);
+        setTimeout(() => setBonusSuccess(false), 3000);
+      }
+    }
+  });
 
   function openEditReward(r: Reward) {
     setEditRewardTarget(r);
@@ -1035,6 +1052,57 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
           </Button>
         </DialogContent>
       </Dialog>
+
+      <Card className="rounded-3xl border-0 shadow-sm">
+        <CardHeader><CardTitle className="flex items-center gap-2"><Gift className="w-5 h-5" /> Award Bonus Points</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">Give a spontaneous points boost to any child — for great behaviour, extra effort, or a special occasion.</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Child</Label>
+              <Select value={bonusChildId} onValueChange={setBonusChildId}>
+                <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue placeholder="Pick a child…" /></SelectTrigger>
+                <SelectContent>
+                  {members.filter(m => m.role === "child").map(m => (
+                    <SelectItem key={m.id} value={String(m.id)}>{m.emoji} {m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Points</Label>
+              <Input
+                type="number"
+                min={1}
+                value={bonusAmount}
+                onChange={e => setBonusAmount(Math.max(1, Number(e.target.value)))}
+                className="rounded-xl h-12 mt-1"
+              />
+            </div>
+          </div>
+          <div>
+            <Label>Reason</Label>
+            <Input
+              value={bonusReason}
+              onChange={e => setBonusReason(e.target.value)}
+              placeholder="e.g. Being super helpful today!"
+              className="rounded-xl h-12 mt-1"
+            />
+          </div>
+          {bonusSuccess && (
+            <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-2xl px-4 py-3 text-green-800 text-sm font-medium">
+              <Star className="w-4 h-4 text-green-600 shrink-0" /> Bonus points awarded successfully!
+            </div>
+          )}
+          <Button
+            className="w-full h-12 rounded-xl"
+            disabled={!bonusChildId || !bonusReason.trim() || bonusAmount < 1 || awardBonus.isPending}
+            onClick={() => awardBonus.mutate({ data: { memberId: Number(bonusChildId), amount: bonusAmount, reason: bonusReason.trim() } })}
+          >
+            {awardBonus.isPending ? "Awarding…" : `Award ${bonusAmount} pts`}
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card className="rounded-3xl border-0 shadow-sm">
         <CardHeader><CardTitle className="flex items-center gap-2"><SettingsIcon className="w-5 h-5" /> App Settings</CardTitle></CardHeader>

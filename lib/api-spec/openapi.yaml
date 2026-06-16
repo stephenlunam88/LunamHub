@@ -1703,6 +1703,23 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/PointTransaction"
+    post:
+      operationId: awardBonusPoints
+      tags: [transactions]
+      summary: Award one-off bonus points to a family member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BonusPointsInput"
+      responses:
+        "201":
+          description: Transaction created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PointTransaction"
 
   # ── Storage (avatar upload) ─────────────────────────────────────────────────
   /storage/uploads/request-url:
@@ -2487,6 +2504,21 @@ components:
         - title
 
     # ── Point Transactions ────────────────────────────────────────────────────
+    BonusPointsInput:
+      type: object
+      properties:
+        memberId:
+          type: integer
+        amount:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+      required:
+        - memberId
+        - amount
+        - reason
+
     PointTransaction:
       type: object
       properties:

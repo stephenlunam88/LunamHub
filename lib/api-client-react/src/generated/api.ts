@@ -25,6 +25,7 @@ import type {
   AvatarUrlInput,
   Badge,
   BadgeInput,
+  BonusPointsInput,
   Chore,
   ChoreApproveBody,
   ChoreInput,
@@ -6499,6 +6500,77 @@ export function useListPointTransactions<TData = Awaited<ReturnType<typeof listP
 
 
 
+
+export const getAwardBonusPointsUrl = () => {
+
+
+
+
+  return `/api/point-transactions`
+}
+
+/**
+ * @summary Award one-off bonus points to a family member
+ */
+export const awardBonusPoints = async (bonusPointsInput: BonusPointsInput, options?: RequestInit): Promise<PointTransaction> => {
+
+  return customFetch<PointTransaction>(getAwardBonusPointsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      bonusPointsInput,)
+  }
+);}
+
+
+
+
+export const getAwardBonusPointsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof awardBonusPoints>>, TError,{data: BodyType<BonusPointsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof awardBonusPoints>>, TError,{data: BodyType<BonusPointsInput>}, TContext> => {
+
+const mutationKey = ['awardBonusPoints'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof awardBonusPoints>>, {data: BodyType<BonusPointsInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  awardBonusPoints(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AwardBonusPointsMutationResult = NonNullable<Awaited<ReturnType<typeof awardBonusPoints>>>
+    export type AwardBonusPointsMutationBody = BodyType<BonusPointsInput>
+    export type AwardBonusPointsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Award one-off bonus points to a family member
+ */
+export const useAwardBonusPoints = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof awardBonusPoints>>, TError,{data: BodyType<BonusPointsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof awardBonusPoints>>,
+        TError,
+        {data: BodyType<BonusPointsInput>},
+        TContext
+      > => {
+      return useMutation(getAwardBonusPointsMutationOptions(options));
+    }
 
 export const getRequestUploadUrlUrl = () => {
 

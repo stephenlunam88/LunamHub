@@ -1794,6 +1794,19 @@ export const ListPointTransactionsResponse = zod.array(ListPointTransactionsResp
 
 
 /**
+ * @summary Award one-off bonus points to a family member
+ */
+
+
+
+export const AwardBonusPointsBody = zod.object({
+  "memberId": zod.number(),
+  "amount": zod.number().min(1),
+  "reason": zod.string()
+})
+
+
+/**
  * @summary Request a presigned URL for uploading an avatar
  */
 export const RequestUploadUrlBody = zod.object({

@@ -615,6 +615,13 @@ export interface ChoreMilestoneInput {
   active?: boolean;
 }
 
+export interface BonusPointsInput {
+  memberId: number;
+  /** @minimum 1 */
+  amount: number;
+  reason: string;
+}
+
 export type PointTransactionType = typeof PointTransactionType[keyof typeof PointTransactionType];
 
 
