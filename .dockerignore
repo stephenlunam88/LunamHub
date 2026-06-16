@@ -1,0 +1,34 @@
+# Dependencies — reinstalled inside the container
+node_modules
+**/node_modules
+
+# Build outputs — rebuilt inside the container
+**/dist
+**/.tsbuildinfo
+
+# Git history
+.git
+.gitignore
+
+# Replit / local dev
+.replit
+.replit-artifact
+replit.nix
+.local
+.upm
+.cache
+
+# Env files — never bake secrets into the image
+.env
+.env.*
+!.env.example
+
+# Mockup sandbox — not needed in production images
+artifacts/mockup-sandbox
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

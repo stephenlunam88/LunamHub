@@ -64,6 +64,58 @@ _Populate as you build — explicit user instructions worth remembering across s
 - `ChoreInput` does NOT include a `status` field — server defaults to `"pending"`.
 - `SharedListInput` is the correct type for list creation (not `ListInput`).
 
+## Docker / NAS Deployment
+
+LunamHub ships as a three-service Docker Compose stack (db, api, web) designed for QNAP NAS or any Linux host with Docker installed.
+
+### First-time NAS setup
+
+```bash
+# 1. Pull the repo onto the NAS
+cd /share/Container/familyhub/
+git clone https://github.com/stephenlunam88/LunamHub.git
+cd LunamHub
+
+# 2. Copy .env.example → .env and fill in real values (see .env.example)
+cp .env.example .env
+nano .env   # set POSTGRES_PASSWORD and SESSION_SECRET at minimum
+
+# 3. Build and start
+docker compose build && docker compose up -d
+```
+
+The first `up` mounts `docker/init.sql` into Postgres and initialises the schema automatically. Subsequent starts skip the init script (data volume already populated).
+
+### Routine update deploy
+
+```bash
+cd /share/Container/familyhub/LunamHub
+git pull github-nas main
+CACHE_BUST=$(date +%s) docker compose build api web && docker compose up -d
+```
+
+### Key files
+
+| File | Purpose |
+|------|---------|
+| `docker-compose.yml` | Defines db / api / web services |
+| `artifacts/api-server/Dockerfile` | Multi-stage build → slim Node runtime |
+| `artifacts/lunam-hub/Dockerfile` | Multi-stage Vite build → nginx static server |
+| `docker/init.sql` | Full Postgres schema (runs on first boot only) |
+| `docker/nginx.conf` | nginx SPA config + `/api` reverse-proxy |
+| `.env.example` | All required secrets (copy → `.env` on NAS) |
+
+### Add the GitHub remote (run once in your local repo or on the NAS)
+
+```bash
+git remote add github-nas https://github.com/stephenlunam88/LunamHub.git
+```
+
+### Notes
+
+- Screensaver photo uploads use Replit Object Storage in dev; on NAS this feature will silently skip uploads. Photos can be added directly via the DB if needed (future work).
+- The web container's nginx listens on port 80 (mapped to `WEB_PORT` on the host, default 3000). Your NAS reverse proxy should point to that port.
+
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
