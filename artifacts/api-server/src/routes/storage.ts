@@ -1,11 +1,17 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
+import { randomUUID } from "crypto";
+import express from "express";
 import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
-import { ObjectPermission } from "../lib/objectAcl";
+import {
+  isLocalStorageMode,
+  saveLocalPhoto,
+  readLocalPhoto,
+} from "../lib/localPhotoStorage";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -14,8 +20,9 @@ const objectStorageService = new ObjectStorageService();
  * POST /storage/uploads/request-url
  *
  * Request a presigned URL for file upload.
- * The client sends JSON metadata (name, size, contentType) — NOT the file.
- * Then uploads the file directly to the returned presigned URL.
+ * - On Replit: returns a GCS presigned PUT URL + objectPath.
+ * - On NAS/local: returns a path to our own PUT endpoint + local objectPath.
+ *   The browser PUTs directly to that path; the API saves to /data/photos.
  */
 router.post("/storage/uploads/request-url", async (req: Request, res: Response) => {
   const parsed = RequestUploadUrlBody.safeParse(req.body);
@@ -24,9 +31,23 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
     return;
   }
 
-  try {
-    const { name, size, contentType } = parsed.data;
+  const { name, size, contentType } = parsed.data;
 
+  if (isLocalStorageMode()) {
+    const uuid = randomUUID();
+    const uploadURL = `/api/storage/local-upload/${uuid}`;
+    const objectPath = `/local-photos/${uuid}`;
+    res.json(
+      RequestUploadUrlResponse.parse({
+        uploadURL,
+        objectPath,
+        metadata: { name, size, contentType },
+      })
+    );
+    return;
+  }
+
+  try {
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
 
@@ -40,6 +61,81 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
   } catch (error) {
     req.log.error({ err: error }, "Error generating upload URL");
     res.status(500).json({ error: "Failed to generate upload URL" });
+  }
+});
+
+/**
+ * PUT /storage/local-upload/:uuid
+ *
+ * Receives a raw file body and saves it to the local photo directory.
+ * Only active when Replit Object Storage env vars are absent (NAS/local mode).
+ */
+router.put(
+  "/storage/local-upload/:uuid",
+  express.raw({ type: "*/*", limit: "50mb" }),
+  async (req: Request, res: Response) => {
+    if (!isLocalStorageMode()) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+
+    const uuid = String(req.params.uuid);
+    if (!uuid || !/^[0-9a-f-]{36}$/.test(uuid)) {
+      res.status(400).json({ error: "Invalid upload ID" });
+      return;
+    }
+
+    const contentType =
+      (req.headers["content-type"] as string | undefined) ||
+      "application/octet-stream";
+
+    const body = req.body as Buffer;
+    if (!body || body.length === 0) {
+      res.status(400).json({ error: "Empty body" });
+      return;
+    }
+
+    try {
+      await saveLocalPhoto(uuid, contentType, body);
+      res.status(200).json({ ok: true });
+    } catch (error) {
+      req.log.error({ err: error }, "Error saving local photo");
+      res.status(500).json({ error: "Failed to save photo" });
+    }
+  }
+);
+
+/**
+ * GET /storage/local-photos/:uuid
+ *
+ * Serves a locally stored photo by UUID.
+ * Only active when Replit Object Storage env vars are absent (NAS/local mode).
+ */
+router.get("/storage/local-photos/:uuid", async (req: Request, res: Response) => {
+  if (!isLocalStorageMode()) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  const uuid = String(req.params.uuid);
+  if (!uuid || !/^[0-9a-f-]{36}$/.test(uuid)) {
+    res.status(400).json({ error: "Invalid photo ID" });
+    return;
+  }
+
+  try {
+    const result = await readLocalPhoto(uuid);
+    if (!result) {
+      res.status(404).json({ error: "Photo not found" });
+      return;
+    }
+    res.setHeader("Content-Type", result.contentType);
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.setHeader("Content-Length", String(result.body.length));
+    res.status(200).send(result.body);
+  } catch (error) {
+    req.log.error({ err: error }, "Error serving local photo");
+    res.status(500).json({ error: "Failed to serve photo" });
   }
 });
 

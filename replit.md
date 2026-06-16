@@ -113,7 +113,7 @@ git remote add github-nas https://github.com/stephenlunam88/LunamHub.git
 
 ### Notes
 
-- Screensaver photo uploads use Replit Object Storage in dev; on NAS this feature will silently skip uploads. Photos can be added directly via the DB if needed (future work).
+- Screensaver photo uploads use Replit Object Storage in dev (requires `PRIVATE_OBJECT_DIR` env var). On NAS, the API automatically falls back to local disk storage at `/data/photos` (mounted as the `photos_data` Docker volume). Photos survive container restarts.
 - The web container's nginx listens on port 80 (mapped to `WEB_PORT` on the host, default 3000). Your NAS reverse proxy should point to that port.
 
 ## Pointers

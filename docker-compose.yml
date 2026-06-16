@@ -30,6 +30,9 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       DATABASE_URL: postgresql://${POSTGRES_USER:-lunam}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-lunamhub}
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set in .env}
+      LOCAL_PHOTO_DIR: /data/photos
+    volumes:
+      - photos_data:/data/photos
 
   web:
     build:
@@ -43,3 +46,4 @@ services:
 
 volumes:
   pgdata:
+  photos_data:

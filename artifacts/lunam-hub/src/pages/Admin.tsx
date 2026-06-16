@@ -634,7 +634,8 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
       const { uploadURL, objectPath } = await new Promise<{ uploadURL: string; objectPath: string }>((resolve, reject) => {
         requestUrl.mutate({ data: { name: file.name, size: file.size, contentType: file.type } }, { onSuccess: resolve, onError: reject });
       });
-      await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      const uploadRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      if (!uploadRes.ok) throw new Error(`Upload failed: ${uploadRes.status}`);
       createPhoto.mutate({ data: { url: `/api/storage${objectPath}`, filename: file.name } });
     } catch { /* ignore */ } finally {
       setSsUploading(false);
