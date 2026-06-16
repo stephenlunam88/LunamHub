@@ -182,16 +182,16 @@ export async function createGCalEvent(event: {
 }): Promise<string | null> {
   const allDay = event.allDay || !event.startTime;
   const tz = event.timezone || "UTC";
+  const startDt = allDay ? undefined : localTimeToUTC(event.date, event.startTime!, tz);
+  const endDt = allDay ? undefined : localTimeToUTC(event.date, event.endTime ?? event.startTime!, tz);
+
+  logger.info({ tz, inputDate: event.date, inputStart: event.startTime, startDt, endDt }, "gcal: createEvent datetime");
 
   const body: Record<string, unknown> = {
     summary: event.title,
     ...(event.description ? { description: event.description } : {}),
-    start: allDay
-      ? { date: event.date }
-      : { dateTime: localTimeToUTC(event.date, event.startTime!, tz) },
-    end: allDay
-      ? { date: nextCalendarDay(event.date) }
-      : { dateTime: localTimeToUTC(event.date, event.endTime ?? event.startTime!, tz) },
+    start: allDay ? { date: event.date } : { dateTime: startDt },
+    end: allDay ? { date: nextCalendarDay(event.date) } : { dateTime: endDt },
   };
   const resp = await proxyGCal("/calendars/primary/events", {
     method: "POST",
