@@ -211,7 +211,8 @@ router.get("/", async (req, res): Promise<void> => {
 router.post("/", async (req, res): Promise<void> => {
   const body = CreateEventBody.parse(req.body);
   const assignedMembers: number[] = (body as { assignedMembers?: number[] }).assignedMembers ?? [];
-  const { assignedMembers: _drop, ...eventData } = body as typeof body & { assignedMembers?: number[] };
+  const timezone: string | undefined = (body as { timezone?: string }).timezone;
+  const { assignedMembers: _drop, timezone: _tz, ...eventData } = body as typeof body & { assignedMembers?: number[]; timezone?: string };
 
   const [event] = await db.insert(eventsTable).values(eventData).returning();
 
@@ -223,6 +224,7 @@ router.post("/", async (req, res): Promise<void> => {
     startTime: event.startTime,
     endTime: event.endTime,
     allDay: event.allDay,
+    timezone,
   });
   if (gcalId) {
     await db.update(eventsTable).set({ googleEventId: gcalId }).where(eq(eventsTable.id, event.id));
@@ -250,7 +252,8 @@ router.patch("/:id", async (req, res): Promise<void> => {
   const { id } = UpdateEventParams.parse({ id: Number(req.params.id) });
   const body = UpdateEventBody.parse(req.body);
   const assignedMembers: number[] | undefined = (body as { assignedMembers?: number[] }).assignedMembers;
-  const { assignedMembers: _drop, ...eventData } = body as typeof body & { assignedMembers?: number[] };
+  const timezone: string | undefined = (body as { timezone?: string }).timezone;
+  const { assignedMembers: _drop, timezone: _tz, ...eventData } = body as typeof body & { assignedMembers?: number[]; timezone?: string };
 
   const [event] = await db.update(eventsTable).set(eventData).where(eq(eventsTable.id, id)).returning();
   if (!event) { res.status(404).json({ error: "Not found" }); return; }
@@ -264,6 +267,7 @@ router.patch("/:id", async (req, res): Promise<void> => {
       startTime: event.startTime,
       endTime: event.endTime,
       allDay: event.allDay,
+      timezone,
     }).catch(() => {});
   }
 

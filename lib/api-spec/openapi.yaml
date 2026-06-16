@@ -1667,6 +1667,9 @@ components:
         recurrenceEndDate:
           type: string
           description: Optional end date (YYYY-MM-DD) for the recurrence
+        timezone:
+          type: string
+          description: IANA timezone name from the browser (e.g. Australia/Sydney) — used for Google Calendar sync only, not stored
         assignedMembers:
           type: array
           items:
@@ -1701,6 +1704,9 @@ components:
         recurrenceEndDate:
           type: ["string", "null"]
           description: Optional end date (YYYY-MM-DD) for the recurrence — set to null to clear
+        timezone:
+          type: string
+          description: IANA timezone name from the browser (e.g. Australia/Sydney) — used for Google Calendar sync only, not stored
         assignedMembers:
           type: array
           items:

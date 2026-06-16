@@ -146,6 +146,7 @@ export const CreateEventBody = zod.object({
   "category": zod.enum(['school', 'sport', 'appointment', 'birthday', 'family', 'other']),
   "recurrence": zod.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY']).optional().describe('Recurrence rule for repeating events'),
   "recurrenceEndDate": zod.string().optional().describe('Optional end date (YYYY-MM-DD) for the recurrence'),
+  "timezone": zod.string().optional().describe('IANA timezone name from the browser (e.g. Australia\/Sydney) — used for Google Calendar sync only, not stored'),
   "assignedMembers": zod.array(zod.number()).optional()
 })
 
@@ -232,6 +233,7 @@ export const UpdateEventBody = zod.object({
   "category": zod.enum(['school', 'sport', 'appointment', 'birthday', 'family', 'other']).optional(),
   "recurrence": zod.union([zod.literal('DAILY'),zod.literal('WEEKLY'),zod.literal('MONTHLY'),zod.literal('YEARLY'),zod.literal(null)]).nullish().describe('Recurrence rule — set to null to clear'),
   "recurrenceEndDate": zod.string().nullish().describe('Optional end date (YYYY-MM-DD) for the recurrence — set to null to clear'),
+  "timezone": zod.string().optional().describe('IANA timezone name from the browser (e.g. Australia\/Sydney) — used for Google Calendar sync only, not stored'),
   "assignedMembers": zod.array(zod.number()).optional()
 })
 

@@ -221,6 +221,7 @@ export default function Calendar() {
     const cleanedRecurrenceEndDate = form.recurrenceEndDate || undefined;
     const cleanedStartTime = form.startTime || undefined;
     const cleanedEndTime = form.endTime || undefined;
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     if (mode === "create") {
       const data: EventInput = {
@@ -228,6 +229,7 @@ export default function Calendar() {
         date: form.date,
         allDay: form.allDay ?? !cleanedStartTime,
         category: form.category,
+        timezone,
         ...(form.description ? { description: form.description } : {}),
         ...(cleanedRecurrence ? { recurrence: cleanedRecurrence } : {}),
         ...(cleanedRecurrenceEndDate ? { recurrenceEndDate: cleanedRecurrenceEndDate } : {}),
@@ -247,6 +249,7 @@ export default function Calendar() {
         recurrenceEndDate: cleanedRecurrenceEndDate ?? null,
         startTime: cleanedStartTime,
         endTime: cleanedEndTime,
+        timezone,
         assignedMembers: form.assignedMembers,
       };
       updateEvent.mutate({ id: editingEventId, data });

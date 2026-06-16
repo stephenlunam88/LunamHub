@@ -140,8 +140,10 @@ export async function createGCalEvent(event: {
   startTime?: string | null;
   endTime?: string | null;
   allDay: boolean;
+  timezone?: string | null;
 }): Promise<string | null> {
   const allDay = event.allDay || !event.startTime;
+  const tz = event.timezone || "UTC";
 
   // Google Calendar all-day end.date is exclusive — must be the next calendar day
   function nextCalendarDay(dateStr: string): string {
@@ -155,10 +157,10 @@ export async function createGCalEvent(event: {
     ...(event.description ? { description: event.description } : {}),
     start: allDay
       ? { date: event.date }
-      : { dateTime: `${event.date}T${event.startTime}:00` },
+      : { dateTime: `${event.date}T${event.startTime}:00`, timeZone: tz },
     end: allDay
       ? { date: nextCalendarDay(event.date) }
-      : { dateTime: `${event.date}T${event.endTime ?? event.startTime}:00` },
+      : { dateTime: `${event.date}T${event.endTime ?? event.startTime}:00`, timeZone: tz },
   };
   const resp = await proxyGCal("/calendars/primary/events", {
     method: "POST",
@@ -181,9 +183,11 @@ export async function updateGCalEvent(
     startTime?: string | null;
     endTime?: string | null;
     allDay: boolean;
+    timezone?: string | null;
   },
 ): Promise<void> {
   const allDay = event.allDay || !event.startTime;
+  const tz = event.timezone || "UTC";
 
   function nextCalendarDay(dateStr: string): string {
     const [y, m, d] = dateStr.split("-").map(Number);
@@ -196,10 +200,10 @@ export async function updateGCalEvent(
     description: event.description ?? "",
     start: allDay
       ? { date: event.date }
-      : { dateTime: `${event.date}T${event.startTime}:00` },
+      : { dateTime: `${event.date}T${event.startTime}:00`, timeZone: tz },
     end: allDay
       ? { date: nextCalendarDay(event.date) }
-      : { dateTime: `${event.date}T${event.endTime ?? event.startTime}:00` },
+      : { dateTime: `${event.date}T${event.endTime ?? event.startTime}:00`, timeZone: tz },
   };
   const resp = await proxyGCal(`/calendars/primary/events/${encodeURIComponent(googleEventId)}`, {
     method: "PUT",

@@ -20,5 +20,7 @@ export interface EventInput {
   recurrence?: EventInputRecurrence;
   /** Optional end date (YYYY-MM-DD) for the recurrence */
   recurrenceEndDate?: string;
+  /** IANA timezone name from the browser (e.g. Australia/Sydney) — used for Google Calendar sync only, not stored */
+  timezone?: string;
   assignedMembers?: number[];
 }

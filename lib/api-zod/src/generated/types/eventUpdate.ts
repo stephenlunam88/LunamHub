@@ -26,5 +26,7 @@ export interface EventUpdate {
      * @nullable
      */
   recurrenceEndDate?: string | null;
+  /** IANA timezone name from the browser (e.g. Australia/Sydney) — used for Google Calendar sync only, not stored */
+  timezone?: string;
   assignedMembers?: number[];
 }
