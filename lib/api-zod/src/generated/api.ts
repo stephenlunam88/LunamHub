@@ -1796,12 +1796,9 @@ export const ListPointTransactionsResponse = zod.array(ListPointTransactionsResp
 /**
  * @summary Award one-off bonus points to a family member
  */
-
-
-
 export const AwardBonusPointsBody = zod.object({
   "memberId": zod.number(),
-  "amount": zod.number().min(1),
+  "amount": zod.number().describe('Non-zero integer. Positive to award points, negative to deduct points as a consequence.'),
   "reason": zod.string()
 })
 

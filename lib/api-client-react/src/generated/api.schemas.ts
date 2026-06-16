@@ -617,7 +617,7 @@ export interface ChoreMilestoneInput {
 
 export interface BonusPointsInput {
   memberId: number;
-  /** @minimum 1 */
+  /** Non-zero integer. Positive to award points, negative to deduct points as a consequence. */
   amount: number;
   reason: string;
 }

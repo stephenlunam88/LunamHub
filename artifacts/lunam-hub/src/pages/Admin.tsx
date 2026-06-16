@@ -562,6 +562,7 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
   const [editChoreMilestoneTarget, setEditChoreMilestoneTarget] = useState<ChoreMilestone | null>(null);
   const [editChoreMilestoneForm, setEditChoreMilestoneForm] = useState<ChoreMilestoneInput>(BLANK_CHORE_MILESTONE);
   const [bonusChildId, setBonusChildId] = useState<string>("");
+  const [bonusMode, setBonusMode] = useState<"award" | "deduct">("award");
   const [bonusAmount, setBonusAmount] = useState<number>(10);
   const [bonusReason, setBonusReason] = useState<string>("");
   const [bonusSuccess, setBonusSuccess] = useState(false);
@@ -1144,9 +1145,35 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
       </Dialog>
 
       <Card className="rounded-3xl border-0 shadow-sm">
-        <CardHeader><CardTitle className="flex items-center gap-2"><Gift className="w-5 h-5" /> Award Bonus Points</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            {bonusMode === "award" ? <Star className="w-5 h-5 text-amber-500" /> : <TrendingDown className="w-5 h-5 text-red-500" />}
+            {bonusMode === "award" ? "Award Bonus Points" : "Deduct Points"}
+          </CardTitle>
+        </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">Give a spontaneous points boost to any child — for great behaviour, extra effort, or a special occasion.</p>
+          {/* Mode toggle */}
+          <div className="flex rounded-xl overflow-hidden border border-border">
+            <button
+              type="button"
+              onClick={() => { setBonusMode("award"); setBonusAmount(10); }}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium transition-colors ${bonusMode === "award" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+            >
+              <Star className="w-4 h-4" /> Award Points
+            </button>
+            <button
+              type="button"
+              onClick={() => { setBonusMode("deduct"); setBonusAmount(10); }}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium transition-colors ${bonusMode === "deduct" ? "bg-destructive text-destructive-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+            >
+              <TrendingDown className="w-4 h-4" /> Deduct Points
+            </button>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {bonusMode === "award"
+              ? "Give a spontaneous points boost — for great behaviour, extra effort, or a special occasion."
+              : "Remove points as a consequence — for broken rules or agreed penalties. Balance can go negative; lifetime total is unaffected."}
+          </p>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Child</Label>
@@ -1175,21 +1202,30 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
             <Input
               value={bonusReason}
               onChange={e => setBonusReason(e.target.value)}
-              placeholder="e.g. Being super helpful today!"
+              placeholder={bonusMode === "award" ? "e.g. Being super helpful today!" : "e.g. Broke the screen-time rule"}
               className="rounded-xl h-12 mt-1"
             />
           </div>
           {bonusSuccess && (
-            <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-2xl px-4 py-3 text-green-800 text-sm font-medium">
-              <Star className="w-4 h-4 text-green-600 shrink-0" /> Bonus points awarded successfully!
+            <div className={`flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium ${bonusMode === "award" ? "bg-green-50 border border-green-200 text-green-800" : "bg-red-50 border border-red-200 text-red-800"}`}>
+              {bonusMode === "award"
+                ? <><Star className="w-4 h-4 text-green-600 shrink-0" /> Bonus points awarded successfully!</>
+                : <><TrendingDown className="w-4 h-4 text-red-600 shrink-0" /> Points deducted successfully.</>}
             </div>
           )}
           <Button
-            className="w-full h-12 rounded-xl"
+            className={`w-full h-12 rounded-xl ${bonusMode === "deduct" ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground" : ""}`}
             disabled={!bonusChildId || !bonusReason.trim() || bonusAmount < 1 || awardBonus.isPending}
-            onClick={() => awardBonus.mutate({ data: { memberId: Number(bonusChildId), amount: bonusAmount, reason: bonusReason.trim() } })}
+            onClick={() => {
+              const finalAmount = bonusMode === "deduct" ? -bonusAmount : bonusAmount;
+              awardBonus.mutate({ data: { memberId: Number(bonusChildId), amount: finalAmount, reason: bonusReason.trim() } });
+            }}
           >
-            {awardBonus.isPending ? "Awarding…" : `Award ${bonusAmount} pts`}
+            {awardBonus.isPending
+              ? (bonusMode === "award" ? "Awarding…" : "Deducting…")
+              : bonusMode === "award"
+                ? `Award ${bonusAmount} pts`
+                : `Deduct ${bonusAmount} pts`}
           </Button>
         </CardContent>
       </Card>

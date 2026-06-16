@@ -2511,7 +2511,7 @@ components:
           type: integer
         amount:
           type: integer
-          minimum: 1
+          description: Non-zero integer. Positive to award points, negative to deduct points as a consequence.
         reason:
           type: string
       required:

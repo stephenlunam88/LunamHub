@@ -24,7 +24,7 @@ function formatTransaction(t: typeof pointTransactionsTable.$inferSelect) {
 
 const BonusPointsSchema = z.object({
   memberId: z.number().int().positive(),
-  amount: z.number().int().min(1),
+  amount: z.number().int().refine(n => n !== 0, { message: "Amount must be non-zero" }),
   reason: z.string().min(1),
 });
 
@@ -36,7 +36,7 @@ router.get("/", async (req, res) => {
   res.json(txns.map(formatTransaction));
 });
 
-// POST /api/point-transactions — award one-off bonus points to a family member
+// POST /api/point-transactions — award bonus or deduct points from a family member
 router.post("/", async (req, res) => {
   const parsed = BonusPointsSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -51,19 +51,29 @@ router.post("/", async (req, res) => {
     return;
   }
 
+  const isDeduction = amount < 0;
+  const txnType = isDeduction ? "adjustment" : "bonus";
+
   const [txn] = await db.insert(pointTransactionsTable).values({
     memberId,
     amount,
-    type: "bonus",
+    type: txnType,
     description: reason,
   }).returning();
 
-  await db.update(familyMembersTable)
-    .set({
-      pointsBalance: sql`${familyMembersTable.pointsBalance} + ${amount}`,
-      lifetimePoints: sql`${familyMembersTable.lifetimePoints} + ${amount}`,
-    })
-    .where(eq(familyMembersTable.id, memberId));
+  // Balance can go negative; lifetime points are never reduced by deductions
+  if (isDeduction) {
+    await db.update(familyMembersTable)
+      .set({ pointsBalance: sql`${familyMembersTable.pointsBalance} + ${amount}` })
+      .where(eq(familyMembersTable.id, memberId));
+  } else {
+    await db.update(familyMembersTable)
+      .set({
+        pointsBalance: sql`${familyMembersTable.pointsBalance} + ${amount}`,
+        lifetimePoints: sql`${familyMembersTable.lifetimePoints} + ${amount}`,
+      })
+      .where(eq(familyMembersTable.id, memberId));
+  }
 
   res.status(201).json(formatTransaction(txn));
 });
