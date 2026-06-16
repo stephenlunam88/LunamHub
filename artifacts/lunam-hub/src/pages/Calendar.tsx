@@ -36,12 +36,16 @@ const RECURRENCE_LABELS: Record<string, string> = {
   YEARLY: "Yearly",
 };
 
+function parseLocalDate(dateStr: string): Date {
+  return parseISO(dateStr + "T00:00:00");
+}
+
 function doesEventOccurOnDay(event: Event, day: Date): boolean {
-  const eventStart = parseISO(event.date);
+  const eventStart = parseLocalDate(event.date);
   if (eventStart > day) return false;
   if (!event.recurrence) return isSameDay(eventStart, day);
   if (event.recurrenceEndDate) {
-    const endDate = parseISO(event.recurrenceEndDate as string);
+    const endDate = parseLocalDate(event.recurrenceEndDate as string);
     if (day > endDate) return false;
   }
   switch (event.recurrence as string) {
@@ -79,8 +83,8 @@ const DEFAULT_FORM = (date: string): EventForm => ({
   allDay: true,
   category: "other",
   description: "",
-  recurrence: "",
-  recurrenceEndDate: "",
+  recurrence: undefined,
+  recurrenceEndDate: undefined,
   assignedMembers: [],
 });
 
@@ -190,13 +194,13 @@ export default function Calendar() {
     setForm({
       title: e.title,
       date: e.date,
-      startTime: e.startTime ?? "",
-      endTime: e.endTime ?? "",
+      startTime: e.startTime ?? undefined,
+      endTime: e.endTime ?? undefined,
       allDay: e.allDay,
       category: (e.category as EventInput["category"]) ?? "other",
       description: e.description ?? "",
-      recurrence: (e.recurrence as string | undefined) ?? "",
-      recurrenceEndDate: (e.recurrenceEndDate as string | undefined) ?? "",
+      recurrence: (e.recurrence as string | null | undefined) ?? undefined,
+      recurrenceEndDate: (e.recurrenceEndDate as string | null | undefined) ?? undefined,
       assignedMembers: e.assignedMembers ?? [],
     });
     setOpen(true);
@@ -411,7 +415,7 @@ export default function Calendar() {
 
             <div>
               <Label>Repeat</Label>
-              <Select value={form.recurrence ?? "none"} onValueChange={v => setForm(f => ({ ...f, recurrence: v === "none" ? null : v, recurrenceEndDate: v === "none" ? "" : f.recurrenceEndDate }))}>
+              <Select value={form.recurrence ?? "none"} onValueChange={v => setForm(f => ({ ...f, recurrence: v === "none" ? undefined : v, recurrenceEndDate: v === "none" ? undefined : f.recurrenceEndDate }))}>
                 <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="None" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
