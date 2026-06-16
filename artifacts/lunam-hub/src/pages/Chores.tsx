@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   useListChores, useListFamilyMembers, useCreateChore, useCompleteChore,
-  useApproveChore, useRejectChore, useDeleteChore, useGetChoresSummary, useListBadges, useVerifyPin, useVerifyFamilyMemberPin,
+  useApproveChore, useRejectChore, useDeleteChore, useUpdateChore, useGetChoresSummary, useListBadges, useVerifyPin, useVerifyFamilyMemberPin,
   getListChoresQueryKey, getGetChoresSummaryQueryKey, getListFamilyMembersQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -13,8 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, Plus, Trash2, Star, Clock, Lock, Medal, XCircle } from "lucide-react";
-import type { ChoreInput } from "@workspace/api-client-react";
+import { CheckCircle2, Plus, Trash2, Star, Clock, Lock, Medal, XCircle, Pencil } from "lucide-react";
+import type { Chore, ChoreInput, ChoreUpdate } from "@workspace/api-client-react";
 
 const TIER_STYLES = {
   bronze: { bg: "bg-amber-100", text: "text-amber-800", border: "border-amber-300", ring: "ring-amber-400" },
@@ -312,11 +312,169 @@ function PinDeleteDialog({ choreId, choreTitle, parents, onSuccess }: {
   );
 }
 
+type EditFormState = Pick<ChoreUpdate, "title" | "pointsValue" | "repeatType"> & { assignedTo?: number | null };
+
+function PinEditDialog({ chore, children, parents, onSuccess }: {
+  chore: Chore;
+  children: ParentInfo[];
+  parents: ParentInfo[];
+  onSuccess: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<EditFormState>({
+    title: chore.title,
+    assignedTo: chore.assignedTo ?? null,
+    pointsValue: chore.pointsValue,
+    repeatType: chore.repeatType as ChoreUpdate["repeatType"],
+  });
+  const [selected, setSelected] = useState<string>(parents[0] ? String(parents[0].id) : ADMIN_OPTION);
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const pendingFormRef = useRef<EditFormState | null>(null);
+
+  const reset = () => { setPin(""); setError(null); };
+
+  const updateChore = useUpdateChore({
+    mutation: {
+      onSuccess: () => { setOpen(false); reset(); onSuccess(); },
+      onError: () => setError("Failed to save chore"),
+    }
+  });
+
+  const onVerifySuccess = () => {
+    if (pendingFormRef.current) {
+      updateChore.mutate({ id: chore.id, data: pendingFormRef.current });
+    }
+  };
+  const onVerifyError = () => { setError("Incorrect PIN — try again"); setPin(""); };
+
+  const verifyAdmin = useVerifyPin({ mutation: { onSuccess: onVerifySuccess, onError: onVerifyError } });
+  const verifyParent = useVerifyFamilyMemberPin({ mutation: { onSuccess: onVerifySuccess, onError: onVerifyError } });
+
+  const isPending = verifyAdmin.isPending || verifyParent.isPending || updateChore.isPending;
+
+  const handleSave = () => {
+    pendingFormRef.current = { ...form };
+    if (selected === ADMIN_OPTION) {
+      verifyAdmin.mutate({ data: { pin } });
+    } else {
+      verifyParent.mutate({ id: Number(selected), data: { pin } });
+    }
+  };
+
+  const options = [
+    ...parents.map(p => ({ value: String(p.id), label: `${p.emoji} ${p.name}` })),
+    { value: ADMIN_OPTION, label: "🔑 Admin PIN" },
+  ];
+
+  return (
+    <Dialog open={open} onOpenChange={o => { setOpen(o); if (o) { setForm({ title: chore.title, assignedTo: chore.assignedTo ?? null, pointsValue: chore.pointsValue, repeatType: chore.repeatType as ChoreUpdate["repeatType"] }); } reset(); }}>
+      <DialogTrigger asChild>
+        <Button size="icon" variant="ghost" className="h-12 w-12 rounded-xl text-muted-foreground hover:text-primary">
+          <Pencil className="w-4 h-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="rounded-3xl max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-serif flex items-center gap-2">
+            <Lock className="w-5 h-5" /> Edit Chore
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label>Title</Label>
+            <Input value={form.title ?? ""} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="rounded-xl h-12 mt-1" />
+          </div>
+          <div>
+            <Label>Assign to</Label>
+            <Select
+              value={form.assignedTo != null ? String(form.assignedTo) : "__none__"}
+              onValueChange={v => setForm(f => ({ ...f, assignedTo: v === "__none__" ? null : Number(v) }))}
+            >
+              <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue placeholder="Unassigned" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Unassigned</SelectItem>
+                {children.map(m => <SelectItem key={m.id} value={String(m.id)}>{m.emoji} {m.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Points</Label>
+              <Input type="number" value={form.pointsValue ?? 10} onChange={e => setForm(f => ({ ...f, pointsValue: Number(e.target.value) }))} className="rounded-xl h-12 mt-1" />
+            </div>
+            <div>
+              <Label>Repeat</Label>
+              <Select value={form.repeatType ?? "once"} onValueChange={v => setForm(f => ({ ...f, repeatType: v as ChoreUpdate["repeatType"] }))}>
+                <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="once">Once</SelectItem>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          {chore.repeatType !== "once" && (
+            <p className="text-xs text-muted-foreground">Changes to a recurring chore apply to all future instances.</p>
+          )}
+          <div className="border-t pt-4 space-y-3">
+            {options.length > 1 && (
+              <div>
+                <Label>Authorising as</Label>
+                <Select value={selected} onValueChange={v => { setSelected(v); reset(); }}>
+                  <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div>
+              <Label>{selected === ADMIN_OPTION ? "Admin PIN" : "Parent PIN"}</Label>
+              <Input
+                type="password"
+                inputMode="numeric"
+                value={pin}
+                onChange={e => { setPin(e.target.value); setError(null); }}
+                onKeyDown={e => { if (e.key === "Enter" && pin && form.title) handleSave(); }}
+                placeholder="••••"
+                className={`rounded-xl h-12 text-center tracking-[0.4em] text-xl mt-1 ${error ? "border-red-500 bg-red-50" : ""}`}
+                autoFocus
+              />
+              {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
+            </div>
+          </div>
+          <Button
+            className="w-full h-12 rounded-xl"
+            onClick={handleSave}
+            disabled={!pin || !form.title || isPending}
+          >
+            {isPending ? "Saving…" : "Save Changes"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Chores() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [addStep, setAddStep] = useState<"form" | "pin">("form");
   const [form, setForm] = useState<ChoreFormState>({ title: "", pointsValue: 10, repeatType: "once" });
+  const pendingAddRef = useRef<ChoreFormState | null>(null);
+  const [addSelected, setAddSelected] = useState<string>(ADMIN_OPTION);
+  const [addPin, setAddPin] = useState("");
+  const [addPinError, setAddPinError] = useState<string | null>(null);
   const [filterChildId, setFilterChildId] = useState<number | null>(null);
+
+  const resetAddDialog = () => {
+    setForm({ title: "", pointsValue: 10, repeatType: "once", assignedToMany: [] });
+    setAddStep("form");
+    setAddPin("");
+    setAddPinError(null);
+  };
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: getListChoresQueryKey() });
@@ -331,12 +489,44 @@ export default function Chores() {
   const { data: summary = [] } = useGetChoresSummary();
   const { data: allBadges = [] } = useListBadges();
 
-  const createChore = useCreateChore({ mutation: { onSuccess: () => { invalidate(); setOpen(false); setForm({ title: "", pointsValue: 10, repeatType: "once", assignedToMany: [] }); } } });
+  const createChore = useCreateChore({ mutation: { onSuccess: () => { invalidate(); setOpen(false); resetAddDialog(); } } });
   const completeChore = useCompleteChore({ mutation: { onSuccess: invalidate } });
   const approveChore = useApproveChore({ mutation: { onSuccess: invalidate } });
 
   const children = members.filter(m => m.role === "child");
   const parents = members.filter(m => m.role === "parent") as ParentInfo[];
+
+  const doCreateChore = () => {
+    if (!pendingAddRef.current) return;
+    const { assignedToMany, ...base } = pendingAddRef.current;
+    createChore.mutate({ data: assignedToMany && assignedToMany.length > 0 ? { ...base, assignedToMany } : base });
+  };
+  const addVerifyAdmin = useVerifyPin({
+    mutation: {
+      onSuccess: doCreateChore,
+      onError: () => { setAddPinError("Incorrect PIN — try again"); setAddPin(""); },
+    }
+  });
+  const addVerifyParent = useVerifyFamilyMemberPin({
+    mutation: {
+      onSuccess: doCreateChore,
+      onError: () => { setAddPinError("Incorrect PIN — try again"); setAddPin(""); },
+    }
+  });
+  const addPinOptions = [
+    ...parents.map(p => ({ value: String(p.id), label: `${p.emoji} ${p.name}` })),
+    { value: ADMIN_OPTION, label: "🔑 Admin PIN" },
+  ];
+  const isAddPending = addVerifyAdmin.isPending || addVerifyParent.isPending || createChore.isPending;
+
+  const handleAddConfirm = () => {
+    pendingAddRef.current = { ...form };
+    if (addSelected === ADMIN_OPTION) {
+      addVerifyAdmin.mutate({ data: { pin: addPin } });
+    } else {
+      addVerifyParent.mutate({ id: Number(addSelected), data: { pin: addPin } });
+    }
+  };
 
   const todo = allChores.filter(c => c.status === "todo");
   const needsApproval = allChores.filter(c => c.status === "pending_approval");
@@ -357,64 +547,107 @@ export default function Chores() {
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex items-center justify-between">
         <h1 className="text-4xl font-serif font-bold">Chores</h1>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={o => { setOpen(o); if (!o) resetAddDialog(); }}>
           <DialogTrigger asChild>
             <Button className="h-14 px-6 rounded-2xl text-lg gap-2"><Plus className="w-5 h-5" /> Add Chore</Button>
           </DialogTrigger>
           <DialogContent className="rounded-3xl">
-            <DialogHeader><DialogTitle className="text-xl font-serif">New Chore</DialogTitle></DialogHeader>
-            <div className="space-y-4">
-              <div><Label>Title</Label><Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="rounded-xl h-12" /></div>
-              <div>
-                <Label>Assign to</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {children.map(m => {
-                    const many = form.assignedToMany ?? [];
-                    const selected = many.includes(m.id);
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => {
-                          const next = selected ? many.filter(id => id !== m.id) : [...many, m.id];
-                          setForm(f => ({ ...f, assignedToMany: next, assignedTo: next.length === 1 ? next[0] : undefined }));
-                        }}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all ${selected ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground hover:border-primary/40"}`}
-                      >
-                        <span>{m.emoji}</span>
-                        <span>{m.name}</span>
-                      </button>
-                    );
-                  })}
-                  {children.length === 0 && <span className="text-muted-foreground text-sm">No children added yet</span>}
+            {addStep === "form" ? (
+              <>
+                <DialogHeader><DialogTitle className="text-xl font-serif">New Chore</DialogTitle></DialogHeader>
+                <div className="space-y-4">
+                  <div><Label>Title</Label><Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="rounded-xl h-12" /></div>
+                  <div>
+                    <Label>Assign to</Label>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {children.map(m => {
+                        const many = form.assignedToMany ?? [];
+                        const sel = many.includes(m.id);
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              const next = sel ? many.filter(id => id !== m.id) : [...many, m.id];
+                              setForm(f => ({ ...f, assignedToMany: next, assignedTo: next.length === 1 ? next[0] : undefined }));
+                            }}
+                            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all ${sel ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground hover:border-primary/40"}`}
+                          >
+                            <span>{m.emoji}</span>
+                            <span>{m.name}</span>
+                          </button>
+                        );
+                      })}
+                      {children.length === 0 && <span className="text-muted-foreground text-sm">No children added yet</span>}
+                    </div>
+                    {(form.assignedToMany?.length ?? 0) > 1 && (
+                      <p className="text-xs text-muted-foreground mt-1">Creates {form.assignedToMany?.length} separate chores</p>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><Label>Points</Label><Input type="number" value={form.pointsValue} onChange={e => setForm(f => ({ ...f, pointsValue: Number(e.target.value) }))} className="rounded-xl h-12" /></div>
+                    <div><Label>Due date</Label><Input type="date" value={form.dueDate ?? ""} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value || undefined }))} className="rounded-xl h-12" /></div>
+                  </div>
+                  <div><Label>Repeat</Label>
+                    <Select value={form.repeatType ?? "once"} onValueChange={v => setForm(f => ({ ...f, repeatType: v as ChoreInput["repeatType"] }))}>
+                      <SelectTrigger className="rounded-xl h-12"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="once">Once</SelectItem>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button className="w-full h-12 rounded-xl" onClick={() => setAddStep("pin")} disabled={!form.title}>
+                    Continue →
+                  </Button>
                 </div>
-                {(form.assignedToMany?.length ?? 0) > 1 && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Creates {form.assignedToMany?.length} separate chores
-                  </p>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Points</Label><Input type="number" value={form.pointsValue} onChange={e => setForm(f => ({ ...f, pointsValue: Number(e.target.value) }))} className="rounded-xl h-12" /></div>
-                <div><Label>Due date</Label><Input type="date" value={form.dueDate ?? ""} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value || undefined }))} className="rounded-xl h-12" /></div>
-              </div>
-              <div><Label>Repeat</Label>
-                <Select value={form.repeatType ?? "once"} onValueChange={v => setForm(f => ({ ...f, repeatType: v as ChoreInput["repeatType"] }))}>
-                  <SelectTrigger className="rounded-xl h-12"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="once">Once</SelectItem>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button className="w-full h-12 rounded-xl" onClick={() => {
-                const { assignedToMany, ...base } = form;
-                createChore.mutate({ data: assignedToMany && assignedToMany.length > 0 ? { ...base, assignedToMany } : base });
-              }} disabled={!form.title || createChore.isPending}>
-                {createChore.isPending ? "Adding…" : "Add Chore"}
-              </Button>
-            </div>
+              </>
+            ) : (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-serif flex items-center gap-2">
+                    <Lock className="w-5 h-5" /> Confirm with PIN
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <p className="text-muted-foreground text-sm">Creating: <span className="font-semibold text-foreground">"{form.title}"</span></p>
+                  {addPinOptions.length > 1 && (
+                    <div>
+                      <Label>Authorising as</Label>
+                      <Select value={addSelected} onValueChange={v => { setAddSelected(v); setAddPin(""); setAddPinError(null); }}>
+                        <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {addPinOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <div>
+                    <Label>{addSelected === ADMIN_OPTION ? "Admin PIN" : "Parent PIN"}</Label>
+                    <Input
+                      type="password"
+                      inputMode="numeric"
+                      value={addPin}
+                      onChange={e => { setAddPin(e.target.value); setAddPinError(null); }}
+                      onKeyDown={e => { if (e.key === "Enter" && addPin) handleAddConfirm(); }}
+                      placeholder="••••"
+                      className={`rounded-xl h-12 text-center tracking-[0.4em] text-xl mt-1 ${addPinError ? "border-red-500 bg-red-50" : ""}`}
+                      autoFocus
+                    />
+                    {addPinError && <p className="text-red-600 text-sm mt-1">{addPinError}</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => { setAddStep("form"); setAddPin(""); setAddPinError(null); }}>
+                      ← Back
+                    </Button>
+                    <Button className="flex-1 h-12 rounded-xl" onClick={handleAddConfirm} disabled={!addPin || isAddPending}>
+                      {isAddPending ? "Adding…" : "Add Chore"}
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
           </DialogContent>
         </Dialog>
       </div>
@@ -554,12 +787,13 @@ export default function Chores() {
                       {c.repeatType !== "once" && <Badge variant="outline" className="text-xs">{c.repeatType}</Badge>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <div className="bg-primary/10 text-primary font-bold px-4 py-2 rounded-2xl text-lg">{c.pointsValue} pts</div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <div className="bg-primary/10 text-primary font-bold px-4 py-2 rounded-2xl text-lg mr-2">{c.pointsValue} pts</div>
                     <Button size="icon" variant="ghost" className="h-12 w-12 rounded-xl text-green-600 hover:text-green-700 hover:bg-green-50"
                       onClick={() => completeChore.mutate({ id: c.id })}>
                       <CheckCircle2 className="w-6 h-6" />
                     </Button>
+                    <PinEditDialog chore={c} children={children as ParentInfo[]} parents={parents} onSuccess={invalidate} />
                     <PinDeleteDialog choreId={c.id} choreTitle={c.title} parents={parents} onSuccess={invalidate} />
                   </div>
                 </CardContent>
