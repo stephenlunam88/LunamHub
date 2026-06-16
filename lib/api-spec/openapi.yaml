@@ -1721,6 +1721,33 @@ paths:
               schema:
                 $ref: "#/components/schemas/PointTransaction"
 
+  /point-transactions/{id}:
+    delete:
+      operationId: deletePointTransaction
+      tags: [transactions]
+      summary: Delete a bonus or adjustment transaction and reverse its points effect
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Transaction type cannot be deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Transaction not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # ── Storage (avatar upload) ─────────────────────────────────────────────────
   /storage/uploads/request-url:
     post:

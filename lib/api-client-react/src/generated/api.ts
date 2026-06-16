@@ -6572,6 +6572,76 @@ export const useAwardBonusPoints = <TError = ErrorType<unknown>,
       return useMutation(getAwardBonusPointsMutationOptions(options));
     }
 
+export const getDeletePointTransactionUrl = (id: number,) => {
+
+
+
+
+  return `/api/point-transactions/${id}`
+}
+
+/**
+ * @summary Delete a bonus or adjustment transaction and reverse its points effect
+ */
+export const deletePointTransaction = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeletePointTransactionUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeletePointTransactionMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePointTransaction>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deletePointTransaction>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deletePointTransaction'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deletePointTransaction>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deletePointTransaction(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeletePointTransactionMutationResult = NonNullable<Awaited<ReturnType<typeof deletePointTransaction>>>
+
+    export type DeletePointTransactionMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Delete a bonus or adjustment transaction and reverse its points effect
+ */
+export const useDeletePointTransaction = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePointTransaction>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deletePointTransaction>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeletePointTransactionMutationOptions(options));
+    }
+
 export const getRequestUploadUrlUrl = () => {
 
 

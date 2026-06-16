@@ -1804,6 +1804,14 @@ export const AwardBonusPointsBody = zod.object({
 
 
 /**
+ * @summary Delete a bonus or adjustment transaction and reverse its points effect
+ */
+export const DeletePointTransactionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
  * @summary Request a presigned URL for uploading an avatar
  */
 export const RequestUploadUrlBody = zod.object({

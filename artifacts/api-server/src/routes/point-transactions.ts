@@ -28,6 +28,56 @@ const BonusPointsSchema = z.object({
   reason: z.string().min(1),
 });
 
+// DELETE /api/point-transactions/:id — delete a bonus/adjustment transaction and reverse its effect
+router.delete("/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid transaction id" });
+    return;
+  }
+
+  // Atomically delete the row and get its data back; if nothing was deleted the row
+  // either never existed or was already deleted by a concurrent request.
+  await db.transaction(async (tx) => {
+    const [deleted] = await tx
+      .delete(pointTransactionsTable)
+      .where(eq(pointTransactionsTable.id, id))
+      .returning();
+
+    if (!deleted) {
+      res.status(404).json({ error: "Transaction not found" });
+      return;
+    }
+
+    if (deleted.type !== "bonus" && deleted.type !== "adjustment") {
+      // Roll back the delete — this type is read-only
+      tx.rollback();
+      res.status(400).json({ error: "Only bonus and adjustment transactions can be deleted" });
+      return;
+    }
+
+    const reversal = -deleted.amount;
+
+    if (deleted.type === "bonus") {
+      await tx.update(familyMembersTable)
+        .set({
+          pointsBalance: sql`${familyMembersTable.pointsBalance} + ${reversal}`,
+          lifetimePoints: sql`${familyMembersTable.lifetimePoints} + ${reversal}`,
+        })
+        .where(eq(familyMembersTable.id, deleted.memberId));
+    } else {
+      // adjustment (deduction) — only reverse the balance, not lifetime
+      await tx.update(familyMembersTable)
+        .set({ pointsBalance: sql`${familyMembersTable.pointsBalance} + ${reversal}` })
+        .where(eq(familyMembersTable.id, deleted.memberId));
+    }
+  });
+
+  if (!res.headersSent) {
+    res.status(204).send();
+  }
+});
+
 // GET /api/point-transactions — list all (optional ?memberId= filter)
 router.get("/", async (req, res) => {
   const memberId = req.query.memberId ? Number(req.query.memberId) : undefined;

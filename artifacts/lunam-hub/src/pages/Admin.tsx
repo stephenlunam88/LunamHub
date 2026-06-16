@@ -12,9 +12,11 @@ import {
   useListChoreMilestones, useCreateChoreMilestone, useUpdateChoreMilestone, useDeleteChoreMilestone,
   useAwardBonusPoints,
   useListPointTransactions,
+  useDeletePointTransaction,
   getGetSettingsQueryKey, getListFamilyMembersQueryKey,
   getListRewardsQueryKey, getListStreakMilestonesQueryKey, getListScreensaverPhotosQueryKey,
   getListPointMilestonesQueryKey, getListChoreMilestonesQueryKey,
+  getListPointTransactionsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -444,12 +446,24 @@ const TX_TYPE_CONFIG: Record<string, { label: string; chipClass: string; icon: R
 
 function PointsHistoryCard({ members }: { members: { id: number; name: string; emoji: string; role: string }[] }) {
   const [selectedId, setSelectedId] = useState<string>("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const memberId = selectedId ? Number(selectedId) : undefined;
+  const qc = useQueryClient();
 
   const { data: txns = [], isLoading } = useListPointTransactions(
     { memberId: memberId ?? null },
-    { query: { enabled: !!memberId, queryKey: ["listPointTransactions", memberId] } }
+    { query: { enabled: !!memberId, queryKey: getListPointTransactionsQueryKey({ memberId: memberId ?? null }) } }
   );
+
+  const { mutate: deleteTxn, isPending: isDeleting } = useDeletePointTransaction({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListPointTransactionsQueryKey({ memberId: memberId ?? null }) });
+        qc.invalidateQueries({ queryKey: getListFamilyMembersQueryKey() });
+        setConfirmDeleteId(null);
+      },
+    },
+  });
 
   const sorted = [...txns].reverse();
   const children = members.filter(m => m.role === "child");
@@ -461,6 +475,7 @@ function PointsHistoryCard({ members }: { members: { id: number; name: string; e
   };
 
   const totalPoints = txns.reduce((sum, t) => sum + t.amount, 0);
+  const confirmTx = confirmDeleteId !== null ? txns.find(t => t.id === confirmDeleteId) : null;
 
   return (
     <Card className="rounded-3xl border-0 shadow-sm">
@@ -497,6 +512,7 @@ function PointsHistoryCard({ members }: { members: { id: number; name: string; e
                     const cfg = TX_TYPE_CONFIG[tx.type] ?? TX_TYPE_CONFIG["adjustment"];
                     const amountStr = `${cfg.sign}${Math.abs(tx.amount)} pts`;
                     const isPositive = tx.amount > 0;
+                    const isDeletable = tx.type === "bonus" || tx.type === "adjustment";
                     return (
                       <div key={tx.id} className="flex items-start gap-3 rounded-2xl bg-muted/50 px-4 py-3">
                         <div className="mt-0.5 shrink-0">
@@ -511,6 +527,15 @@ function PointsHistoryCard({ members }: { members: { id: number; name: string; e
                         <span className={`text-sm font-bold shrink-0 ${isPositive ? "text-green-700" : "text-red-600"}`}>
                           {amountStr}
                         </span>
+                        {isDeletable && (
+                          <button
+                            onClick={() => setConfirmDeleteId(tx.id)}
+                            className="shrink-0 ml-1 text-muted-foreground hover:text-red-500 transition-colors"
+                            title="Delete transaction"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     );
                   })}
@@ -519,6 +544,33 @@ function PointsHistoryCard({ members }: { members: { id: number; name: string; e
             )}
           </>
         )}
+
+        <Dialog open={confirmDeleteId !== null} onOpenChange={(open) => { if (!open) setConfirmDeleteId(null); }}>
+          <DialogContent className="rounded-3xl max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Delete transaction?</DialogTitle>
+            </DialogHeader>
+            {confirmTx && (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  This will permanently remove the <strong>{TX_TYPE_CONFIG[confirmTx.type]?.label ?? confirmTx.type}</strong> transaction
+                  {" "}"{confirmTx.description}" ({confirmTx.amount > 0 ? "+" : ""}{confirmTx.amount} pts) and reverse its effect on the member's balance.
+                </p>
+                <div className="flex gap-2 justify-end">
+                  <Button variant="outline" className="rounded-xl" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
+                  <Button
+                    variant="destructive"
+                    className="rounded-xl"
+                    disabled={isDeleting}
+                    onClick={() => deleteTxn({ id: confirmTx.id })}
+                  >
+                    {isDeleting ? "Deleting…" : "Delete"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
