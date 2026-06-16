@@ -2,7 +2,9 @@ import { useState } from "react";
 import {
   useListRewards, useListRedemptions, useListFamilyMembers,
   useRequestRedemption, useApproveRedemption, useRejectRedemption, useFulfillRedemption,
+  useListPointTransactions,
   getListRewardsQueryKey, getListRedemptionsQueryKey, getListFamilyMembersQueryKey,
+  getListPointTransactionsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,9 +12,84 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Gift, Check, X, Star, Lock, AlertTriangle, PackageCheck } from "lucide-react";
+import { Gift, Check, X, Star, Lock, AlertTriangle, PackageCheck, History, Sparkles, Trophy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { RedemptionInput } from "@workspace/api-client-react";
+import { format } from "date-fns";
+import type { RedemptionInput, PointTransaction } from "@workspace/api-client-react";
+
+// ── Points history config ─────────────────────────────────────────────────────
+const TX_CONFIG: Record<string, { emoji: string; label: string; bg: string; text: string }> = {
+  chore_earned: { emoji: "⭐", label: "Chore",      bg: "bg-green-100",  text: "text-green-800"  },
+  bonus:        { emoji: "🎉", label: "Bonus",       bg: "bg-blue-100",   text: "text-blue-800"   },
+  reward_spent: { emoji: "🎁", label: "Reward",      bg: "bg-purple-100", text: "text-purple-800" },
+  adjustment:   { emoji: "⚡", label: "Adjustment",  bg: "bg-orange-100", text: "text-orange-800" },
+};
+function txConfig(type: string) {
+  return TX_CONFIG[type] ?? { emoji: "💰", label: type, bg: "bg-muted", text: "text-muted-foreground" };
+}
+
+// ── Per-child history section ─────────────────────────────────────────────────
+function ChildHistorySection({ memberId, memberName }: { memberId: number; memberName: string }) {
+  const { data: txs = [], isLoading } = useListPointTransactions(
+    { memberId },
+    { query: { queryKey: getListPointTransactionsQueryKey({ memberId }), enabled: !!memberId } },
+  );
+  const sorted = [...txs].reverse();
+  const earned  = txs.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+  const spent   = txs.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0);
+
+  if (isLoading) return <p className="text-center text-muted-foreground py-6">Loading…</p>;
+  if (sorted.length === 0) return (
+    <div className="text-center py-8 text-muted-foreground">
+      <Sparkles className="w-10 h-10 mx-auto mb-2 opacity-30" />
+      <p>No points history yet for {memberName} — complete some chores to get started!</p>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      {/* Mini summary */}
+      <div className="flex gap-3 flex-wrap">
+        <div className="flex-1 min-w-[120px] bg-green-50 rounded-2xl px-4 py-3 text-center">
+          <div className="text-xl font-bold text-green-700">+{earned}</div>
+          <div className="text-xs text-green-600">pts earned</div>
+        </div>
+        <div className="flex-1 min-w-[120px] bg-purple-50 rounded-2xl px-4 py-3 text-center">
+          <div className="text-xl font-bold text-purple-700">{spent}</div>
+          <div className="text-xs text-purple-600">pts spent</div>
+        </div>
+        <div className="flex-1 min-w-[120px] bg-primary/5 rounded-2xl px-4 py-3 text-center">
+          <div className="text-xl font-bold text-primary">{sorted.length}</div>
+          <div className="text-xs text-muted-foreground">transactions</div>
+        </div>
+      </div>
+
+      {/* Transaction rows */}
+      <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+        {sorted.map((t: PointTransaction) => {
+          const cfg = txConfig(t.type);
+          return (
+            <div key={t.id} className="flex items-center gap-3 bg-muted/50 rounded-2xl px-4 py-3">
+              <span className="text-xl shrink-0">{cfg.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-sm truncate">{t.description}</div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}>
+                    {cfg.label}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{format(new Date(t.createdAt), "d MMM, h:mm a")}</span>
+                </div>
+              </div>
+              <span className={`font-bold text-base shrink-0 tabular-nums ${t.amount > 0 ? "text-green-600" : "text-red-500"}`}>
+                {t.amount > 0 ? "+" : ""}{t.amount}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 interface ParentInfo {
   id: number;
@@ -121,6 +198,8 @@ export default function Rewards() {
 
   const [redeemOpen, setRedeemOpen] = useState(false);
   const [redeemForm, setRedeemForm] = useState<RedemptionInput>({ rewardId: 0, memberId: 0 });
+  const [historyChildId, setHistoryChildId] = useState<number | null>(null);
+  const historyChild = children.find(m => m.id === historyChildId) ?? null;
   const [approveErrors, setApproveErrors] = useState<Record<number, string>>({});
   const [rejectErrors, setRejectErrors] = useState<Record<number, string>>({});
   const [fulfillErrors, setFulfillErrors] = useState<Record<number, string>>({});
@@ -407,6 +486,53 @@ export default function Rewards() {
           <Gift className="w-16 h-16 mx-auto mb-4 opacity-30" />
           <p className="text-xl">No rewards yet — add some in Admin!</p>
         </div>
+      )}
+
+      {/* ── Points History ──────────────────────────────────────────────── */}
+      {children.length > 0 && (
+        <Card className="rounded-3xl border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-amber-500" /> Points History
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Child picker */}
+            <div className="flex gap-3 flex-wrap">
+              {children.map(m => {
+                const isActive = historyChildId === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setHistoryChildId(isActive ? null : m.id)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl border-2 transition-all font-medium text-sm ${
+                      isActive
+                        ? "border-primary bg-primary/5 text-primary shadow-sm scale-105"
+                        : "border-transparent bg-muted hover:border-primary/30 text-foreground"
+                    }`}
+                  >
+                    {m.avatarUrl
+                      ? <img src={m.avatarUrl} alt={m.name} className="w-7 h-7 rounded-full object-cover border border-muted" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                      : <span className="text-xl">{m.emoji}</span>}
+                    <span>{m.name}</span>
+                    <span className="text-xs text-muted-foreground font-normal">{m.pointsBalance} pts</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* History list */}
+            {historyChild
+              ? <ChildHistorySection memberId={historyChild.id} memberName={historyChild.name} />
+              : (
+                <div className="text-center py-6 text-muted-foreground text-sm">
+                  <History className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  Tap a name above to see their points history
+                </div>
+              )
+            }
+          </CardContent>
+        </Card>
       )}
 
       {settled.length > 0 && (
