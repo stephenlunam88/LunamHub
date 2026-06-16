@@ -277,6 +277,7 @@ export default function Dashboard() {
   const { data: allTimeBoard = [] } = useGetLeaderboard();
   const { data: weeklyBoard = [] } = useGetWeeklyLeaderboard();
   const [now, setNow] = useState(new Date());
+  const [leaderboardView, setLeaderboardView] = useState<"alltime" | "weekly">("alltime");
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -378,9 +379,16 @@ export default function Dashboard() {
                 {tomorrowEvents.length > 0 && (
                   <>
                     <div className="font-bold text-base pt-1">Tomorrow's Events</div>
-                    {tomorrowEvents.map(e => (
+                    {tomorrowEvents.slice(0, 5).map(e => (
                       <EventRow key={e.id} e={e} memberById={memberById} />
                     ))}
+                    {tomorrowEvents.length > 5 && (
+                      <div className="text-center py-1">
+                        <span className="text-xs font-semibold text-muted-foreground bg-muted/70 rounded-full px-3 py-1">
+                          +{tomorrowEvents.length - 5} more
+                        </span>
+                      </div>
+                    )}
                   </>
                 )}
               </>
@@ -444,34 +452,89 @@ export default function Dashboard() {
       {children.length > 0 ? (
         <Card className="rounded-3xl shadow-sm border-0 flex flex-col overflow-hidden row-start-2" style={{ backgroundColor: "hsl(152 60% 45% / 0.07)" }}>
           <CardHeader className="pb-2 shrink-0">
-            <CardTitle className="text-base font-bold flex items-center gap-1.5">
-              <Trophy className="w-4 h-4 text-amber-500" /> Leaderboard
-            </CardTitle>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base font-bold flex items-center gap-1.5">
+                <Trophy className="w-4 h-4 text-amber-500" /> Leaderboard
+              </CardTitle>
+              {/* Toggle */}
+              <div className="flex rounded-xl overflow-hidden border border-border bg-background text-xs font-semibold shrink-0">
+                <button
+                  onClick={() => setLeaderboardView("alltime")}
+                  className={`px-3 py-1.5 transition-colors ${leaderboardView === "alltime" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  All Time
+                </button>
+                <button
+                  onClick={() => setLeaderboardView("weekly")}
+                  className={`px-3 py-1.5 transition-colors ${leaderboardView === "weekly" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  This Week
+                </button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto min-h-0 pt-0 space-y-2 pr-2">
-            {allTimeBoard.map((entry, i) => {
-              const member = summary.familyMembers.find(m => m.id === entry.memberId);
-              const weekly = weeklyBoard.find(w => w.memberId === entry.memberId);
-              return (
-                <div key={entry.memberId} className="bg-card rounded-xl p-3 shadow-sm flex items-center gap-3">
-                  <div className="text-xl w-7 text-center font-bold shrink-0">{rankMedal(i)}</div>
-                  <AvatarOrEmoji avatarUrl={entry.avatarUrl} emoji={entry.emoji} sizeCls="w-10 h-10 text-3xl" />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-sm flex items-center truncate">
-                      {entry.name}
-                      {member && <ChildBadgeIcons memberId={member.id} />}
+            {leaderboardView === "alltime" ? (
+              <>
+                {allTimeBoard.map((entry, i) => {
+                  const member = summary.familyMembers.find(m => m.id === entry.memberId);
+                  return (
+                    <div key={entry.memberId} className="bg-card rounded-xl p-3 shadow-sm flex items-center gap-3">
+                      <div className="text-xl w-7 text-center font-bold shrink-0">{rankMedal(i)}</div>
+                      <AvatarOrEmoji avatarUrl={entry.avatarUrl} emoji={entry.emoji} sizeCls="w-10 h-10 text-3xl" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-sm flex items-center truncate">
+                          {entry.name}
+                          {member && <ChildBadgeIcons memberId={member.id} />}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          <span className="text-primary font-semibold">{entry.pointsBalance} pts</span>
+                          <span className="mx-1 text-border">·</span>available
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="font-bold text-base leading-tight">{entry.lifetimePoints}</div>
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wide">score</div>
+                      </div>
                     </div>
-                    <div className="text-xs text-green-600 font-semibold">+{weekly?.weeklyPoints ?? 0} this week</div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="font-bold text-base leading-tight">{entry.lifetimePoints}</div>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide">score</div>
-                  </div>
-                </div>
-              );
-            })}
-            {allTimeBoard.length === 0 && (
-              <p className="text-muted-foreground text-sm text-center py-4">No children added yet.</p>
+                  );
+                })}
+                {allTimeBoard.length === 0 && (
+                  <p className="text-muted-foreground text-sm text-center py-4">No children added yet.</p>
+                )}
+              </>
+            ) : (
+              <>
+                {[...weeklyBoard]
+                  .sort((a, b) => b.weeklyPoints - a.weeklyPoints)
+                  .map((entry, i) => {
+                    const member = summary.familyMembers.find(m => m.id === entry.memberId);
+                    const allTime = allTimeBoard.find(a => a.memberId === entry.memberId);
+                    return (
+                      <div key={entry.memberId} className="bg-card rounded-xl p-3 shadow-sm flex items-center gap-3">
+                        <div className="text-xl w-7 text-center font-bold shrink-0">{rankMedal(i)}</div>
+                        <AvatarOrEmoji avatarUrl={entry.avatarUrl} emoji={entry.emoji} sizeCls="w-10 h-10 text-3xl" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-sm flex items-center truncate">
+                            {entry.name}
+                            {member && <ChildBadgeIcons memberId={member.id} />}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            <span className="text-primary font-semibold">{allTime?.pointsBalance ?? 0} pts</span>
+                            <span className="mx-1 text-border">·</span>available
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="font-bold text-base leading-tight text-green-600">+{entry.weeklyPoints}</div>
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">this wk</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                {weeklyBoard.length === 0 && (
+                  <p className="text-muted-foreground text-sm text-center py-4">No data yet.</p>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
