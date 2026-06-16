@@ -28,6 +28,8 @@ import type {
   Chore,
   ChoreApproveBody,
   ChoreInput,
+  ChoreMilestone,
+  ChoreMilestoneInput,
   ChoreRejectBody,
   ChoreSummary,
   ChoreUpdate,
@@ -58,6 +60,8 @@ import type {
   MealPlanEntryInput,
   MealUpdate,
   PinInput,
+  PointMilestone,
+  PointMilestoneInput,
   PointTransaction,
   Redemption,
   RedemptionApproveBody,
@@ -5676,6 +5680,586 @@ export const useDeleteScreensaverPhoto = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteScreensaverPhotoMutationOptions(options));
+    }
+
+export const getListPointMilestonesUrl = () => {
+
+
+
+
+  return `/api/point-milestones`
+}
+
+/**
+ * @summary List all point milestones
+ */
+export const listPointMilestones = async ( options?: RequestInit): Promise<PointMilestone[]> => {
+
+  return customFetch<PointMilestone[]>(getListPointMilestonesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPointMilestonesQueryKey = () => {
+    return [
+    `/api/point-milestones`
+    ] as const;
+    }
+
+
+export const getListPointMilestonesQueryOptions = <TData = Awaited<ReturnType<typeof listPointMilestones>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPointMilestones>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPointMilestonesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPointMilestones>>> = ({ signal }) => listPointMilestones({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPointMilestones>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPointMilestonesQueryResult = NonNullable<Awaited<ReturnType<typeof listPointMilestones>>>
+export type ListPointMilestonesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all point milestones
+ */
+
+export function useListPointMilestones<TData = Awaited<ReturnType<typeof listPointMilestones>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPointMilestones>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPointMilestonesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreatePointMilestoneUrl = () => {
+
+
+
+
+  return `/api/point-milestones`
+}
+
+/**
+ * @summary Create a point milestone
+ */
+export const createPointMilestone = async (pointMilestoneInput: PointMilestoneInput, options?: RequestInit): Promise<PointMilestone> => {
+
+  return customFetch<PointMilestone>(getCreatePointMilestoneUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      pointMilestoneInput,)
+  }
+);}
+
+
+
+
+export const getCreatePointMilestoneMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPointMilestone>>, TError,{data: BodyType<PointMilestoneInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPointMilestone>>, TError,{data: BodyType<PointMilestoneInput>}, TContext> => {
+
+const mutationKey = ['createPointMilestone'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPointMilestone>>, {data: BodyType<PointMilestoneInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createPointMilestone(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePointMilestoneMutationResult = NonNullable<Awaited<ReturnType<typeof createPointMilestone>>>
+    export type CreatePointMilestoneMutationBody = BodyType<PointMilestoneInput>
+    export type CreatePointMilestoneMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a point milestone
+ */
+export const useCreatePointMilestone = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPointMilestone>>, TError,{data: BodyType<PointMilestoneInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPointMilestone>>,
+        TError,
+        {data: BodyType<PointMilestoneInput>},
+        TContext
+      > => {
+      return useMutation(getCreatePointMilestoneMutationOptions(options));
+    }
+
+export const getUpdatePointMilestoneUrl = (id: number,) => {
+
+
+
+
+  return `/api/point-milestones/${id}`
+}
+
+/**
+ * @summary Update a point milestone
+ */
+export const updatePointMilestone = async (id: number,
+    pointMilestoneInput: PointMilestoneInput, options?: RequestInit): Promise<PointMilestone> => {
+
+  return customFetch<PointMilestone>(getUpdatePointMilestoneUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      pointMilestoneInput,)
+  }
+);}
+
+
+
+
+export const getUpdatePointMilestoneMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePointMilestone>>, TError,{id: number;data: BodyType<PointMilestoneInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePointMilestone>>, TError,{id: number;data: BodyType<PointMilestoneInput>}, TContext> => {
+
+const mutationKey = ['updatePointMilestone'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePointMilestone>>, {id: number;data: BodyType<PointMilestoneInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updatePointMilestone(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePointMilestoneMutationResult = NonNullable<Awaited<ReturnType<typeof updatePointMilestone>>>
+    export type UpdatePointMilestoneMutationBody = BodyType<PointMilestoneInput>
+    export type UpdatePointMilestoneMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a point milestone
+ */
+export const useUpdatePointMilestone = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePointMilestone>>, TError,{id: number;data: BodyType<PointMilestoneInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePointMilestone>>,
+        TError,
+        {id: number;data: BodyType<PointMilestoneInput>},
+        TContext
+      > => {
+      return useMutation(getUpdatePointMilestoneMutationOptions(options));
+    }
+
+export const getDeletePointMilestoneUrl = (id: number,) => {
+
+
+
+
+  return `/api/point-milestones/${id}`
+}
+
+/**
+ * @summary Delete a point milestone
+ */
+export const deletePointMilestone = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeletePointMilestoneUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeletePointMilestoneMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePointMilestone>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deletePointMilestone>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deletePointMilestone'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deletePointMilestone>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deletePointMilestone(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeletePointMilestoneMutationResult = NonNullable<Awaited<ReturnType<typeof deletePointMilestone>>>
+
+    export type DeletePointMilestoneMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a point milestone
+ */
+export const useDeletePointMilestone = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePointMilestone>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deletePointMilestone>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeletePointMilestoneMutationOptions(options));
+    }
+
+export const getListChoreMilestonesUrl = () => {
+
+
+
+
+  return `/api/chore-milestones`
+}
+
+/**
+ * @summary List all chore milestones
+ */
+export const listChoreMilestones = async ( options?: RequestInit): Promise<ChoreMilestone[]> => {
+
+  return customFetch<ChoreMilestone[]>(getListChoreMilestonesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListChoreMilestonesQueryKey = () => {
+    return [
+    `/api/chore-milestones`
+    ] as const;
+    }
+
+
+export const getListChoreMilestonesQueryOptions = <TData = Awaited<ReturnType<typeof listChoreMilestones>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listChoreMilestones>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListChoreMilestonesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listChoreMilestones>>> = ({ signal }) => listChoreMilestones({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listChoreMilestones>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListChoreMilestonesQueryResult = NonNullable<Awaited<ReturnType<typeof listChoreMilestones>>>
+export type ListChoreMilestonesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all chore milestones
+ */
+
+export function useListChoreMilestones<TData = Awaited<ReturnType<typeof listChoreMilestones>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listChoreMilestones>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListChoreMilestonesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateChoreMilestoneUrl = () => {
+
+
+
+
+  return `/api/chore-milestones`
+}
+
+/**
+ * @summary Create a chore milestone
+ */
+export const createChoreMilestone = async (choreMilestoneInput: ChoreMilestoneInput, options?: RequestInit): Promise<ChoreMilestone> => {
+
+  return customFetch<ChoreMilestone>(getCreateChoreMilestoneUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      choreMilestoneInput,)
+  }
+);}
+
+
+
+
+export const getCreateChoreMilestoneMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createChoreMilestone>>, TError,{data: BodyType<ChoreMilestoneInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createChoreMilestone>>, TError,{data: BodyType<ChoreMilestoneInput>}, TContext> => {
+
+const mutationKey = ['createChoreMilestone'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createChoreMilestone>>, {data: BodyType<ChoreMilestoneInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createChoreMilestone(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateChoreMilestoneMutationResult = NonNullable<Awaited<ReturnType<typeof createChoreMilestone>>>
+    export type CreateChoreMilestoneMutationBody = BodyType<ChoreMilestoneInput>
+    export type CreateChoreMilestoneMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a chore milestone
+ */
+export const useCreateChoreMilestone = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createChoreMilestone>>, TError,{data: BodyType<ChoreMilestoneInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createChoreMilestone>>,
+        TError,
+        {data: BodyType<ChoreMilestoneInput>},
+        TContext
+      > => {
+      return useMutation(getCreateChoreMilestoneMutationOptions(options));
+    }
+
+export const getUpdateChoreMilestoneUrl = (id: number,) => {
+
+
+
+
+  return `/api/chore-milestones/${id}`
+}
+
+/**
+ * @summary Update a chore milestone
+ */
+export const updateChoreMilestone = async (id: number,
+    choreMilestoneInput: ChoreMilestoneInput, options?: RequestInit): Promise<ChoreMilestone> => {
+
+  return customFetch<ChoreMilestone>(getUpdateChoreMilestoneUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      choreMilestoneInput,)
+  }
+);}
+
+
+
+
+export const getUpdateChoreMilestoneMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateChoreMilestone>>, TError,{id: number;data: BodyType<ChoreMilestoneInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateChoreMilestone>>, TError,{id: number;data: BodyType<ChoreMilestoneInput>}, TContext> => {
+
+const mutationKey = ['updateChoreMilestone'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateChoreMilestone>>, {id: number;data: BodyType<ChoreMilestoneInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateChoreMilestone(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateChoreMilestoneMutationResult = NonNullable<Awaited<ReturnType<typeof updateChoreMilestone>>>
+    export type UpdateChoreMilestoneMutationBody = BodyType<ChoreMilestoneInput>
+    export type UpdateChoreMilestoneMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a chore milestone
+ */
+export const useUpdateChoreMilestone = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateChoreMilestone>>, TError,{id: number;data: BodyType<ChoreMilestoneInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateChoreMilestone>>,
+        TError,
+        {id: number;data: BodyType<ChoreMilestoneInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateChoreMilestoneMutationOptions(options));
+    }
+
+export const getDeleteChoreMilestoneUrl = (id: number,) => {
+
+
+
+
+  return `/api/chore-milestones/${id}`
+}
+
+/**
+ * @summary Delete a chore milestone
+ */
+export const deleteChoreMilestone = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteChoreMilestoneUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteChoreMilestoneMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteChoreMilestone>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteChoreMilestone>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteChoreMilestone'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteChoreMilestone>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteChoreMilestone(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteChoreMilestoneMutationResult = NonNullable<Awaited<ReturnType<typeof deleteChoreMilestone>>>
+
+    export type DeleteChoreMilestoneMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a chore milestone
+ */
+export const useDeleteChoreMilestone = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteChoreMilestone>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteChoreMilestone>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteChoreMilestoneMutationOptions(options));
     }
 
 export const getGetLeaderboardUrl = () => {

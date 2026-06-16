@@ -19,6 +19,8 @@ import {
   pointTransactionsTable,
   badgesTable,
   streakMilestonesTable,
+  pointMilestonesTable,
+  choreMilestonesTable,
 } from "@workspace/db";
 import { eq, sql, lt, and, count, inArray } from "drizzle-orm";
 import { z } from "zod";
@@ -691,13 +693,35 @@ function maxConsecutiveDays(sortedDates: string[]): number {
   return maxStreak;
 }
 
+const DEFAULT_POINT_MILESTONES = [
+  { threshold: 50,   title: "First Steps",     emoji: "⭐",  tier: "bronze" as const, bonusPoints: 5,  description: "Earned 50 lifetime points",   active: true },
+  { threshold: 100,  title: "Point Collector", emoji: "🌟",  tier: "bronze" as const, bonusPoints: 10, description: "Earned 100 lifetime points",  active: true },
+  { threshold: 500,  title: "Silver Earner",   emoji: "🥈",  tier: "silver" as const, bonusPoints: 25, description: "Earned 500 lifetime points",  active: true },
+  { threshold: 1000, title: "Gold Champion",   emoji: "🥇",  tier: "gold"   as const, bonusPoints: 50, description: "Earned 1000 lifetime points", active: true },
+];
+
+const DEFAULT_CHORE_MILESTONES = [
+  { threshold: 1,   title: "First Chore",    emoji: "🎯",  tier: "bronze" as const, bonusPoints: 5,   description: "Completed first chore",  active: true },
+  { threshold: 10,  title: "Hard Worker",    emoji: "💪",  tier: "silver" as const, bonusPoints: 15,  description: "Completed 10 chores",   active: true },
+  { threshold: 25,  title: "Chore Champion", emoji: "🏆",  tier: "gold"   as const, bonusPoints: 30,  description: "Completed 25 chores",   active: true },
+  { threshold: 50,  title: "Chore Legend",   emoji: "👑",  tier: "gold"   as const, bonusPoints: 50,  description: "Completed 50 chores",   active: true },
+  { threshold: 100, title: "Century Hero",   emoji: "🌠",  tier: "gold"   as const, bonusPoints: 100, description: "Completed 100 chores",  active: true },
+];
+
 async function checkAndAwardBadges(memberId: number, lifetimePoints: number) {
-  const pointMilestones = [
-    { threshold: 50,   emoji: "⭐",  title: "First Steps",     tier: "bronze" as const, description: "Earned 50 lifetime points" },
-    { threshold: 100,  emoji: "🌟",  title: "Point Collector", tier: "bronze" as const, description: "Earned 100 lifetime points" },
-    { threshold: 500,  emoji: "🥈",  title: "Silver Earner",   tier: "silver" as const, description: "Earned 500 lifetime points" },
-    { threshold: 1000, emoji: "🥇",  title: "Gold Champion",   tier: "gold"   as const, description: "Earned 1000 lifetime points" },
-  ];
+  // Load active point milestones from DB (seed defaults if empty)
+  let dbPointMilestones = await db.select().from(pointMilestonesTable).where(eq(pointMilestonesTable.active, true));
+  if (dbPointMilestones.length === 0) {
+    dbPointMilestones = await db.insert(pointMilestonesTable).values(DEFAULT_POINT_MILESTONES).returning();
+  }
+  const pointMilestones = dbPointMilestones.map((m) => ({
+    threshold: m.threshold,
+    emoji: m.emoji,
+    title: m.title,
+    tier: m.tier as "bronze" | "silver" | "gold",
+    description: m.description ?? `Earned ${m.threshold} lifetime points`,
+    bonusPoints: m.bonusPoints,
+  }));
 
   const [{ value: choreCount }] = await db
     .select({ value: count() })
@@ -707,13 +731,19 @@ async function checkAndAwardBadges(memberId: number, lifetimePoints: number) {
     );
   const approvedCount = Number(choreCount ?? 0);
 
-  const choreMilestones = [
-    { threshold: 1,   emoji: "🎯", title: "First Chore",    tier: "bronze" as const, description: "Completed first chore" },
-    { threshold: 10,  emoji: "💪", title: "Hard Worker",    tier: "silver" as const, description: "Approved 10 chores" },
-    { threshold: 25,  emoji: "🏆", title: "Chore Champion", tier: "gold"   as const, description: "Approved 25 chores" },
-    { threshold: 50,  emoji: "👑", title: "Chore Legend",   tier: "gold"   as const, description: "Approved 50 chores" },
-    { threshold: 100, emoji: "🌠", title: "Century Hero",   tier: "gold"   as const, description: "Approved 100 chores" },
-  ];
+  // Load active chore milestones from DB (seed defaults if empty)
+  let dbChoreMilestones = await db.select().from(choreMilestonesTable).where(eq(choreMilestonesTable.active, true));
+  if (dbChoreMilestones.length === 0) {
+    dbChoreMilestones = await db.insert(choreMilestonesTable).values(DEFAULT_CHORE_MILESTONES).returning();
+  }
+  const choreMilestones = dbChoreMilestones.map((m) => ({
+    threshold: m.threshold,
+    emoji: m.emoji,
+    title: m.title,
+    tier: m.tier as "bronze" | "silver" | "gold",
+    description: m.description ?? `Completed ${m.threshold} chores`,
+    bonusPoints: m.bonusPoints,
+  }));
 
   const txDates = await db
     .select({ earnedOn: sql<string>`DATE(${pointTransactionsTable.createdAt})` })
@@ -753,12 +783,44 @@ async function checkAndAwardBadges(memberId: number, lifetimePoints: number) {
   const existingTitles = new Set(existing.map((b) => b.title));
 
   for (const m of pointMilestones) {
-    if (lifetimePoints >= m.threshold && !existingTitles.has(m.title))
+    if (lifetimePoints >= m.threshold && !existingTitles.has(m.title)) {
       await db.insert(badgesTable).values({ memberId, ...m });
+      if (m.bonusPoints > 0) {
+        await db.insert(pointTransactionsTable).values({
+          memberId,
+          type: "bonus",
+          amount: m.bonusPoints,
+          description: `⭐ ${m.title} bonus`,
+        });
+        await db
+          .update(familyMembersTable)
+          .set({
+            pointsBalance: sql`${familyMembersTable.pointsBalance} + ${m.bonusPoints}`,
+            lifetimePoints: sql`${familyMembersTable.lifetimePoints} + ${m.bonusPoints}`,
+          })
+          .where(eq(familyMembersTable.id, memberId));
+      }
+    }
   }
   for (const m of choreMilestones) {
-    if (approvedCount >= m.threshold && !existingTitles.has(m.title))
+    if (approvedCount >= m.threshold && !existingTitles.has(m.title)) {
       await db.insert(badgesTable).values({ memberId, ...m });
+      if (m.bonusPoints > 0) {
+        await db.insert(pointTransactionsTable).values({
+          memberId,
+          type: "bonus",
+          amount: m.bonusPoints,
+          description: `🎯 ${m.title} bonus`,
+        });
+        await db
+          .update(familyMembersTable)
+          .set({
+            pointsBalance: sql`${familyMembersTable.pointsBalance} + ${m.bonusPoints}`,
+            lifetimePoints: sql`${familyMembersTable.lifetimePoints} + ${m.bonusPoints}`,
+          })
+          .where(eq(familyMembersTable.id, memberId));
+      }
+    }
   }
   for (const m of streakMilestones) {
     if (longestStreak >= m.threshold && !existingTitles.has(m.title)) {

@@ -241,6 +241,40 @@ export const insertStreakMilestoneSchema = createInsertSchema(streakMilestonesTa
 export type InsertStreakMilestone = z.infer<typeof insertStreakMilestoneSchema>;
 export type StreakMilestone = typeof streakMilestonesTable.$inferSelect;
 
+// ── Point Milestones ──────────────────────────────────────────────────────────
+
+export const pointMilestonesTable = pgTable("point_milestones", {
+  id: serial("id").primaryKey(),
+  threshold: integer("threshold").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  emoji: text("emoji").notNull().default("⭐"),
+  tier: badgeTierEnum("tier").notNull().default("bronze"),
+  bonusPoints: integer("bonus_points").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+});
+
+export const insertPointMilestoneSchema = createInsertSchema(pointMilestonesTable).omit({ id: true });
+export type InsertPointMilestone = z.infer<typeof insertPointMilestoneSchema>;
+export type PointMilestone = typeof pointMilestonesTable.$inferSelect;
+
+// ── Chore Milestones ──────────────────────────────────────────────────────────
+
+export const choreMilestonesTable = pgTable("chore_milestones", {
+  id: serial("id").primaryKey(),
+  threshold: integer("threshold").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  emoji: text("emoji").notNull().default("🎯"),
+  tier: badgeTierEnum("tier").notNull().default("bronze"),
+  bonusPoints: integer("bonus_points").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+});
+
+export const insertChoreMilestoneSchema = createInsertSchema(choreMilestonesTable).omit({ id: true });
+export type InsertChoreMilestone = z.infer<typeof insertChoreMilestoneSchema>;
+export type ChoreMilestone = typeof choreMilestonesTable.$inferSelect;
+
 // ── Lists ─────────────────────────────────────────────────────────────────────
 
 export const listsTable = pgTable("lists", {

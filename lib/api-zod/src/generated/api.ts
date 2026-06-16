@@ -1589,6 +1589,160 @@ export const DeleteScreensaverPhotoParams = zod.object({
 
 
 /**
+ * @summary List all point milestones
+ */
+export const ListPointMilestonesResponseItem = zod.object({
+  "id": zod.number(),
+  "threshold": zod.number(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "emoji": zod.string(),
+  "tier": zod.enum(['bronze', 'silver', 'gold']),
+  "bonusPoints": zod.number(),
+  "active": zod.boolean()
+})
+export const ListPointMilestonesResponse = zod.array(ListPointMilestonesResponseItem)
+
+
+/**
+ * @summary Create a point milestone
+ */
+
+export const createPointMilestoneBodyBonusPointsMin = 0;
+
+
+
+export const CreatePointMilestoneBody = zod.object({
+  "threshold": zod.number().min(1),
+  "title": zod.string(),
+  "description": zod.string().optional(),
+  "emoji": zod.string().optional(),
+  "tier": zod.enum(['bronze', 'silver', 'gold']).optional(),
+  "bonusPoints": zod.number().min(createPointMilestoneBodyBonusPointsMin).optional(),
+  "active": zod.boolean().optional()
+})
+
+
+/**
+ * @summary Update a point milestone
+ */
+export const UpdatePointMilestoneParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+export const updatePointMilestoneBodyBonusPointsMin = 0;
+
+
+
+export const UpdatePointMilestoneBody = zod.object({
+  "threshold": zod.number().min(1),
+  "title": zod.string(),
+  "description": zod.string().optional(),
+  "emoji": zod.string().optional(),
+  "tier": zod.enum(['bronze', 'silver', 'gold']).optional(),
+  "bonusPoints": zod.number().min(updatePointMilestoneBodyBonusPointsMin).optional(),
+  "active": zod.boolean().optional()
+})
+
+export const UpdatePointMilestoneResponse = zod.object({
+  "id": zod.number(),
+  "threshold": zod.number(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "emoji": zod.string(),
+  "tier": zod.enum(['bronze', 'silver', 'gold']),
+  "bonusPoints": zod.number(),
+  "active": zod.boolean()
+})
+
+
+/**
+ * @summary Delete a point milestone
+ */
+export const DeletePointMilestoneParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List all chore milestones
+ */
+export const ListChoreMilestonesResponseItem = zod.object({
+  "id": zod.number(),
+  "threshold": zod.number(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "emoji": zod.string(),
+  "tier": zod.enum(['bronze', 'silver', 'gold']),
+  "bonusPoints": zod.number(),
+  "active": zod.boolean()
+})
+export const ListChoreMilestonesResponse = zod.array(ListChoreMilestonesResponseItem)
+
+
+/**
+ * @summary Create a chore milestone
+ */
+
+export const createChoreMilestoneBodyBonusPointsMin = 0;
+
+
+
+export const CreateChoreMilestoneBody = zod.object({
+  "threshold": zod.number().min(1),
+  "title": zod.string(),
+  "description": zod.string().optional(),
+  "emoji": zod.string().optional(),
+  "tier": zod.enum(['bronze', 'silver', 'gold']).optional(),
+  "bonusPoints": zod.number().min(createChoreMilestoneBodyBonusPointsMin).optional(),
+  "active": zod.boolean().optional()
+})
+
+
+/**
+ * @summary Update a chore milestone
+ */
+export const UpdateChoreMilestoneParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+export const updateChoreMilestoneBodyBonusPointsMin = 0;
+
+
+
+export const UpdateChoreMilestoneBody = zod.object({
+  "threshold": zod.number().min(1),
+  "title": zod.string(),
+  "description": zod.string().optional(),
+  "emoji": zod.string().optional(),
+  "tier": zod.enum(['bronze', 'silver', 'gold']).optional(),
+  "bonusPoints": zod.number().min(updateChoreMilestoneBodyBonusPointsMin).optional(),
+  "active": zod.boolean().optional()
+})
+
+export const UpdateChoreMilestoneResponse = zod.object({
+  "id": zod.number(),
+  "threshold": zod.number(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "emoji": zod.string(),
+  "tier": zod.enum(['bronze', 'silver', 'gold']),
+  "bonusPoints": zod.number(),
+  "active": zod.boolean()
+})
+
+
+/**
+ * @summary Delete a chore milestone
+ */
+export const DeleteChoreMilestoneParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
  * @summary All-time leaderboard for children
  */
 export const GetLeaderboardResponseItem = zod.object({

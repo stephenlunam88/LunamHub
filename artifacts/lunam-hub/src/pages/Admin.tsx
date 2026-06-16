@@ -8,8 +8,11 @@ import {
   useListStreakMilestones, useCreateStreakMilestone, useUpdateStreakMilestone, useDeleteStreakMilestone,
   useListScreensaverPhotos, useCreateScreensaverPhoto, useDeleteScreensaverPhoto,
   useUpdateFamilyMember,
+  useListPointMilestones, useCreatePointMilestone, useUpdatePointMilestone, useDeletePointMilestone,
+  useListChoreMilestones, useCreateChoreMilestone, useUpdateChoreMilestone, useDeleteChoreMilestone,
   getGetSettingsQueryKey, getListFamilyMembersQueryKey,
   getListRewardsQueryKey, getListStreakMilestonesQueryKey, getListScreensaverPhotosQueryKey,
+  getListPointMilestonesQueryKey, getListChoreMilestonesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,14 +22,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload, CalendarDays, Flame, ImagePlay } from "lucide-react";
+import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload, CalendarDays, Flame, ImagePlay, Star, ListChecks } from "lucide-react";
 import {
   useGetGoogleCalendarStatus,
   useConnectGoogleCalendar,
   useDisconnectGoogleCalendar,
   getGetGoogleCalendarStatusQueryKey,
 } from "@workspace/api-client-react";
-import type { FamilyMemberInput, FamilyMemberUpdate, RewardInput, RewardUpdate, Reward, StreakMilestone, StreakMilestoneInput, ScreensaverPhoto } from "@workspace/api-client-react";
+import type { FamilyMemberInput, FamilyMemberUpdate, RewardInput, RewardUpdate, Reward, StreakMilestone, StreakMilestoneInput, ScreensaverPhoto, PointMilestone, PointMilestoneInput, ChoreMilestone, ChoreMilestoneInput } from "@workspace/api-client-react";
 
 export default function Admin() {
   const [pin, setPin] = useState("");
@@ -383,6 +386,52 @@ const TIER_COLORS: Record<string, string> = {
 };
 
 const BLANK_MILESTONE: StreakMilestoneInput = { days: 7, title: "", emoji: "🔥", tier: "bronze", bonusPoints: 10, active: true };
+const BLANK_POINT_MILESTONE: PointMilestoneInput = { threshold: 100, title: "", emoji: "⭐", tier: "bronze", bonusPoints: 10, active: true };
+const BLANK_CHORE_MILESTONE: ChoreMilestoneInput = { threshold: 10, title: "", emoji: "🎯", tier: "bronze", bonusPoints: 15, active: true };
+
+function ThresholdMilestoneForm<T extends { threshold: number; title: string; description?: string; emoji?: string; tier?: string; bonusPoints?: number; active?: boolean }>({
+  form, setForm, label,
+}: { form: T; setForm: React.Dispatch<React.SetStateAction<T>>; label: string }) {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label>{label} threshold</Label>
+          <Input type="number" min={1} value={form.threshold} onChange={e => setForm(f => ({ ...f, threshold: Number(e.target.value) }))} className="rounded-xl h-12" />
+        </div>
+        <div>
+          <Label>Emoji</Label>
+          <Input value={form.emoji ?? ""} onChange={e => setForm(f => ({ ...f, emoji: e.target.value }))} className="rounded-xl h-12" />
+        </div>
+      </div>
+      <div>
+        <Label>Title</Label>
+        <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Point Collector" className="rounded-xl h-12" />
+      </div>
+      <div>
+        <Label>Description (optional)</Label>
+        <Input value={form.description ?? ""} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="rounded-xl h-12" />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label>Tier</Label>
+          <Select value={form.tier ?? "bronze"} onValueChange={v => setForm(f => ({ ...f, tier: v as "bronze" | "silver" | "gold" }))}>
+            <SelectTrigger className="rounded-xl h-12"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="bronze">🥉 Bronze</SelectItem>
+              <SelectItem value="silver">🥈 Silver</SelectItem>
+              <SelectItem value="gold">🥇 Gold</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>Bonus points</Label>
+          <Input type="number" min={0} value={form.bonusPoints ?? 0} onChange={e => setForm(f => ({ ...f, bonusPoints: Number(e.target.value) }))} className="rounded-xl h-12" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function AdminPanel({ onLock }: { onLock: () => void }) {
   const qc = useQueryClient();
@@ -391,6 +440,8 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
   const { data: rewards = [] } = useListRewards();
   const { data: milestones = [] } = useListStreakMilestones();
   const { data: ssPhotos = [] } = useListScreensaverPhotos();
+  const { data: pointMilestones = [] } = useListPointMilestones();
+  const { data: choreMilestones = [] } = useListChoreMilestones();
   const [newPin, setNewPin] = useState("");
   const [ssUploading, setSsUploading] = useState(false);
   const ssFileRef = useRef<HTMLInputElement>(null);
@@ -409,6 +460,16 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
   const [editMemberOpen, setEditMemberOpen] = useState(false);
   const [editMemberTarget, setEditMemberTarget] = useState<{ id: number; name: string } | null>(null);
   const [editMemberForm, setEditMemberForm] = useState<FamilyMemberUpdate>({});
+  const [pointMilestoneOpen, setPointMilestoneOpen] = useState(false);
+  const [pointMilestoneForm, setPointMilestoneForm] = useState<PointMilestoneInput>(BLANK_POINT_MILESTONE);
+  const [editPointMilestoneOpen, setEditPointMilestoneOpen] = useState(false);
+  const [editPointMilestoneTarget, setEditPointMilestoneTarget] = useState<PointMilestone | null>(null);
+  const [editPointMilestoneForm, setEditPointMilestoneForm] = useState<PointMilestoneInput>(BLANK_POINT_MILESTONE);
+  const [choreMilestoneOpen, setChoreMilestoneOpen] = useState(false);
+  const [choreMilestoneForm, setChoreMilestoneForm] = useState<ChoreMilestoneInput>(BLANK_CHORE_MILESTONE);
+  const [editChoreMilestoneOpen, setEditChoreMilestoneOpen] = useState(false);
+  const [editChoreMilestoneTarget, setEditChoreMilestoneTarget] = useState<ChoreMilestone | null>(null);
+  const [editChoreMilestoneForm, setEditChoreMilestoneForm] = useState<ChoreMilestoneInput>(BLANK_CHORE_MILESTONE);
 
   const invalidateRewards = () => qc.invalidateQueries({ queryKey: getListRewardsQueryKey() });
   const invalidateMilestones = () => qc.invalidateQueries({ queryKey: getListStreakMilestonesQueryKey() });
@@ -433,6 +494,8 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
     }
   };
 
+  const invalidatePointMilestones = () => qc.invalidateQueries({ queryKey: getListPointMilestonesQueryKey() });
+  const invalidateChoreMilestones = () => qc.invalidateQueries({ queryKey: getListChoreMilestonesQueryKey() });
   const updateSettings = useUpdateSettings({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getGetSettingsQueryKey() }) } });
   const invalidateMembers = () => qc.invalidateQueries({ queryKey: getListFamilyMembersQueryKey() });
   const createMember = useCreateFamilyMember({ mutation: { onSuccess: () => { invalidateMembers(); setMemberForm({ name: "", emoji: "😊", color: "#6366f1", role: "child" }); } } });
@@ -444,6 +507,12 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
   const createMilestone = useCreateStreakMilestone({ mutation: { onSuccess: () => { invalidateMilestones(); setMilestoneOpen(false); setMilestoneForm(BLANK_MILESTONE); } } });
   const updateMilestone = useUpdateStreakMilestone({ mutation: { onSuccess: () => { invalidateMilestones(); setEditMilestoneOpen(false); setEditMilestoneTarget(null); } } });
   const deleteMilestone = useDeleteStreakMilestone({ mutation: { onSuccess: invalidateMilestones } });
+  const createPointMilestone = useCreatePointMilestone({ mutation: { onSuccess: () => { invalidatePointMilestones(); setPointMilestoneOpen(false); setPointMilestoneForm(BLANK_POINT_MILESTONE); } } });
+  const updatePointMilestone = useUpdatePointMilestone({ mutation: { onSuccess: () => { invalidatePointMilestones(); setEditPointMilestoneOpen(false); setEditPointMilestoneTarget(null); } } });
+  const deletePointMilestone = useDeletePointMilestone({ mutation: { onSuccess: invalidatePointMilestones } });
+  const createChoreMilestone = useCreateChoreMilestone({ mutation: { onSuccess: () => { invalidateChoreMilestones(); setChoreMilestoneOpen(false); setChoreMilestoneForm(BLANK_CHORE_MILESTONE); } } });
+  const updateChoreMilestone = useUpdateChoreMilestone({ mutation: { onSuccess: () => { invalidateChoreMilestones(); setEditChoreMilestoneOpen(false); setEditChoreMilestoneTarget(null); } } });
+  const deleteChoreMilestone = useDeleteChoreMilestone({ mutation: { onSuccess: invalidateChoreMilestones } });
 
   function openEditReward(r: Reward) {
     setEditRewardTarget(r);
@@ -455,6 +524,18 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
     setEditMilestoneTarget(m);
     setEditMilestoneForm({ days: m.days, title: m.title, description: m.description ?? undefined, emoji: m.emoji, tier: m.tier as StreakMilestoneInput["tier"], bonusPoints: m.bonusPoints, active: m.active });
     setEditMilestoneOpen(true);
+  }
+
+  function openEditPointMilestone(m: PointMilestone) {
+    setEditPointMilestoneTarget(m);
+    setEditPointMilestoneForm({ threshold: m.threshold, title: m.title, description: m.description ?? undefined, emoji: m.emoji, tier: m.tier as PointMilestoneInput["tier"], bonusPoints: m.bonusPoints, active: m.active });
+    setEditPointMilestoneOpen(true);
+  }
+
+  function openEditChoreMilestone(m: ChoreMilestone) {
+    setEditChoreMilestoneTarget(m);
+    setEditChoreMilestoneForm({ threshold: m.threshold, title: m.title, description: m.description ?? undefined, emoji: m.emoji, tier: m.tier as ChoreMilestoneInput["tier"], bonusPoints: m.bonusPoints, active: m.active });
+    setEditChoreMilestoneOpen(true);
   }
 
   const parents = members.filter(m => m.role === "parent");
@@ -820,6 +901,140 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Point Milestones ──────────────────────────────────────────── */}
+      <Card className="rounded-3xl border-0 shadow-sm">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2"><Star className="w-5 h-5" /> Point Milestones</CardTitle>
+            <Dialog open={pointMilestoneOpen} onOpenChange={o => { setPointMilestoneOpen(o); if (!o) setPointMilestoneForm(BLANK_POINT_MILESTONE); }}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="rounded-xl gap-1.5"><Plus className="w-4 h-4" /> Add Milestone</Button>
+              </DialogTrigger>
+              <DialogContent className="rounded-3xl">
+                <DialogHeader><DialogTitle className="text-xl font-serif">New Point Milestone</DialogTitle></DialogHeader>
+                <ThresholdMilestoneForm form={pointMilestoneForm} setForm={setPointMilestoneForm} label="Points" />
+                <Button className="w-full h-12 rounded-xl mt-2" onClick={() => createPointMilestone.mutate({ data: pointMilestoneForm })} disabled={!pointMilestoneForm.title || !pointMilestoneForm.threshold || createPointMilestone.isPending}>
+                  {createPointMilestone.isPending ? "Adding…" : "Add Milestone"}
+                </Button>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">Badges awarded when a child's lifetime point total crosses a threshold. Configure the values that match your family's pace.</p>
+          {pointMilestones.length === 0 && (
+            <p className="text-muted-foreground text-sm italic">No milestones yet — add one above.</p>
+          )}
+          {[...pointMilestones].sort((a, b) => a.threshold - b.threshold).map(m => (
+            <div key={m.id} className={`flex items-center gap-4 rounded-2xl p-4 ${m.active ? "bg-muted" : "bg-muted/40 opacity-60"}`}>
+              <div className="text-2xl">{m.emoji}</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold flex items-center gap-2 flex-wrap">
+                  {m.title}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${TIER_COLORS[m.tier] ?? ""}`}>{m.tier}</span>
+                  {!m.active && <span className="text-xs bg-muted-foreground/20 text-muted-foreground px-2 py-0.5 rounded-full">Inactive</span>}
+                </div>
+                <div className="text-sm text-muted-foreground">{m.threshold} pts · +{m.bonusPoints} bonus pts</div>
+              </div>
+              <button
+                onClick={() => updatePointMilestone.mutate({ id: m.id, data: { threshold: m.threshold, title: m.title, description: m.description ?? undefined, emoji: m.emoji, tier: m.tier as PointMilestoneInput["tier"], bonusPoints: m.bonusPoints, active: !m.active } })}
+                className="text-muted-foreground hover:text-foreground p-2"
+                title={m.active ? "Deactivate" : "Activate"}
+              >
+                {m.active ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+              <button onClick={() => openEditPointMilestone(m)} className="text-muted-foreground hover:text-foreground p-2" title="Edit">
+                <Pencil className="w-4 h-4" />
+              </button>
+              <button onClick={() => deletePointMilestone.mutate({ id: m.id })} className="text-muted-foreground hover:text-destructive p-2" title="Delete">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Dialog open={editPointMilestoneOpen} onOpenChange={setEditPointMilestoneOpen}>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader><DialogTitle className="text-xl font-serif">Edit Point Milestone</DialogTitle></DialogHeader>
+          <ThresholdMilestoneForm form={editPointMilestoneForm} setForm={setEditPointMilestoneForm} label="Points" />
+          <Button
+            className="w-full h-12 rounded-xl mt-2"
+            onClick={() => editPointMilestoneTarget && updatePointMilestone.mutate({ id: editPointMilestoneTarget.id, data: editPointMilestoneForm })}
+            disabled={!editPointMilestoneForm.title || !editPointMilestoneForm.threshold || updatePointMilestone.isPending}
+          >
+            {updatePointMilestone.isPending ? "Saving…" : "Save Changes"}
+          </Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Chore Milestones ─────────────────────────────────────────── */}
+      <Card className="rounded-3xl border-0 shadow-sm">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2"><ListChecks className="w-5 h-5" /> Chore Milestones</CardTitle>
+            <Dialog open={choreMilestoneOpen} onOpenChange={o => { setChoreMilestoneOpen(o); if (!o) setChoreMilestoneForm(BLANK_CHORE_MILESTONE); }}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="rounded-xl gap-1.5"><Plus className="w-4 h-4" /> Add Milestone</Button>
+              </DialogTrigger>
+              <DialogContent className="rounded-3xl">
+                <DialogHeader><DialogTitle className="text-xl font-serif">New Chore Milestone</DialogTitle></DialogHeader>
+                <ThresholdMilestoneForm form={choreMilestoneForm} setForm={setChoreMilestoneForm} label="Chores" />
+                <Button className="w-full h-12 rounded-xl mt-2" onClick={() => createChoreMilestone.mutate({ data: choreMilestoneForm })} disabled={!choreMilestoneForm.title || !choreMilestoneForm.threshold || createChoreMilestone.isPending}>
+                  {createChoreMilestone.isPending ? "Adding…" : "Add Milestone"}
+                </Button>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">Badges awarded when a child reaches a total approved-chore count. Adjust thresholds to match what feels achievable in your family.</p>
+          {choreMilestones.length === 0 && (
+            <p className="text-muted-foreground text-sm italic">No milestones yet — add one above.</p>
+          )}
+          {[...choreMilestones].sort((a, b) => a.threshold - b.threshold).map(m => (
+            <div key={m.id} className={`flex items-center gap-4 rounded-2xl p-4 ${m.active ? "bg-muted" : "bg-muted/40 opacity-60"}`}>
+              <div className="text-2xl">{m.emoji}</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold flex items-center gap-2 flex-wrap">
+                  {m.title}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${TIER_COLORS[m.tier] ?? ""}`}>{m.tier}</span>
+                  {!m.active && <span className="text-xs bg-muted-foreground/20 text-muted-foreground px-2 py-0.5 rounded-full">Inactive</span>}
+                </div>
+                <div className="text-sm text-muted-foreground">{m.threshold} chores · +{m.bonusPoints} bonus pts</div>
+              </div>
+              <button
+                onClick={() => updateChoreMilestone.mutate({ id: m.id, data: { threshold: m.threshold, title: m.title, description: m.description ?? undefined, emoji: m.emoji, tier: m.tier as ChoreMilestoneInput["tier"], bonusPoints: m.bonusPoints, active: !m.active } })}
+                className="text-muted-foreground hover:text-foreground p-2"
+                title={m.active ? "Deactivate" : "Activate"}
+              >
+                {m.active ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+              <button onClick={() => openEditChoreMilestone(m)} className="text-muted-foreground hover:text-foreground p-2" title="Edit">
+                <Pencil className="w-4 h-4" />
+              </button>
+              <button onClick={() => deleteChoreMilestone.mutate({ id: m.id })} className="text-muted-foreground hover:text-destructive p-2" title="Delete">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Dialog open={editChoreMilestoneOpen} onOpenChange={setEditChoreMilestoneOpen}>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader><DialogTitle className="text-xl font-serif">Edit Chore Milestone</DialogTitle></DialogHeader>
+          <ThresholdMilestoneForm form={editChoreMilestoneForm} setForm={setEditChoreMilestoneForm} label="Chores" />
+          <Button
+            className="w-full h-12 rounded-xl mt-2"
+            onClick={() => editChoreMilestoneTarget && updateChoreMilestone.mutate({ id: editChoreMilestoneTarget.id, data: editChoreMilestoneForm })}
+            disabled={!editChoreMilestoneForm.title || !editChoreMilestoneForm.threshold || updateChoreMilestone.isPending}
+          >
+            {updateChoreMilestone.isPending ? "Saving…" : "Save Changes"}
+          </Button>
+        </DialogContent>
+      </Dialog>
 
       <Card className="rounded-3xl border-0 shadow-sm">
         <CardHeader><CardTitle className="flex items-center gap-2"><SettingsIcon className="w-5 h-5" /> App Settings</CardTitle></CardHeader>

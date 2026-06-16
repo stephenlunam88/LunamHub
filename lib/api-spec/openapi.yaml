@@ -1510,6 +1510,148 @@ paths:
         "204":
           description: Deleted
 
+  # ── Point Milestones ─────────────────────────────────────────────────────────
+  /point-milestones:
+    get:
+      operationId: listPointMilestones
+      tags: [pointMilestones]
+      summary: List all point milestones
+      responses:
+        "200":
+          description: Point milestones list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PointMilestone"
+    post:
+      operationId: createPointMilestone
+      tags: [pointMilestones]
+      summary: Create a point milestone
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PointMilestoneInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PointMilestone"
+
+  /point-milestones/{id}:
+    put:
+      operationId: updatePointMilestone
+      tags: [pointMilestones]
+      summary: Update a point milestone
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PointMilestoneInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PointMilestone"
+    delete:
+      operationId: deletePointMilestone
+      tags: [pointMilestones]
+      summary: Delete a point milestone
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Chore Milestones ──────────────────────────────────────────────────────────
+  /chore-milestones:
+    get:
+      operationId: listChoreMilestones
+      tags: [choreMilestones]
+      summary: List all chore milestones
+      responses:
+        "200":
+          description: Chore milestones list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChoreMilestone"
+    post:
+      operationId: createChoreMilestone
+      tags: [choreMilestones]
+      summary: Create a chore milestone
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChoreMilestoneInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChoreMilestone"
+
+  /chore-milestones/{id}:
+    put:
+      operationId: updateChoreMilestone
+      tags: [choreMilestones]
+      summary: Update a chore milestone
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChoreMilestoneInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChoreMilestone"
+    delete:
+      operationId: deleteChoreMilestone
+      tags: [choreMilestones]
+      summary: Delete a chore milestone
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   # ── Leaderboard ─────────────────────────────────────────────────────────────
   /leaderboard:
     get:
@@ -2234,6 +2376,114 @@ components:
           type: boolean
       required:
         - days
+        - title
+
+    # ── Point Milestones ──────────────────────────────────────────────────────
+    PointMilestone:
+      type: object
+      properties:
+        id:
+          type: integer
+        threshold:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        emoji:
+          type: string
+        tier:
+          type: string
+          enum: [bronze, silver, gold]
+        bonusPoints:
+          type: integer
+        active:
+          type: boolean
+      required:
+        - id
+        - threshold
+        - title
+        - emoji
+        - tier
+        - bonusPoints
+        - active
+
+    PointMilestoneInput:
+      type: object
+      properties:
+        threshold:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+        description:
+          type: string
+        emoji:
+          type: string
+        tier:
+          type: string
+          enum: [bronze, silver, gold]
+        bonusPoints:
+          type: integer
+          minimum: 0
+        active:
+          type: boolean
+      required:
+        - threshold
+        - title
+
+    # ── Chore Milestones ──────────────────────────────────────────────────────
+    ChoreMilestone:
+      type: object
+      properties:
+        id:
+          type: integer
+        threshold:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        emoji:
+          type: string
+        tier:
+          type: string
+          enum: [bronze, silver, gold]
+        bonusPoints:
+          type: integer
+        active:
+          type: boolean
+      required:
+        - id
+        - threshold
+        - title
+        - emoji
+        - tier
+        - bonusPoints
+        - active
+
+    ChoreMilestoneInput:
+      type: object
+      properties:
+        threshold:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+        description:
+          type: string
+        emoji:
+          type: string
+        tier:
+          type: string
+          enum: [bronze, silver, gold]
+        bonusPoints:
+          type: integer
+          minimum: 0
+        active:
+          type: boolean
+      required:
+        - threshold
         - title
 
     # ── Point Transactions ────────────────────────────────────────────────────

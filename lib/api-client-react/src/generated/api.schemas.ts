@@ -531,6 +531,90 @@ export interface StreakMilestoneInput {
   active?: boolean;
 }
 
+export type PointMilestoneTier = typeof PointMilestoneTier[keyof typeof PointMilestoneTier];
+
+
+export const PointMilestoneTier = {
+  bronze: 'bronze',
+  silver: 'silver',
+  gold: 'gold',
+} as const;
+
+export interface PointMilestone {
+  id: number;
+  threshold: number;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  emoji: string;
+  tier: PointMilestoneTier;
+  bonusPoints: number;
+  active: boolean;
+}
+
+export type PointMilestoneInputTier = typeof PointMilestoneInputTier[keyof typeof PointMilestoneInputTier];
+
+
+export const PointMilestoneInputTier = {
+  bronze: 'bronze',
+  silver: 'silver',
+  gold: 'gold',
+} as const;
+
+export interface PointMilestoneInput {
+  /** @minimum 1 */
+  threshold: number;
+  title: string;
+  description?: string;
+  emoji?: string;
+  tier?: PointMilestoneInputTier;
+  /** @minimum 0 */
+  bonusPoints?: number;
+  active?: boolean;
+}
+
+export type ChoreMilestoneTier = typeof ChoreMilestoneTier[keyof typeof ChoreMilestoneTier];
+
+
+export const ChoreMilestoneTier = {
+  bronze: 'bronze',
+  silver: 'silver',
+  gold: 'gold',
+} as const;
+
+export interface ChoreMilestone {
+  id: number;
+  threshold: number;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  emoji: string;
+  tier: ChoreMilestoneTier;
+  bonusPoints: number;
+  active: boolean;
+}
+
+export type ChoreMilestoneInputTier = typeof ChoreMilestoneInputTier[keyof typeof ChoreMilestoneInputTier];
+
+
+export const ChoreMilestoneInputTier = {
+  bronze: 'bronze',
+  silver: 'silver',
+  gold: 'gold',
+} as const;
+
+export interface ChoreMilestoneInput {
+  /** @minimum 1 */
+  threshold: number;
+  title: string;
+  description?: string;
+  emoji?: string;
+  tier?: ChoreMilestoneInputTier;
+  /** @minimum 0 */
+  bonusPoints?: number;
+  active?: boolean;
+}
+
 export type PointTransactionType = typeof PointTransactionType[keyof typeof PointTransactionType];
 
 

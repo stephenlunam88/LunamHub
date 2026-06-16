@@ -17,6 +17,8 @@ import { pointTransactionsRouter } from "./point-transactions";
 import { leaderboardRouter } from "./leaderboard";
 import { streakMilestonesRouter } from "./streakMilestones";
 import { screensaverPhotosRouter } from "./screensaverPhotos";
+import { pointMilestonesRouter } from "./pointMilestones";
+import { choreMilestonesRouter } from "./choreMilestones";
 import storageRouter from "./storage";
 
 const router: IRouter = Router();
@@ -38,6 +40,8 @@ router.use("/point-transactions", pointTransactionsRouter);
 router.use("/leaderboard", leaderboardRouter);
 router.use("/streak-milestones", streakMilestonesRouter);
 router.use("/screensaver-photos", screensaverPhotosRouter);
+router.use("/point-milestones", pointMilestonesRouter);
+router.use("/chore-milestones", choreMilestonesRouter);
 router.use(storageRouter);
 
 export default router;
