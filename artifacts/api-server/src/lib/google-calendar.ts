@@ -142,6 +142,14 @@ export async function createGCalEvent(event: {
   allDay: boolean;
 }): Promise<string | null> {
   const allDay = event.allDay || !event.startTime;
+
+  // Google Calendar all-day end.date is exclusive — must be the next calendar day
+  function nextCalendarDay(dateStr: string): string {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const next = new Date(Date.UTC(y, m - 1, d + 1));
+    return next.toISOString().slice(0, 10);
+  }
+
   const body: Record<string, unknown> = {
     summary: event.title,
     ...(event.description ? { description: event.description } : {}),
@@ -149,7 +157,7 @@ export async function createGCalEvent(event: {
       ? { date: event.date }
       : { dateTime: `${event.date}T${event.startTime}:00`, timeZone: "UTC" },
     end: allDay
-      ? { date: event.date }
+      ? { date: nextCalendarDay(event.date) }
       : {
           dateTime: `${event.date}T${event.endTime ?? event.startTime}:00`,
           timeZone: "UTC",
