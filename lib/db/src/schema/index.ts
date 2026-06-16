@@ -380,6 +380,7 @@ export const settingsTable = pgTable("settings", {
   timezone: text("timezone").notNull().default("UTC"),
   displayMode: boolean("display_mode").notNull().default(false),
   googleCalendarConnectionId: text("google_calendar_connection_id"),
+  googleRefreshToken: text("google_refresh_token"),
   weatherCity: text("weather_city"),
   screensaverTimeout: integer("screensaver_timeout").notNull().default(5),
   screensaverPhotoInterval: integer("screensaver_photo_interval").notNull().default(15),

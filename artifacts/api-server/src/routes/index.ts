@@ -20,6 +20,7 @@ import { screensaverPhotosRouter } from "./screensaverPhotos";
 import { pointMilestonesRouter } from "./pointMilestones";
 import { choreMilestonesRouter } from "./choreMilestones";
 import storageRouter from "./storage";
+import googleAuthRouter from "./google-auth";
 
 const router: IRouter = Router();
 
@@ -43,5 +44,6 @@ router.use("/screensaver-photos", screensaverPhotosRouter);
 router.use("/point-milestones", pointMilestonesRouter);
 router.use("/chore-milestones", choreMilestonesRouter);
 router.use(storageRouter);
+router.use(googleAuthRouter);
 
 export default router;

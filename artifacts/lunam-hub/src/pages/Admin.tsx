@@ -29,7 +29,6 @@ import { Separator } from "@/components/ui/separator";
 import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload, CalendarDays, Flame, ImagePlay, Star, ListChecks, History, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import {
   useGetGoogleCalendarStatus,
-  useConnectGoogleCalendar,
   useDisconnectGoogleCalendar,
   getGetGoogleCalendarStatusQueryKey,
 } from "@workspace/api-client-react";
@@ -217,31 +216,25 @@ function GoogleCalendarCard() {
   const connected = status?.connected ?? false;
   const oauthAvailable = status?.oauthAvailable ?? false;
 
-  // Polling: when the user clicks "Check for Google Account" and no OAuth is found yet,
-  // poll every 5 s so the card auto-advances once they complete OAuth in Replit integrations.
-  const [polling, setPolling] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Show feedback when returning from the Google OAuth redirect
+  const [gcalMsg, setGcalMsg] = useState<"connected" | "error" | null>(() => {
+    const p = new URLSearchParams(window.location.search).get("gcal");
+    return p === "connected" || p === "error" ? p : null;
+  });
 
   useEffect(() => {
-    if (polling && !oauthAvailable && !connected) {
-      pollRef.current = setInterval(() => {
-        qc.invalidateQueries({ queryKey: getGetGoogleCalendarStatusQueryKey() });
-      }, 5000);
-    } else {
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-      if (oauthAvailable || connected) setPolling(false);
-    }
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [polling, oauthAvailable, connected, qc]);
+    if (!gcalMsg) return;
+    // Invalidate status so the card re-checks connection
+    qc.invalidateQueries({ queryKey: getGetGoogleCalendarStatusQueryKey() });
+    // Clean the URL param without reloading
+    const url = new URL(window.location.href);
+    url.searchParams.delete("gcal");
+    window.history.replaceState({}, "", url.toString());
+    const t = setTimeout(() => setGcalMsg(null), 6000);
+    return () => clearTimeout(t);
+  }, [gcalMsg, qc]);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: getGetGoogleCalendarStatusQueryKey() });
-
-  const connect = useConnectGoogleCalendar({ mutation: { onSuccess: invalidate } });
   const disconnect = useDisconnectGoogleCalendar({ mutation: { onSuccess: invalidate } });
 
   return (
@@ -252,6 +245,12 @@ function GoogleCalendarCard() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        {gcalMsg === "error" && (
+          <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-2xl p-3 text-sm text-red-700">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0" />
+            Google authorisation failed — please try again.
+          </div>
+        )}
         {isLoading ? (
           <p className="text-muted-foreground text-sm">Checking connection…</p>
         ) : connected ? (
@@ -276,64 +275,45 @@ function GoogleCalendarCard() {
             </Button>
           </>
         ) : oauthAvailable ? (
-          /* ── State 2: OAuth authorised in Replit but not yet activated in this app ── */
+          /* ── State 2: OAuth client configured — ready to authorise ── */
           <>
-            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4">
-              <span className="w-3 h-3 rounded-full bg-amber-400 shrink-0" />
+            <div className="flex items-center gap-3 bg-muted rounded-2xl p-4">
+              <span className="w-3 h-3 rounded-full bg-gray-400 shrink-0" />
               <div>
-                <div className="font-semibold text-amber-800">Google account authorised</div>
-                <p className="text-sm text-amber-700 mt-0.5">
-                  Your Google account is linked — click below to activate calendar sync in LunamHub.
+                <div className="font-semibold">Not connected</div>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Click below to sign in with Google and grant calendar access.
                 </p>
               </div>
             </div>
             <Button
               className="w-full rounded-xl h-11"
-              onClick={() => connect.mutate()}
-              disabled={connect.isPending}
+              onClick={() => { window.location.href = "/api/auth/google/init"; }}
             >
-              {connect.isPending ? "Activating…" : "Activate Google Calendar Sync"}
+              Connect with Google
             </Button>
           </>
         ) : (
-          /* ── State 1: No OAuth yet — guide the user through authorisation ── */
+          /* ── State 1: OAuth client credentials not configured ── */
           <>
             <div className="flex items-center gap-3 bg-muted rounded-2xl p-4">
-              <span className={`w-3 h-3 rounded-full shrink-0 ${polling ? "bg-amber-400 animate-pulse" : "bg-gray-400"}`} />
+              <span className="w-3 h-3 rounded-full bg-gray-400 shrink-0" />
               <div>
-                <div className="font-semibold">{polling ? "Waiting for Google authorisation…" : "Not connected"}</div>
+                <div className="font-semibold">Not configured</div>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  {polling
-                    ? "Complete the OAuth flow in Replit, then return here — this card will update automatically."
-                    : "Google Calendar sync is not set up yet."}
+                  Google Calendar sync requires OAuth credentials in your environment.
                 </p>
               </div>
             </div>
-            {!polling && (
-              <div className="rounded-2xl border border-border p-4 space-y-3 text-sm">
-                <p className="font-semibold">To connect Google Calendar:</p>
-                <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
-                  <li>Open this project in the <span className="font-medium text-foreground">Replit workspace</span>.</li>
-                  <li>Go to <span className="font-medium text-foreground">Tools → Integrations</span> and authorise your Google Calendar account.</li>
-                  <li>Return here — the page will update automatically, then click <span className="font-medium text-foreground">Activate Google Calendar Sync</span>.</li>
-                </ol>
-              </div>
-            )}
-            <Button
-              className="w-full rounded-xl h-11"
-              onClick={() => {
-                setPolling(true);
-                connect.mutate();
-              }}
-              disabled={connect.isPending || polling}
-            >
-              {connect.isPending ? "Checking…" : polling ? "Waiting for authorisation…" : "Connect Google Calendar"}
-            </Button>
-            {polling && (
-              <Button variant="ghost" className="w-full rounded-xl h-9 text-muted-foreground text-xs" onClick={() => setPolling(false)}>
-                Cancel
-              </Button>
-            )}
+            <div className="rounded-2xl border border-border p-4 space-y-3 text-sm">
+              <p className="font-semibold">Setup instructions:</p>
+              <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
+                <li>Go to <span className="font-medium text-foreground">Google Cloud Console → APIs &amp; Services → Credentials</span>.</li>
+                <li>Create an <span className="font-medium text-foreground">OAuth 2.0 Client ID</span> (type: Web application) and enable the <span className="font-medium text-foreground">Google Calendar API</span>.</li>
+                <li>Add <code className="bg-muted-foreground/10 px-1 rounded">http://&lt;your-nas&gt;:3000/api/auth/google/callback</code> as an Authorised redirect URI.</li>
+                <li>Set <code className="bg-muted-foreground/10 px-1 rounded">GOOGLE_OAUTH_CLIENT_ID</code>, <code className="bg-muted-foreground/10 px-1 rounded">GOOGLE_OAUTH_CLIENT_SECRET</code>, and <code className="bg-muted-foreground/10 px-1 rounded">GOOGLE_OAUTH_REDIRECT_URI</code> in your <code className="bg-muted-foreground/10 px-1 rounded">.env</code> file, then restart the API.</li>
+              </ol>
+            </div>
           </>
         )}
       </CardContent>

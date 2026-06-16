@@ -1,113 +1,143 @@
-// Google Calendar integration — uses @replit/connectors-sdk
-// Proxy path format: /calendar/v3/{path} with Connection-Id header
-// Connection ID is stored in the settings table (googleCalendarConnectionId)
-// and resolved dynamically at runtime via discoverConnectionId().
+// Google Calendar integration — direct OAuth 2.0 via Google REST API
+// Replaces @replit/connectors-sdk proxy with native fetch calls.
+// The refresh token is stored in the settings table (googleRefreshToken).
+// Required env vars: GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET
+// Optional env var:  GOOGLE_OAUTH_REDIRECT_URI (needed for initial OAuth flow only)
 
-import { ReplitConnectors } from "@replit/connectors-sdk";
 import { db } from "@workspace/db";
 import { settingsTable } from "@workspace/db";
 import { logger } from "./logger";
 
-const GCAL_PATH_BASE = "/calendar/v3";
+const GCAL_BASE = "https://www.googleapis.com/calendar/v3";
+const TOKEN_URL = "https://oauth2.googleapis.com/token";
 
-function getConnectors(): ReplitConnectors | null {
+// In-memory access token cache (Google access tokens are valid for ~3600 s)
+let _accessToken: string | null = null;
+let _tokenExpiresAt = 0;
+const TOKEN_BUFFER_MS = 5 * 60_000; // refresh 5 min before expiry
+
+function getOAuthCredentials(): { clientId: string; clientSecret: string } | null {
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return null;
+  return { clientId, clientSecret };
+}
+
+async function getStoredRefreshToken(): Promise<string | null> {
   try {
-    return new ReplitConnectors();
+    const [row] = await db
+      .select({ googleRefreshToken: settingsTable.googleRefreshToken })
+      .from(settingsTable)
+      .limit(1);
+    return row?.googleRefreshToken ?? null;
   } catch {
     return null;
   }
 }
 
-// Discover the active google-calendar connection ID via the SDK and store it in settings
-export async function discoverAndStoreConnectionId(): Promise<string | null> {
-  const connectors = getConnectors();
-  if (!connectors) return null;
+async function getAccessToken(): Promise<string | null> {
+  const now = Date.now();
+  if (_accessToken && now < _tokenExpiresAt - TOKEN_BUFFER_MS) {
+    return _accessToken;
+  }
+  const creds = getOAuthCredentials();
+  if (!creds) return null;
+  const refreshToken = await getStoredRefreshToken();
+  if (!refreshToken) return null;
   try {
-    const conns = await connectors.listConnections({ connector_names: "google-calendar" });
-    const conn = conns.find((c) => c.status === "healthy" || !c.status) ?? conns[0];
-    if (!conn) return null;
-    const connId = conn.id as string;
-    // Upsert into settings row 1
-    await db
-      .insert(settingsTable)
-      .values({ id: 1, googleCalendarConnectionId: connId } as typeof settingsTable.$inferInsert)
-      .onConflictDoUpdate({
-        target: settingsTable.id,
-        set: { googleCalendarConnectionId: connId },
-      });
-    return connId;
+    const res = await fetch(TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: creds.clientId,
+        client_secret: creds.clientSecret,
+        refresh_token: refreshToken,
+        grant_type: "refresh_token",
+      }),
+    });
+    const data = (await res.json()) as {
+      access_token?: string;
+      expires_in?: number;
+      error?: string;
+    };
+    if (!res.ok || !data.access_token) {
+      logger.warn({ error: data.error }, "gcal: token refresh failed");
+      _accessToken = null;
+      _tokenExpiresAt = 0;
+      return null;
+    }
+    _accessToken = data.access_token;
+    _tokenExpiresAt = now + (data.expires_in ?? 3600) * 1000;
+    return _accessToken;
   } catch (err) {
-    logger.warn({ err }, "gcal: discoverConnectionId error");
+    logger.warn({ err }, "gcal: token refresh error");
     return null;
   }
 }
 
-// Clear the stored connection ID from settings
+async function directGCal(
+  path: string,
+  options?: { method?: string; body?: unknown },
+): Promise<Response | null> {
+  const token = await getAccessToken();
+  if (!token) return null;
+  try {
+    const res = await fetch(`${GCAL_BASE}${path}`, {
+      method: options?.method ?? "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: options?.body ? JSON.stringify(options.body) : undefined,
+    });
+    return res;
+  } catch (err) {
+    logger.warn({ err, path }, "gcal: direct API error");
+    return null;
+  }
+}
+
+// Legacy no-op — Replit connector discovery is replaced by direct OAuth redirect.
+// Kept so events.ts route signatures don't need to change.
+export async function discoverAndStoreConnectionId(): Promise<string | null> {
+  return null;
+}
+
+// Clear stored OAuth tokens from settings and invalidate the in-memory cache.
 export async function clearConnectionId(): Promise<void> {
   try {
     await db
       .insert(settingsTable)
-      .values({ id: 1, googleCalendarConnectionId: null } as typeof settingsTable.$inferInsert)
+      .values({
+        id: 1,
+        googleCalendarConnectionId: null,
+        googleRefreshToken: null,
+      } as typeof settingsTable.$inferInsert)
       .onConflictDoUpdate({
         target: settingsTable.id,
-        set: { googleCalendarConnectionId: null },
+        set: { googleCalendarConnectionId: null, googleRefreshToken: null },
       });
+    _accessToken = null;
+    _tokenExpiresAt = 0;
   } catch (err) {
     logger.warn({ err }, "gcal: clearConnectionId error");
   }
 }
 
-// Read the stored connection ID from settings
-async function getStoredConnectionId(): Promise<string | null> {
-  try {
-    const [row] = await db.select({ googleCalendarConnectionId: settingsTable.googleCalendarConnectionId }).from(settingsTable).limit(1);
-    return row?.googleCalendarConnectionId ?? null;
-  } catch {
-    return null;
-  }
-}
-
-async function proxyGCal(
-  path: string,
-  options?: { method?: string; body?: unknown },
-): Promise<Response | null> {
-  const connectors = getConnectors();
-  if (!connectors) return null;
-  const connId = await getStoredConnectionId();
-  if (!connId) return null;
-  try {
-    return await connectors.proxy("google-calendar", `${GCAL_PATH_BASE}${path}`, {
-      method: options?.method ?? "GET",
-      body: options?.body,
-      headers: { "Connection-Id": connId },
-    });
-  } catch (err) {
-    logger.warn({ err, path }, "gcal: proxy error");
-    return null;
-  }
-}
-
-// Check whether a Google Calendar OAuth connection exists in Replit (without storing)
+// True if Google OAuth client credentials are configured in environment variables.
+// (On NAS: set in .env; on Replit: set as secrets in the workspace.)
 export async function checkOAuthAvailable(): Promise<boolean> {
-  const connectors = getConnectors();
-  if (!connectors) return false;
-  try {
-    const conns = await connectors.listConnections({ connector_names: "google-calendar" });
-    return conns.length > 0;
-  } catch {
-    return false;
-  }
+  return getOAuthCredentials() !== null;
 }
 
 export async function isGCalConnected(): Promise<boolean> {
-  const connId = await getStoredConnectionId();
-  if (!connId) return false;
-  const resp = await proxyGCal("/users/me/calendarList");
+  const token = await getAccessToken();
+  if (!token) return false;
+  const resp = await directGCal("/users/me/calendarList");
   return resp !== null && resp.status >= 200 && resp.status < 300;
 }
 
 // Fetch and cache the timezone configured on the user's primary Google Calendar.
-// This is the authoritative source — do not rely on the browser sending a timezone header.
 let _cachedTz: string | null = null;
 let _cachedTzAt = 0;
 const TZ_CACHE_MS = 60 * 60_000; // 1 hour
@@ -116,7 +146,7 @@ export async function getCalendarTimezone(): Promise<string> {
   const now = Date.now();
   if (_cachedTz && now - _cachedTzAt < TZ_CACHE_MS) return _cachedTz;
   try {
-    const resp = await proxyGCal("/calendars/primary");
+    const resp = await directGCal("/calendars/primary");
     if (resp && resp.status === 200) {
       const data = (await resp.json()) as { timeZone?: string };
       if (data.timeZone) {
@@ -151,7 +181,7 @@ export async function listGCalEvents(
     singleEvents: "true",
     maxResults: "250",
   });
-  const resp = await proxyGCal(`/calendars/primary/events?${params}`);
+  const resp = await directGCal(`/calendars/primary/events?${params}`);
   if (!resp || resp.status < 200 || resp.status >= 300) {
     logger.warn({ status: resp?.status }, "gcal: listEvents failed");
     return null;
@@ -161,18 +191,9 @@ export async function listGCalEvents(
 }
 
 // Convert a local date+time to a UTC RFC3339 string (Z suffix).
-// The Replit connectors-sdk proxy strips timezone offsets from dateTime strings before
-// forwarding to Google Calendar, so any offset/timezone info embedded in the string is
-// silently discarded. Sending a true UTC time avoids this: even if the proxy strips the Z,
-// GCal receives the correct floating UTC time and stores it correctly.
-//
-// Example: localTimeToUTC("2026-06-16", "17:45", "Australia/Sydney") → "2026-06-16T07:45:00Z"
-//   Probe offset at noon UTC on date → "GMT+10:00" → offsetMinutes = +600
-//   UTC = 17:45 local − 10:00 = 07:45 UTC
 function localTimeToUTC(dateStr: string, timeStr: string, timezone: string): string {
   const [year, month, day] = dateStr.split("-").map(Number);
   const [hours, minutes] = timeStr.split(":").map(Number);
-  // Probe the timezone offset at noon UTC on the event date (avoids DST ambiguity at midnight).
   const probeDate = new Date(`${dateStr}T12:00:00Z`);
   const parts = new Intl.DateTimeFormat("en", {
     timeZone: timezone,
@@ -185,7 +206,6 @@ function localTimeToUTC(dateStr: string, timeStr: string, timezone: string): str
     const sign = match[1] === "+" ? 1 : -1;
     offsetMinutes = sign * (parseInt(match[2]) * 60 + parseInt(match[3]));
   }
-  // UTC = local − offset
   const utcMs = Date.UTC(year, month - 1, day, hours, minutes, 0) - offsetMinutes * 60_000;
   const u = new Date(utcMs);
   const pad = (n: number) => n.toString().padStart(2, "0");
@@ -209,11 +229,16 @@ export async function createGCalEvent(event: {
   timezone?: string | null;
 }): Promise<string | null> {
   const allDay = event.allDay || !event.startTime;
-  const tz = event.timezone || await getCalendarTimezone();
+  const tz = event.timezone || (await getCalendarTimezone());
   const startDt = allDay ? undefined : localTimeToUTC(event.date, event.startTime!, tz);
-  const endDt = allDay ? undefined : localTimeToUTC(event.date, event.endTime ?? event.startTime!, tz);
+  const endDt = allDay
+    ? undefined
+    : localTimeToUTC(event.date, event.endTime ?? event.startTime!, tz);
 
-  logger.info({ tz, inputDate: event.date, inputStart: event.startTime, startDt, endDt }, "gcal: createEvent datetime");
+  logger.info(
+    { tz, inputDate: event.date, inputStart: event.startTime, startDt, endDt },
+    "gcal: createEvent datetime",
+  );
 
   const body: Record<string, unknown> = {
     summary: event.title,
@@ -222,10 +247,7 @@ export async function createGCalEvent(event: {
     start: allDay ? { date: event.date } : { dateTime: startDt },
     end: allDay ? { date: nextCalendarDay(event.date) } : { dateTime: endDt },
   };
-  const resp = await proxyGCal("/calendars/primary/events", {
-    method: "POST",
-    body,
-  });
+  const resp = await directGCal("/calendars/primary/events", { method: "POST", body });
   if (!resp || resp.status < 200 || resp.status >= 300) {
     logger.warn({ status: resp?.status }, "gcal: createEvent failed");
     return null;
@@ -248,7 +270,7 @@ export async function updateGCalEvent(
   },
 ): Promise<void> {
   const allDay = event.allDay || !event.startTime;
-  const tz = event.timezone || await getCalendarTimezone();
+  const tz = event.timezone || (await getCalendarTimezone());
 
   const body: Record<string, unknown> = {
     summary: event.title,
@@ -261,17 +283,17 @@ export async function updateGCalEvent(
       ? { date: nextCalendarDay(event.date) }
       : { dateTime: localTimeToUTC(event.date, event.endTime ?? event.startTime!, tz) },
   };
-  const resp = await proxyGCal(`/calendars/primary/events/${encodeURIComponent(googleEventId)}`, {
-    method: "PUT",
-    body,
-  });
+  const resp = await directGCal(
+    `/calendars/primary/events/${encodeURIComponent(googleEventId)}`,
+    { method: "PUT", body },
+  );
   if (resp && resp.status >= 300) {
     logger.warn({ status: resp.status, googleEventId }, "gcal: updateEvent failed");
   }
 }
 
 export async function deleteGCalEvent(googleEventId: string): Promise<void> {
-  const resp = await proxyGCal(
+  const resp = await directGCal(
     `/calendars/primary/events/${encodeURIComponent(googleEventId)}`,
     { method: "DELETE" },
   );

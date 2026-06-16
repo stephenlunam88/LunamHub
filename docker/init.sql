@@ -269,6 +269,7 @@ CREATE TABLE settings (
     timezone TEXT NOT NULL DEFAULT 'UTC',
     display_mode BOOLEAN NOT NULL DEFAULT FALSE,
     google_calendar_connection_id TEXT,
+    google_refresh_token TEXT,
     weather_city TEXT,
     screensaver_timeout INTEGER NOT NULL DEFAULT 5,
     screensaver_photo_interval INTEGER NOT NULL DEFAULT 15
