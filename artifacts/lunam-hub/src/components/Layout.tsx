@@ -20,13 +20,21 @@ export function Layout({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
+  const isDashboard = location === "/";
+
   return (
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
-      <main className="flex-1 overflow-y-auto pb-[72px]">
-        <div className="h-full">
+      {isDashboard ? (
+        <main className="overflow-hidden" style={{ height: "calc(100vh - 72px)" }}>
           {children}
-        </div>
-      </main>
+        </main>
+      ) : (
+        <main className="flex-1 overflow-y-auto min-h-0">
+          <div className="max-w-5xl mx-auto px-6 pt-6 pb-24 space-y-6">
+            {children}
+          </div>
+        </main>
+      )}
 
       <nav className="fixed bottom-0 left-0 right-0 h-[72px] bg-card border-t border-border flex items-center justify-around px-2 z-50 shadow-[0_-4px_24px_rgba(0,0,0,0.06)]">
         {NAV_ITEMS.map((item) => {

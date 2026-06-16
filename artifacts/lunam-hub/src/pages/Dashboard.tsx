@@ -4,12 +4,12 @@ import {
   useGetLeaderboard,
   useGetWeeklyLeaderboard,
 } from "@workspace/api-client-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trophy, CheckCircle2, Clock, Star, Flame, X, ChevronRight } from "lucide-react";
-import type { Chore, FamilyMember } from "@workspace/api-client-react";
+import { Trophy, CheckCircle2, Clock, Star, Flame, X, ChevronRight, Utensils, CalendarClock } from "lucide-react";
+import type { Chore, FamilyMember, MealPlanEntry, Event } from "@workspace/api-client-react";
 
 function fmt12(time: string): string {
   const [hStr, mStr] = time.split(":");
@@ -80,7 +80,7 @@ function ChildChip({ member, todoCount, approvalCount, isSelected, onClick }: Ch
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-3 py-2 rounded-2xl border-2 transition-all touch-manipulation min-h-[56px] text-left ${
+      className={`flex items-center gap-2 px-3 py-2 rounded-2xl border-2 transition-all touch-manipulation min-h-[56px] text-left w-full ${
         isSelected
           ? "border-primary bg-primary/10 shadow-sm"
           : "border-border bg-card hover:border-primary/50 hover:bg-primary/5"
@@ -110,26 +110,22 @@ function ChildChip({ member, todoCount, approvalCount, isSelected, onClick }: Ch
 function ChoresWidget({ chores, children }: { chores: Chore[]; children: FamilyMember[] }) {
   const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
 
-  const choresByChild = (memberId: number) =>
-    chores.filter(c => c.assignedMember?.id === memberId);
-
   const todoForChild = (memberId: number) =>
-    choresByChild(memberId).filter(c => c.status === "todo");
+    chores.filter(c => c.assignedMember?.id === memberId && c.status === "todo");
 
   const approvalForChild = (memberId: number) =>
-    choresByChild(memberId).filter(c => c.status === "pending_approval");
+    chores.filter(c => c.assignedMember?.id === memberId && c.status === "pending_approval");
 
   const doneForChild = (memberId: number) =>
-    choresByChild(memberId).filter(c => c.status === "done");
+    chores.filter(c => c.assignedMember?.id === memberId && c.status === "done");
 
   const selectedChild = selectedChildId !== null ? children.find(c => c.id === selectedChildId) ?? null : null;
   const selectedTodo = selectedChildId !== null ? todoForChild(selectedChildId) : [];
   const selectedApproval = selectedChildId !== null ? approvalForChild(selectedChildId) : [];
   const selectedDone = selectedChildId !== null ? doneForChild(selectedChildId) : [];
-  const selectedChores = [...selectedTodo, ...selectedApproval, ...selectedDone];
 
   return (
-    <Card className="rounded-3xl shadow-sm border-0 flex flex-col overflow-hidden" style={{ backgroundColor: "hsl(210 80% 52% / 0.07)" }}>
+    <Card className="rounded-3xl shadow-sm border-0 flex flex-col overflow-hidden h-full" style={{ backgroundColor: "hsl(210 80% 52% / 0.07)" }}>
       <CardHeader className="pb-2 shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-bold">Today's Chores</CardTitle>
@@ -147,14 +143,13 @@ function ChoresWidget({ chores, children }: { chores: Chore[]; children: FamilyM
         {chores.length === 0 ? (
           <p className="text-muted-foreground text-sm py-4">No chores due today 🎉</p>
         ) : selectedChild ? (
-          /* ── Child detail view ── */
           <div className="flex flex-col min-h-0 flex-1">
             <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/50 shrink-0">
               <AvatarOrEmoji avatarUrl={selectedChild.avatarUrl} emoji={selectedChild.emoji} sizeCls="w-8 h-8 text-2xl" />
               <span className="font-bold">{selectedChild.name}</span>
             </div>
             <div className="overflow-y-auto flex-1 space-y-2 pr-0.5">
-              {selectedChores.length === 0 ? (
+              {selectedTodo.length === 0 && selectedApproval.length === 0 && selectedDone.length === 0 ? (
                 <p className="text-muted-foreground text-sm py-2">No chores today 🎉</p>
               ) : (
                 <>
@@ -184,7 +179,6 @@ function ChoresWidget({ chores, children }: { chores: Chore[]; children: FamilyM
             </div>
           </div>
         ) : (
-          /* ── All-children summary chips ── */
           <div className="overflow-y-auto flex-1 space-y-2 pr-0.5">
             {children.map(child => (
               <ChildChip
@@ -203,6 +197,48 @@ function ChoresWidget({ chores, children }: { chores: Chore[]; children: FamilyM
   );
 }
 
+function NextEventPreview({ todayEvents, upcomingEvents, now }: { todayEvents: Event[]; upcomingEvents: Event[]; now: Date }) {
+  const nowStr = format(now, "HH:mm");
+  const nextToday = todayEvents.find(e => e.startTime && e.startTime > nowStr);
+  const next = nextToday ?? upcomingEvents[0] ?? null;
+  if (!next) return null;
+
+  const isToday = !!nextToday;
+  const label = isToday && next.startTime ? fmt12(next.startTime) : format(parseISO(next.date + "T00:00:00"), "EEE d MMM");
+
+  return (
+    <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-2xl px-3 py-2 shrink-0">
+      <CalendarClock className="w-4 h-4 text-primary shrink-0" />
+      <div className="min-w-0">
+        <div className="text-xs text-primary font-semibold truncate">{isToday ? "Next up" : "Coming up"}</div>
+        <div className="text-xs font-bold truncate">{next.title}</div>
+      </div>
+      <div className="text-xs font-semibold text-primary shrink-0 ml-1">{label}</div>
+    </div>
+  );
+}
+
+function DinnerTonightCard({ meals }: { meals: MealPlanEntry[] }) {
+  const dinner = meals.find(m => m.mealType === "dinner");
+  return (
+    <Card className="rounded-3xl shadow-sm border-0 shrink-0" style={{ backgroundColor: "hsl(15 85% 60% / 0.08)" }}>
+      <CardContent className="p-4 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: "hsl(15 85% 60% / 0.15)" }}>
+          <Utensils className="w-5 h-5" style={{ color: "hsl(15 85% 45%)" }} />
+        </div>
+        <div className="min-w-0">
+          <div className="text-xs font-semibold text-muted-foreground">Dinner Tonight</div>
+          {dinner ? (
+            <div className="font-bold text-sm truncate">{dinner.meal?.name ?? "Planned"}</div>
+          ) : (
+            <div className="text-sm text-muted-foreground italic">Not planned yet</div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Dashboard() {
   const { data: summary, isLoading } = useGetDashboardSummary();
   const { data: allTimeBoard = [] } = useGetLeaderboard();
@@ -216,7 +252,7 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="h-[calc(100vh-72px)] p-5 grid grid-cols-3 gap-4">
+      <div className="h-full p-5 grid grid-cols-3 gap-4">
         <Skeleton className="rounded-3xl col-span-1" />
         <Skeleton className="rounded-3xl col-span-1" />
         <Skeleton className="rounded-3xl col-span-1" />
@@ -235,86 +271,93 @@ export default function Dashboard() {
   const doneChores = allChores.filter(c => c.status === "done");
 
   return (
-    <div className="h-[calc(100vh-72px)] p-4 grid grid-cols-3 grid-rows-[auto_1fr] gap-4 animate-in fade-in duration-300">
+    <div className="h-full p-4 grid grid-cols-3 grid-rows-[auto_1fr] gap-4 animate-in fade-in duration-300">
 
-      {/* ── Top bar: clock + date ── */}
-      <header className="col-span-3 flex items-end justify-between px-1">
-        <div>
+      {/* ── Hero strip: clock + date + next event + streak ── */}
+      <header className="col-span-3 flex items-center justify-between gap-4 px-1">
+        <div className="shrink-0">
           <div className="text-5xl font-serif font-bold tabular-nums leading-none">
             {format(now, "h:mm")}
-            <span className="text-3xl text-muted-foreground ml-1">{format(now, "a")}</span>
+            <span className="text-3xl text-muted-foreground ml-1.5">{format(now, "a")}</span>
           </div>
           <div className="text-lg text-muted-foreground font-semibold mt-1">
             {format(now, "EEEE, MMMM do")}
           </div>
         </div>
 
-        {/* Streak mini-bar */}
-        {summary.streaks.length > 0 && (
-          <div className="flex items-center gap-2">
-            {summary.streaks.slice(0, 4).map(({ memberId, currentStreak }) => {
-              const member = children.find(m => m.id === memberId);
-              if (!member || currentStreak === 0) return null;
-              return (
-                <div key={memberId} className="flex items-center gap-1.5 bg-orange-50 border border-orange-200 rounded-2xl px-3 py-1.5">
-                  <AvatarOrEmoji avatarUrl={member.avatarUrl} emoji={member.emoji} sizeCls="w-6 h-6 text-base" />
-                  <Flame className="w-4 h-4 text-orange-500" />
-                  <span className="text-sm font-bold text-orange-600">{currentStreak}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <div className="flex items-center gap-2 flex-1 justify-end flex-wrap">
+          <NextEventPreview
+            todayEvents={summary.todayEvents}
+            upcomingEvents={summary.upcomingEvents}
+            now={now}
+          />
+
+          {summary.streaks.slice(0, 4).filter(s => s.currentStreak > 0).map(({ memberId, currentStreak }) => {
+            const member = children.find(m => m.id === memberId);
+            if (!member) return null;
+            return (
+              <div key={memberId} className="flex items-center gap-1.5 bg-orange-50 border border-orange-200 rounded-2xl px-3 py-2 shrink-0">
+                <AvatarOrEmoji avatarUrl={member.avatarUrl} emoji={member.emoji} sizeCls="w-6 h-6 text-base" />
+                <Flame className="w-4 h-4 text-orange-500" />
+                <span className="text-sm font-bold text-orange-600">{currentStreak}</span>
+              </div>
+            );
+          })}
+        </div>
       </header>
 
-      {/* ── Col 1: Events ── */}
-      <Card className="rounded-3xl shadow-sm border-0 flex flex-col overflow-hidden row-start-2" style={{ backgroundColor: "hsl(210 80% 52% / 0.07)" }}>
-        <CardHeader className="pb-2 shrink-0">
-          <CardTitle className="text-base font-bold">Today's Events</CardTitle>
-        </CardHeader>
-        <CardContent className="flex-1 overflow-y-auto min-h-0 pt-0 space-y-2 pr-2">
-          {summary.todayEvents.length === 0 ? (
-            <p className="text-muted-foreground text-sm py-4">Nothing on today 🌤️</p>
-          ) : (
-            summary.todayEvents.map(e => (
-              <div key={e.id} className="bg-card rounded-xl p-3 shadow-sm">
-                <div className="flex items-start gap-2">
-                  {(e.assignedMembers ?? []).length > 0 && (
-                    <div className="flex -space-x-1.5 shrink-0 mt-0.5">
-                      {(e.assignedMembers ?? []).slice(0, 3).map(id => {
-                        const m = memberById[id];
-                        if (!m) return null;
-                        return (
-                          <div key={id} title={m.name} className="w-6 h-6 rounded-full ring-2 ring-background overflow-hidden flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ backgroundColor: m.color }}>
-                            {m.avatarUrl
-                              ? <img src={m.avatarUrl} alt={m.name} className="w-full h-full object-cover" />
-                              : m.emoji}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm truncate">{e.title}</div>
-                    {e.startTime && (
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {fmt12(e.startTime)}{e.endTime ? ` – ${fmt12(e.endTime)}` : ""}
+      {/* ── Col 1: Events + Dinner Tonight stacked ── */}
+      <div className="row-start-2 flex flex-col gap-4 min-h-0 overflow-hidden">
+        <Card className="rounded-3xl shadow-sm border-0 flex flex-col overflow-hidden flex-1 min-h-0" style={{ backgroundColor: "hsl(210 80% 52% / 0.07)" }}>
+          <CardHeader className="pb-2 shrink-0">
+            <CardTitle className="text-base font-bold">Today's Events</CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1 overflow-y-auto min-h-0 pt-0 space-y-2 pr-2">
+            {summary.todayEvents.length === 0 ? (
+              <p className="text-muted-foreground text-sm py-4">Nothing on today 🌤️</p>
+            ) : (
+              summary.todayEvents.map(e => (
+                <div key={e.id} className="bg-card rounded-xl p-3 shadow-sm">
+                  <div className="flex items-start gap-2">
+                    {(e.assignedMembers ?? []).length > 0 && (
+                      <div className="flex -space-x-1.5 shrink-0 mt-0.5">
+                        {(e.assignedMembers ?? []).slice(0, 3).map(id => {
+                          const m = memberById[id];
+                          if (!m) return null;
+                          return (
+                            <div key={id} title={m.name} className="w-6 h-6 rounded-full ring-2 ring-background overflow-hidden flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ backgroundColor: m.color }}>
+                              {m.avatarUrl
+                                ? <img src={m.avatarUrl} alt={m.name} className="w-full h-full object-cover" />
+                                : m.emoji}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-sm truncate">{e.title}</div>
+                      {e.startTime && (
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {fmt12(e.startTime)}{e.endTime ? ` – ${fmt12(e.endTime)}` : ""}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <DinnerTonightCard meals={summary.todayMeals} />
+      </div>
 
       {/* ── Col 2: Chores widget ── */}
       <div className="row-start-2 flex flex-col min-h-0">
         {children.length > 0 ? (
           <ChoresWidget chores={allChores} children={children} />
         ) : (
-          <Card className="rounded-3xl shadow-sm border-0 flex flex-col overflow-hidden flex-1" style={{ backgroundColor: "hsl(210 80% 52% / 0.07)" }}>
+          <Card className="rounded-3xl shadow-sm border-0 flex flex-col overflow-hidden h-full" style={{ backgroundColor: "hsl(210 80% 52% / 0.07)" }}>
             <CardHeader className="pb-2 shrink-0">
               <CardTitle className="text-base font-bold">Today's Chores</CardTitle>
             </CardHeader>
@@ -359,7 +402,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Col 3: Leaderboard ── */}
-      {children.length > 0 && (
+      {children.length > 0 ? (
         <Card className="rounded-3xl shadow-sm border-0 flex flex-col overflow-hidden row-start-2" style={{ backgroundColor: "hsl(152 60% 45% / 0.07)" }}>
           <CardHeader className="pb-2 shrink-0">
             <CardTitle className="text-base font-bold flex items-center gap-1.5">
@@ -393,6 +436,8 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
+      ) : (
+        <div className="row-start-2" />
       )}
     </div>
   );

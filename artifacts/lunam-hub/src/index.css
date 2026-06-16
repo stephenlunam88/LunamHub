@@ -41,7 +41,7 @@
   --font-sans: 'Nunito', 'Plus Jakarta Sans', sans-serif;
   --font-serif: 'Fraunces', serif;
   --font-mono: 'Space Mono', monospace;
-  --radius: 1rem;
+  --radius: 1.5rem;
 }
 
 :root {
