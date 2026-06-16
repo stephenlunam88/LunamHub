@@ -90,6 +90,7 @@ export default function Dashboard() {
   if (!summary) return <div>Failed to load dashboard</div>;
 
   const children = summary.familyMembers.filter(m => m.role === "child");
+  const memberById = Object.fromEntries(summary.familyMembers.map(m => [m.id, m]));
 
   const todoChores = summary.todayChores.filter(c => c.status === "todo");
   const approvalChores = summary.todayChores.filter(c => c.status === "pending_approval");
@@ -120,11 +121,28 @@ export default function Dashboard() {
             ) : (
               <ul className="space-y-3">
                 {summary.todayEvents.map(e => (
-                  <li key={e.id} className="bg-background rounded-xl p-4 shadow-sm">
-                    <div className="font-semibold text-lg">{e.title}</div>
-                    {e.startTime && (
-                      <div className="text-muted-foreground">{e.startTime}</div>
+                  <li key={e.id} className="bg-background rounded-xl p-3 shadow-sm flex items-center gap-3">
+                    {(e.assignedMembers ?? []).length > 0 && (
+                      <div className="flex -space-x-2 shrink-0">
+                        {(e.assignedMembers ?? []).slice(0, 4).map(id => {
+                          const m = memberById[id];
+                          if (!m) return null;
+                          return (
+                            <div key={id} title={m.name} className="w-8 h-8 rounded-full ring-2 ring-background overflow-hidden shrink-0 flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: m.color }}>
+                              {m.avatarUrl
+                                ? <img src={m.avatarUrl} alt={m.name} className="w-full h-full object-cover" />
+                                : m.emoji}
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold truncate">{e.title}</div>
+                      {e.startTime && (
+                        <div className="text-sm text-muted-foreground">{e.startTime}</div>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
