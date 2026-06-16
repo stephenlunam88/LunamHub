@@ -920,7 +920,7 @@ export default function Chores() {
         })}
       </div>
 
-      {children.length > 0 && allBadges.length > 0 && (
+      {filterChildId !== null && allBadges.some(b => b.memberId === filterChildId) && (
         <Card className="rounded-3xl border-0 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
