@@ -288,7 +288,7 @@ function GoogleCalendarCard() {
             </div>
             <Button
               className="w-full rounded-xl h-11"
-              onClick={() => { window.location.href = "/api/auth/google/init"; }}
+              onClick={() => { (window.top ?? window).location.href = "/api/auth/google/init"; }}
             >
               Connect with Google
             </Button>
