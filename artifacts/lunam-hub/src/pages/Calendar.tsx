@@ -546,7 +546,7 @@ export default function Calendar() {
                     )}>
                       {format(day, "d")}
                     </div>
-                    {dayEvents.slice(0, 3).map(ev => {
+                    {dayEvents.slice(0, 5).map(ev => {
                       const cat = ev.category ?? "other";
                       return ev.allDay ? (
                         <div
@@ -564,8 +564,8 @@ export default function Calendar() {
                         </div>
                       );
                     })}
-                    {dayEvents.length > 3 && (
-                      <div className="text-[9px] text-muted-foreground px-1 mt-auto">+{dayEvents.length - 3} more</div>
+                    {dayEvents.length > 5 && (
+                      <div className="text-[9px] text-muted-foreground px-1 mt-auto">+{dayEvents.length - 5} more</div>
                     )}
                   </button>
                 );
