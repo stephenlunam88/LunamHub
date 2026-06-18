@@ -5,7 +5,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { eventsTable, eventMembersTable } from "@workspace/db";
-import { eq, gte, lte, inArray, or, and, isNull, isNotNull } from "drizzle-orm";
+import { eq, gte, lte, inArray, or, and, isNull, isNotNull, asc, sql } from "drizzle-orm";
 import {
   CreateEventBody,
   UpdateEventBody,
@@ -214,7 +214,11 @@ router.get("/", async (req, res): Promise<void> => {
     if (params.endDate) query = query.where(lte(eventsTable.date, params.endDate));
   }
 
-  const events = await query.orderBy(eventsTable.date);
+  const events = await query.orderBy(
+    asc(eventsTable.date),
+    sql`${eventsTable.startTime} ASC NULLS LAST`,
+    asc(eventsTable.id)
+  );
   const memberMap = await getEventMembers(events.map((e) => e.id));
 
   let result = events.map((e) => formatEvent(e, memberMap[e.id] ?? []));
