@@ -254,9 +254,12 @@ export async function createGCalEvent(event: {
   const allDay = event.allDay || !event.startTime;
   const tz = event.timezone || (await getCalendarTimezone());
   const startDt = allDay ? undefined : localTimeToUTC(event.date, event.startTime!, tz);
+  // When no end time is set, default to start + 1 hour (Google rejects zero-duration timed events)
   const endDt = allDay
     ? undefined
-    : localTimeToUTC(event.date, event.endTime ?? event.startTime!, tz);
+    : event.endTime
+      ? localTimeToUTC(event.date, event.endTime, tz)
+      : new Date(new Date(startDt!).getTime() + 60 * 60_000).toISOString().replace(/\.\d{3}Z$/, "Z");
 
   logger.info(
     { tz, inputDate: event.date, inputStart: event.startTime, startDt, endDt, recurrence: event.recurrence },
@@ -299,17 +302,19 @@ export async function updateGCalEvent(
   const allDay = event.allDay || !event.startTime;
   const tz = event.timezone || (await getCalendarTimezone());
   const rrule = buildRRule(event.recurrence, event.recurrenceEndDate);
+  const startDt = allDay ? undefined : localTimeToUTC(event.date, event.startTime!, tz);
+  const endDt = allDay
+    ? undefined
+    : event.endTime
+      ? localTimeToUTC(event.date, event.endTime, tz)
+      : new Date(new Date(startDt!).getTime() + 60 * 60_000).toISOString().replace(/\.\d{3}Z$/, "Z");
 
   const body: Record<string, unknown> = {
     summary: event.title,
     description: event.description ?? "",
     location: event.location ?? "",
-    start: allDay
-      ? { date: event.date }
-      : { dateTime: localTimeToUTC(event.date, event.startTime!, tz) },
-    end: allDay
-      ? { date: nextCalendarDay(event.date) }
-      : { dateTime: localTimeToUTC(event.date, event.endTime ?? event.startTime!, tz) },
+    start: allDay ? { date: event.date } : { dateTime: startDt },
+    end: allDay ? { date: nextCalendarDay(event.date) } : { dateTime: endDt },
     recurrence: rrule,
   };
   const resp = await directGCal(
