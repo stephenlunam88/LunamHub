@@ -271,8 +271,9 @@ export async function createGCalEvent(event: {
     summary: event.title,
     ...(event.description ? { description: event.description } : {}),
     ...(event.location ? { location: event.location } : {}),
-    start: allDay ? { date: event.date } : { dateTime: startDt },
-    end: allDay ? { date: nextCalendarDay(event.date) } : { dateTime: endDt },
+    // timeZone is required by Google for recurring timed events and harmless for single events
+    start: allDay ? { date: event.date } : { dateTime: startDt, timeZone: tz },
+    end: allDay ? { date: nextCalendarDay(event.date) } : { dateTime: endDt, timeZone: tz },
     ...(rrule.length > 0 ? { recurrence: rrule } : {}),
   };
   const resp = await directGCal("/calendars/primary/events", { method: "POST", body });
@@ -313,8 +314,9 @@ export async function updateGCalEvent(
     summary: event.title,
     description: event.description ?? "",
     location: event.location ?? "",
-    start: allDay ? { date: event.date } : { dateTime: startDt },
-    end: allDay ? { date: nextCalendarDay(event.date) } : { dateTime: endDt },
+    // timeZone is required by Google for recurring timed events and harmless for single events
+    start: allDay ? { date: event.date } : { dateTime: startDt, timeZone: tz },
+    end: allDay ? { date: nextCalendarDay(event.date) } : { dateTime: endDt, timeZone: tz },
     recurrence: rrule,
   };
   const resp = await directGCal(
