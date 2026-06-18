@@ -218,6 +218,26 @@ function nextCalendarDay(dateStr: string): string {
   return next.toISOString().slice(0, 10);
 }
 
+// Map LunamHub recurrence strings → Google Calendar RRULE FREQ values
+const RECURRENCE_MAP: Record<string, string> = {
+  DAILY: "DAILY",
+  WEEKLY: "WEEKLY",
+  MONTHLY: "MONTHLY",
+  YEARLY: "YEARLY",
+};
+
+function buildRRule(recurrence: string | null | undefined, recurrenceEndDate: string | null | undefined): string[] {
+  if (!recurrence) return [];
+  const freq = RECURRENCE_MAP[recurrence.toUpperCase()];
+  if (!freq) return [];
+  let rule = `RRULE:FREQ=${freq}`;
+  if (recurrenceEndDate) {
+    // Google Calendar UNTIL format: YYYYMMDD (no dashes)
+    rule += `;UNTIL=${recurrenceEndDate.replace(/-/g, "")}`;
+  }
+  return [rule];
+}
+
 export async function createGCalEvent(event: {
   title: string;
   description?: string | null;
@@ -227,6 +247,8 @@ export async function createGCalEvent(event: {
   endTime?: string | null;
   allDay: boolean;
   timezone?: string | null;
+  recurrence?: string | null;
+  recurrenceEndDate?: string | null;
 }): Promise<string | null> {
   const allDay = event.allDay || !event.startTime;
   const tz = event.timezone || (await getCalendarTimezone());
@@ -236,16 +258,18 @@ export async function createGCalEvent(event: {
     : localTimeToUTC(event.date, event.endTime ?? event.startTime!, tz);
 
   logger.info(
-    { tz, inputDate: event.date, inputStart: event.startTime, startDt, endDt },
+    { tz, inputDate: event.date, inputStart: event.startTime, startDt, endDt, recurrence: event.recurrence },
     "gcal: createEvent datetime",
   );
 
+  const rrule = buildRRule(event.recurrence, event.recurrenceEndDate);
   const body: Record<string, unknown> = {
     summary: event.title,
     ...(event.description ? { description: event.description } : {}),
     ...(event.location ? { location: event.location } : {}),
     start: allDay ? { date: event.date } : { dateTime: startDt },
     end: allDay ? { date: nextCalendarDay(event.date) } : { dateTime: endDt },
+    ...(rrule.length > 0 ? { recurrence: rrule } : {}),
   };
   const resp = await directGCal("/calendars/primary/events", { method: "POST", body });
   if (!resp || resp.status < 200 || resp.status >= 300) {
@@ -267,10 +291,13 @@ export async function updateGCalEvent(
     endTime?: string | null;
     allDay: boolean;
     timezone?: string | null;
+    recurrence?: string | null;
+    recurrenceEndDate?: string | null;
   },
 ): Promise<void> {
   const allDay = event.allDay || !event.startTime;
   const tz = event.timezone || (await getCalendarTimezone());
+  const rrule = buildRRule(event.recurrence, event.recurrenceEndDate);
 
   const body: Record<string, unknown> = {
     summary: event.title,
@@ -282,6 +309,7 @@ export async function updateGCalEvent(
     end: allDay
       ? { date: nextCalendarDay(event.date) }
       : { dateTime: localTimeToUTC(event.date, event.endTime ?? event.startTime!, tz) },
+    recurrence: rrule,
   };
   const resp = await directGCal(
     `/calendars/primary/events/${encodeURIComponent(googleEventId)}`,

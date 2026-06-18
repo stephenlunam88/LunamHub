@@ -238,6 +238,8 @@ router.post("/", async (req, res): Promise<void> => {
     endTime: event.endTime,
     allDay: event.allDay,
     timezone,
+    recurrence: event.recurrence,
+    recurrenceEndDate: event.recurrenceEndDate,
   });
   if (gcalId) {
     await db.update(eventsTable).set({ googleEventId: gcalId }).where(eq(eventsTable.id, event.id));
@@ -281,6 +283,8 @@ router.patch("/:id", async (req, res): Promise<void> => {
       endTime: event.endTime,
       allDay: event.allDay,
       timezone,
+      recurrence: event.recurrence,
+      recurrenceEndDate: event.recurrenceEndDate,
     }).catch(() => {});
   }
 
