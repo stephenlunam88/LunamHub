@@ -21,6 +21,7 @@ export function Layout({ children }: { children: ReactNode }) {
   }
 
   const isDashboard = location === "/";
+  const isCalendar = location === "/calendar";
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
@@ -30,7 +31,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </main>
       ) : (
         <main className="flex-1 overflow-y-auto min-h-0">
-          <div className="max-w-5xl mx-auto px-6 pt-6 pb-24 space-y-6">
+          <div className={`${isCalendar ? "max-w-7xl" : "max-w-5xl"} mx-auto px-6 pt-6 pb-24 space-y-6`}>
             {children}
           </div>
         </main>
