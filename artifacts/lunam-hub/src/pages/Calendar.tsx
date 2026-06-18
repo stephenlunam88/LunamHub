@@ -501,9 +501,9 @@ export default function Calendar() {
         </DialogContent>
       </Dialog>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* ── Month calendar ──────────────────────────────────────────────── */}
-        <Card className="lg:col-span-2 rounded-3xl border-0 shadow-sm">
+        <Card className="lg:col-span-3 rounded-3xl border-0 shadow-sm">
           <CardHeader className="flex-row items-center justify-between pb-4">
             <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(m => subMonths(m, 1))} className="h-12 w-12 rounded-xl">
               <ChevronLeft className="w-6 h-6" />
@@ -521,7 +521,7 @@ export default function Calendar() {
             </div>
             <div className="grid grid-cols-7">
               {Array.from({ length: days[0].getDay() }).map((_, i) => (
-                <div key={`pad-${i}`} className="min-h-[80px] border-r border-b border-border last:border-r-0" />
+                <div key={`pad-${i}`} className="min-h-[100px] border-r border-b border-border last:border-r-0" />
               ))}
               {days.map((day, idx) => {
                 const dayKey = format(day, "yyyy-MM-dd");
@@ -534,7 +534,7 @@ export default function Calendar() {
                     key={day.toISOString()}
                     onClick={() => setSelectedDay(day)}
                     className={cn(
-                      "min-h-[80px] flex flex-col items-stretch text-left p-1 transition-colors border-b border-border touch-manipulation",
+                      "min-h-[100px] flex flex-col items-stretch text-left p-1.5 transition-colors border-b border-border touch-manipulation",
                       !isLastCol && "border-r",
                       selected ? "bg-primary/5 ring-inset ring-2 ring-primary" : "hover:bg-muted/40",
                       !isSameMonth(day, currentMonth) && "opacity-35"
