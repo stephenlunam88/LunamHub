@@ -303,8 +303,8 @@ export default function Calendar() {
   }, [days, events]);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+    <div className="flex flex-col h-full gap-4 animate-in fade-in duration-300">
+      <div className="flex items-center justify-between gap-3 flex-wrap shrink-0">
         <div className="flex items-center gap-3">
           <h1 className="text-4xl font-serif font-bold">Calendar</h1>
           {isConnected && (
@@ -501,27 +501,27 @@ export default function Calendar() {
         </DialogContent>
       </Dialog>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1 min-h-0">
         {/* ── Month calendar ──────────────────────────────────────────────── */}
-        <Card className="lg:col-span-3 rounded-3xl border-0 shadow-sm">
-          <CardHeader className="flex-row items-center justify-between pb-4">
-            <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(m => subMonths(m, 1))} className="h-12 w-12 rounded-xl">
-              <ChevronLeft className="w-6 h-6" />
+        <Card className="lg:col-span-3 rounded-3xl border-0 shadow-sm flex flex-col overflow-hidden">
+          <CardHeader className="flex-row items-center justify-between pb-3 shrink-0">
+            <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(m => subMonths(m, 1))} className="h-10 w-10 rounded-xl">
+              <ChevronLeft className="w-5 h-5" />
             </Button>
-            <CardTitle className="text-2xl font-serif">{format(currentMonth, "MMMM yyyy")}</CardTitle>
-            <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(m => addMonths(m, 1))} className="h-12 w-12 rounded-xl">
-              <ChevronRight className="w-6 h-6" />
+            <CardTitle className="text-xl font-serif">{format(currentMonth, "MMMM yyyy")}</CardTitle>
+            <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(m => addMonths(m, 1))} className="h-10 w-10 rounded-xl">
+              <ChevronRight className="w-5 h-5" />
             </Button>
           </CardHeader>
-          <CardContent className="p-0 overflow-hidden rounded-b-3xl">
-            <div className="grid grid-cols-7 border-b border-border">
+          <CardContent className="p-0 flex-1 flex flex-col overflow-hidden min-h-0 rounded-b-3xl">
+            <div className="grid grid-cols-7 border-b border-border shrink-0">
               {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
                 <div key={d} className="text-center text-xs font-semibold text-muted-foreground py-2">{d}</div>
               ))}
             </div>
-            <div className="grid grid-cols-7">
+            <div className="grid grid-cols-7 flex-1 min-h-0" style={{ gridAutoRows: "1fr" }}>
               {Array.from({ length: days[0].getDay() }).map((_, i) => (
-                <div key={`pad-${i}`} className="min-h-[100px] border-r border-b border-border last:border-r-0" />
+                <div key={`pad-${i}`} className="border-r border-b border-border last:border-r-0" />
               ))}
               {days.map((day, idx) => {
                 const dayKey = format(day, "yyyy-MM-dd");
@@ -534,7 +534,7 @@ export default function Calendar() {
                     key={day.toISOString()}
                     onClick={() => setSelectedDay(day)}
                     className={cn(
-                      "min-h-[100px] flex flex-col items-stretch text-left p-1.5 transition-colors border-b border-border touch-manipulation",
+                      "flex flex-col items-stretch text-left p-1.5 transition-colors border-b border-border touch-manipulation overflow-hidden",
                       !isLastCol && "border-r",
                       selected ? "bg-primary/5 ring-inset ring-2 ring-primary" : "hover:bg-muted/40",
                       !isSameMonth(day, currentMonth) && "opacity-35"
@@ -575,11 +575,11 @@ export default function Calendar() {
         </Card>
 
         {/* ── Day panel ───────────────────────────────────────────────────── */}
-        <Card className="rounded-3xl border-0 shadow-sm">
-          <CardHeader>
+        <Card className="rounded-3xl border-0 shadow-sm flex flex-col overflow-hidden">
+          <CardHeader className="shrink-0">
             <CardTitle className="text-xl font-serif">{format(selectedDay, "EEEE, MMM d")}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 overflow-y-auto flex-1 min-h-0">
             {selectedDayEvents.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No events this day</p>
             ) : (

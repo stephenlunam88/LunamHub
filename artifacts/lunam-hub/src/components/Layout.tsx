@@ -25,13 +25,17 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
-      {isDashboard ? (
+      {isDashboard || isCalendar ? (
         <main className="overflow-hidden" style={{ height: "calc(100vh - 72px)" }}>
-          {children}
+          {isCalendar ? (
+            <div className="max-w-7xl mx-auto px-6 pt-6 pb-4 h-full flex flex-col">
+              {children}
+            </div>
+          ) : children}
         </main>
       ) : (
         <main className="flex-1 overflow-y-auto min-h-0">
-          <div className={`${isCalendar ? "max-w-7xl" : "max-w-5xl"} mx-auto px-6 pt-6 pb-24 space-y-6`}>
+          <div className="max-w-5xl mx-auto px-6 pt-6 pb-24 space-y-6">
             {children}
           </div>
         </main>
