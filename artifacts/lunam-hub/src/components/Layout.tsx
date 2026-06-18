@@ -28,7 +28,7 @@ export function Layout({ children }: { children: ReactNode }) {
       {isDashboard || isCalendar ? (
         <main className="overflow-hidden" style={{ height: "calc(100vh - 72px)" }}>
           {isCalendar ? (
-            <div className="max-w-7xl mx-auto px-6 pt-6 pb-4 h-full flex flex-col">
+            <div className="w-full px-6 pt-6 pb-4 h-full flex flex-col">
               {children}
             </div>
           ) : children}
