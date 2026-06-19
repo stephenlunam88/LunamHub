@@ -352,17 +352,17 @@ export default function Calendar() {
         <div className="flex items-center gap-2">
           {/* Member filter toggle */}
           {familyMembers.length > 0 && (
-            <div className="flex items-center gap-1.5 bg-muted/60 rounded-2xl p-1 h-14">
+            <div className="flex items-center gap-1.5 bg-muted/60 rounded-2xl p-1.5 h-14">
               <button
                 onClick={() => setFilterMemberId(null)}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-colors",
+                  "flex items-center gap-2 px-4 h-full rounded-xl text-base font-medium transition-colors",
                   filterMemberId === null
                     ? "bg-background shadow-sm text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Users className="w-3.5 h-3.5" />
+                <Users className="w-4 h-4" />
                 All
               </button>
               {familyMembers.map(m => (
@@ -370,7 +370,7 @@ export default function Calendar() {
                   key={m.id}
                   onClick={() => setFilterMemberId(prev => prev === m.id ? null : m.id)}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-colors",
+                    "flex items-center gap-2 px-4 h-full rounded-xl text-base font-medium transition-colors",
                     filterMemberId === m.id
                       ? "bg-background shadow-sm text-foreground"
                       : "text-muted-foreground hover:text-foreground"
@@ -378,10 +378,10 @@ export default function Calendar() {
                   title={m.name}
                 >
                   {m.avatarUrl ? (
-                    <img src={m.avatarUrl} alt={m.name} className="w-5 h-5 rounded-full object-cover" />
+                    <img src={m.avatarUrl} alt={m.name} className="w-7 h-7 rounded-full object-cover" />
                   ) : (
                     <span
-                      className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white"
                       style={{ backgroundColor: m.color }}
                     >
                       {m.name.slice(0, 1).toUpperCase()}
