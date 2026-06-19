@@ -53,6 +53,7 @@ function formatEvent(e: typeof eventsTable.$inferSelect, memberIds: number[] = [
     category: e.category,
     recurrence: e.recurrence ?? null,
     recurrenceEndDate: e.recurrenceEndDate ?? null,
+    recurrenceDays: e.recurrenceDays ?? null,
     googleEventId: e.googleEventId ?? null,
     assignedMembers: memberIds,
     createdAt: e.createdAt.toISOString(),
