@@ -23,6 +23,8 @@ export interface EventInput {
   recurrenceEndDate?: string;
   /** Comma-separated day-of-week numbers (0=Sun..6=Sat) for multi-day recurrence e.g. "1,4" for Mon+Thu */
   recurrenceDays?: string;
+  /** Comma-separated YYYY-MM-DD dates excluded from the recurring series */
+  recurrenceExceptions?: string;
   /** IANA timezone name from the browser (e.g. Australia/Sydney) — used for Google Calendar sync only, not stored */
   timezone?: string;
   assignedMembers?: number[];

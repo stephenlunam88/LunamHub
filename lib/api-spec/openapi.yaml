@@ -1919,6 +1919,9 @@ components:
         recurrenceDays:
           type: ["string", "null"]
           description: Comma-separated day-of-week numbers (0=Sun..6=Sat) for multi-day recurrence e.g. "1,4" for Mon+Thu
+        recurrenceExceptions:
+          type: ["string", "null"]
+          description: Comma-separated YYYY-MM-DD dates excluded from the recurring series (single-occurrence deletes)
         googleEventId:
           type: ["string", "null"]
           description: Google Calendar event ID for synced events
@@ -2007,6 +2010,9 @@ components:
         recurrenceDays:
           type: string
           description: Comma-separated day-of-week numbers (0=Sun..6=Sat) for multi-day recurrence e.g. "1,4" for Mon+Thu
+        recurrenceExceptions:
+          type: string
+          description: Comma-separated YYYY-MM-DD dates excluded from the recurring series
         timezone:
           type: string
           description: IANA timezone name from the browser (e.g. Australia/Sydney) — used for Google Calendar sync only, not stored
@@ -2049,6 +2055,9 @@ components:
         recurrenceDays:
           type: ["string", "null"]
           description: Comma-separated day-of-week numbers (0=Sun..6=Sat) for multi-day recurrence — set to null to clear
+        recurrenceExceptions:
+          type: ["string", "null"]
+          description: Comma-separated YYYY-MM-DD dates excluded from the recurring series — set to null to clear
         timezone:
           type: string
           description: IANA timezone name from the browser (e.g. Australia/Sydney) — used for Google Calendar sync only, not stored

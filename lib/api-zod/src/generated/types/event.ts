@@ -38,6 +38,11 @@ export interface Event {
      */
   recurrenceDays?: string | null;
   /**
+     * Comma-separated YYYY-MM-DD dates excluded from the recurring series (single-occurrence deletes)
+     * @nullable
+     */
+  recurrenceExceptions?: string | null;
+  /**
      * Google Calendar event ID for synced events
      * @nullable
      */

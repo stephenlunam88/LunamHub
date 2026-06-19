@@ -140,6 +140,11 @@ export interface Event {
      */
   recurrenceDays?: string | null;
   /**
+     * Comma-separated YYYY-MM-DD dates excluded from the recurring series (single-occurrence deletes)
+     * @nullable
+     */
+  recurrenceExceptions?: string | null;
+  /**
      * Google Calendar event ID for synced events
      * @nullable
      */
@@ -209,6 +214,8 @@ export interface EventInput {
   recurrenceEndDate?: string;
   /** Comma-separated day-of-week numbers (0=Sun..6=Sat) for multi-day recurrence e.g. "1,4" for Mon+Thu */
   recurrenceDays?: string;
+  /** Comma-separated YYYY-MM-DD dates excluded from the recurring series */
+  recurrenceExceptions?: string;
   /** IANA timezone name from the browser (e.g. Australia/Sydney) — used for Google Calendar sync only, not stored */
   timezone?: string;
   assignedMembers?: number[];
@@ -265,6 +272,11 @@ export interface EventUpdate {
      * @nullable
      */
   recurrenceDays?: string | null;
+  /**
+     * Comma-separated YYYY-MM-DD dates excluded from the recurring series — set to null to clear
+     * @nullable
+     */
+  recurrenceExceptions?: string | null;
   /** IANA timezone name from the browser (e.g. Australia/Sydney) — used for Google Calendar sync only, not stored */
   timezone?: string;
   assignedMembers?: number[];

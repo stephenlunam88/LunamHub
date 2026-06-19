@@ -354,6 +354,23 @@ export async function updateGCalEvent(
   }
 }
 
+/**
+ * Cancel a single instance of a recurring GCal series on a specific date.
+ * Works reliably for all-day events (instance ID = baseId_YYYYMMDD).
+ * For timed events the instance ID format is more complex; we skip silently.
+ */
+export async function deleteGCalEventInstance(googleSeriesId: string, date: string, allDay: boolean): Promise<void> {
+  if (!allDay) return; // timed instance IDs require querying instances endpoint — skip
+  const instanceId = `${googleSeriesId}_${date.replace(/-/g, "")}`;
+  const resp = await directGCal(
+    `/calendars/primary/events/${encodeURIComponent(instanceId)}`,
+    { method: "DELETE" },
+  );
+  if (resp && resp.status >= 300 && resp.status !== 404 && resp.status !== 410) {
+    logger.warn({ status: resp.status, instanceId }, "gcal: deleteEventInstance failed");
+  }
+}
+
 /** Returns true if the event/series still exists in GCal, false if 404/410 (deleted). */
 export async function gcalEventExists(googleEventId: string): Promise<boolean> {
   const resp = await directGCal(

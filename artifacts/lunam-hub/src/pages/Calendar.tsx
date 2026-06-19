@@ -78,6 +78,12 @@ function doesEventOccurOnDay(event: Event, day: Date): boolean {
     const endDate = parseLocalDate(event.recurrenceEndDate as string);
     if (day > endDate) return false;
   }
+  // Check exceptions (single-occurrence deletes)
+  const exceptions = (event as Event & { recurrenceExceptions?: string | null }).recurrenceExceptions;
+  if (exceptions) {
+    const dayStr = format(day, "yyyy-MM-dd");
+    if (exceptions.split(",").includes(dayStr)) return false;
+  }
   const activeDays = (event as Event & { recurrenceDays?: string | null }).recurrenceDays
     ? (event as Event & { recurrenceDays?: string | null }).recurrenceDays!.split(",").map(Number)
     : null;
@@ -173,6 +179,7 @@ export default function Calendar() {
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
   const [form, setForm] = useState<EventForm>(DEFAULT_FORM(format(new Date(), "yyyy-MM-dd")));
   const [filterMemberId, setFilterMemberId] = useState<number | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ event: Event; day: Date } | null>(null);
 
   const startDate = format(startOfMonth(currentMonth), "yyyy-MM-dd");
   const endDate = format(endOfMonth(currentMonth), "yyyy-MM-dd");
@@ -345,7 +352,7 @@ export default function Calendar() {
         <div className="flex items-center gap-2">
           {/* Member filter toggle */}
           {familyMembers.length > 0 && (
-            <div className="flex items-center gap-1.5 bg-muted/60 rounded-2xl p-1">
+            <div className="flex items-center gap-1.5 bg-muted/60 rounded-2xl p-1 h-14">
               <button
                 onClick={() => setFilterMemberId(null)}
                 className={cn(
@@ -390,6 +397,52 @@ export default function Calendar() {
           </Button>
         </div>
       </div>
+
+      {/* ── Delete recurring event dialog ─────────────────────────────────── */}
+      <Dialog open={!!deleteDialog} onOpenChange={(v) => { if (!v) setDeleteDialog(null); }}>
+        <DialogContent className="rounded-3xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete "{deleteDialog?.event.title}"</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">This is a recurring event. What would you like to delete?</p>
+          <div className="flex flex-col gap-2 mt-2">
+            <Button
+              variant="outline"
+              className="rounded-xl h-12 justify-start"
+              disabled={deleteEvent.isPending || updateEvent.isPending}
+              onClick={() => {
+                if (!deleteDialog) return;
+                const ev = deleteDialog.event as Event & { recurrenceExceptions?: string | null };
+                const dateStr = format(deleteDialog.day, "yyyy-MM-dd");
+                const current = ev.recurrenceExceptions ? ev.recurrenceExceptions.split(",") : [];
+                if (!current.includes(dateStr)) {
+                  const updated = [...current, dateStr].join(",");
+                  updateEvent.mutate({ id: ev.id, data: { recurrenceExceptions: updated } as EventUpdate });
+                }
+                setDeleteDialog(null);
+              }}
+            >
+              <span className="font-medium">Delete this date only</span>
+              <span className="text-muted-foreground text-xs ml-1">({deleteDialog ? format(deleteDialog.day, "d MMM yyyy") : ""})</span>
+            </Button>
+            <Button
+              variant="destructive"
+              className="rounded-xl h-12"
+              disabled={deleteEvent.isPending || updateEvent.isPending}
+              onClick={() => {
+                if (!deleteDialog) return;
+                deleteEvent.mutate({ id: deleteDialog.event.id });
+                setDeleteDialog(null);
+              }}
+            >
+              Delete entire series
+            </Button>
+            <Button variant="ghost" className="rounded-xl h-10" onClick={() => setDeleteDialog(null)}>
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Add / Edit Dialog ─────────────────────────────────────────────── */}
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditingEventId(null); }}>
@@ -693,7 +746,13 @@ export default function Calendar() {
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => deleteEvent.mutate({ id: e.id })}
+                        onClick={() => {
+                          if (e.recurrence) {
+                            setDeleteDialog({ event: e, day: selectedDay });
+                          } else {
+                            deleteEvent.mutate({ id: e.id });
+                          }
+                        }}
                         className="text-muted-foreground hover:text-destructive transition-colors p-1"
                         aria-label="Delete event"
                       >

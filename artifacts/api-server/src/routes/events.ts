@@ -22,6 +22,7 @@ import {
   createGCalEvent,
   updateGCalEvent,
   deleteGCalEvent,
+  deleteGCalEventInstance,
   gcalEventExists,
   discoverAndStoreConnectionId,
   clearConnectionId,
@@ -55,6 +56,7 @@ function formatEvent(e: typeof eventsTable.$inferSelect, memberIds: number[] = [
     recurrence: e.recurrence ?? null,
     recurrenceEndDate: e.recurrenceEndDate ?? null,
     recurrenceDays: e.recurrenceDays ?? null,
+    recurrenceExceptions: e.recurrenceExceptions ?? null,
     googleEventId: e.googleEventId ?? null,
     assignedMembers: memberIds,
     createdAt: e.createdAt.toISOString(),
@@ -337,18 +339,28 @@ router.patch("/:id", async (req, res): Promise<void> => {
 
   // Best-effort update on Google Calendar if this event was synced
   if (event.googleEventId) {
-    updateGCalEvent(event.googleEventId, {
-      title: event.title,
-      description: event.description,
-      date: event.date,
-      startTime: event.startTime,
-      endTime: event.endTime,
-      allDay: event.allDay,
-      timezone,
-      recurrence: event.recurrence,
-      recurrenceEndDate: event.recurrenceEndDate,
-      recurrenceDays: event.recurrenceDays,
-    }).catch(() => {});
+    // If only recurrenceExceptions changed (single-occurrence delete), cancel just that instance
+    const newException = (body as { recurrenceExceptions?: string | null }).recurrenceExceptions;
+    const isExceptionOnlyUpdate = newException !== undefined && Object.keys(eventData).every(k => k === "recurrenceExceptions");
+    if (isExceptionOnlyUpdate && newException) {
+      // The last comma-separated date is the newly added exception
+      const dates = newException.split(",");
+      const addedDate = dates[dates.length - 1];
+      deleteGCalEventInstance(event.googleEventId, addedDate, event.allDay).catch(() => {});
+    } else {
+      updateGCalEvent(event.googleEventId, {
+        title: event.title,
+        description: event.description,
+        date: event.date,
+        startTime: event.startTime,
+        endTime: event.endTime,
+        allDay: event.allDay,
+        timezone,
+        recurrence: event.recurrence,
+        recurrenceEndDate: event.recurrenceEndDate,
+        recurrenceDays: event.recurrenceDays,
+      }).catch(() => {});
+    }
   }
 
   if (assignedMembers !== undefined) {
