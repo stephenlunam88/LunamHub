@@ -1,0 +1,27 @@
+ ✔ Container lunamhub-db-1   Healthy                                                                              15.3s
+ ✔ Container lunamhub-api-1  Started                                                                              18.4s
+[/share/Container/familyhub/LunamHub] # docker compose exec api printenv APP_PASSWORD
+[/share/Container/familyhub/LunamHub] # docker compose up -d api
+[+] Running 2/2
+ ✔ Container lunamhub-db-1   Healthy                                                                               0.5s
+ ✔ Container lunamhub-api-1  Running                                                                               0.0s
+[/share/Container/familyhub/LunamHub] # docker compose exec api printenv APP_PASSWORD
+[/share/Container/familyhub/LunamHub] # grep APP_PASSWORD /share/Container/familyhub/LunamHub/.env
+APP_PASSWORD=Mercury381./
+[/share/Container/familyhub/LunamHub] # docker compose up -d --force-recreate api
+[+] Running 2/2
+ ✔ Container lunamhub-db-1   Healthy                                                                              13.2s
+ ✔ Container lunamhub-api-1  Started                                                                              15.1s
+[/share/Container/familyhub/LunamHub] # docker compose exec api printenv APP_PASSWORD
+[/share/Container/familyhub/LunamHub] # grep APP_PASSWORD /share/Container/familyhub/LunamHub/docker-compose.yml
+[/share/Container/familyhub/LunamHub] # git pull https://github.com/stephenlunam88/LunamHub.git main
+From https://github.com/stephenlunam88/LunamHub
+ * branch            main       -> FETCH_HEAD
+Already up to date.
+[/share/Container/familyhub/LunamHub] # docker compose up -d --force-recreate api
+[+] Running 2/2
+ ✔ Container lunamhub-db-1   Healthy                                                                              14.2s
+ ✔ Container lunamhub-api-1  Started                                                                              16.4s
+[/share/Container/familyhub/LunamHub] # docker compose exec api printenv APP_PASSWORD
+[/share/Container/familyhub/LunamHub] # grep APP_PASSWORD /share/Container/familyhub/LunamHub/docker-compose.yml
+[/share/Container/familyhub/LunamHub] #
