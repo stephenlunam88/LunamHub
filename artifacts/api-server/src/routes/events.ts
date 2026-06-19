@@ -22,6 +22,7 @@ import {
   createGCalEvent,
   updateGCalEvent,
   deleteGCalEvent,
+  gcalEventExists,
   discoverAndStoreConnectionId,
   clearConnectionId,
   type GCalEvent,
@@ -181,7 +182,50 @@ router.post("/sync-google", async (req, res): Promise<void> => {
     synced++;
   }
 
-  req.log.info({ synced, range: `${body.startDate}..${body.endDate}` }, "gcal sync complete");
+  // ── Cleanup: remove local non-recurring GCal-linked events that no longer exist in GCal ──
+  // This handles events deleted directly in Google Calendar (not via LunamHub).
+  // We only clean up rows with recurrence=NULL so we never touch locally-managed
+  // recurring series (e.g. Squads Juniors weekly) even if they also have a googleEventId.
+  const allReturnedGcalIds = new Set(gcalEvents.map((ge) => ge.id));
+  const localGcalRows = await db
+    .select({ id: eventsTable.id, googleEventId: eventsTable.googleEventId })
+    .from(eventsTable)
+    .where(
+      and(
+        isNotNull(eventsTable.googleEventId),
+        isNull(eventsTable.recurrence),
+        gte(eventsTable.date, body.startDate),
+        lte(eventsTable.date, body.endDate)
+      )
+    );
+  const staleIds = localGcalRows
+    .filter((r) => !allReturnedGcalIds.has(r.googleEventId!))
+    .map((r) => r.id);
+  if (staleIds.length > 0) {
+    await db.delete(eventMembersTable).where(inArray(eventMembersTable.eventId, staleIds));
+    await db.delete(eventsTable).where(inArray(eventsTable.id, staleIds));
+    req.log.info({ deleted: staleIds.length }, "gcal sync: removed stale local events");
+  }
+
+  // ── Cleanup: locally-managed recurring series deleted directly from GCal ──────
+  // These have recurrence != NULL so they were excluded above. Verify each one
+  // still exists via a GCal GET; delete locally if GCal returns 404/410.
+  const localRecurringSeries = await db
+    .select({ id: eventsTable.id, googleEventId: eventsTable.googleEventId })
+    .from(eventsTable)
+    .where(and(isNotNull(eventsTable.googleEventId), isNotNull(eventsTable.recurrence)));
+  const deletedSeriesIds: number[] = [];
+  for (const series of localRecurringSeries) {
+    const exists = await gcalEventExists(series.googleEventId!);
+    if (!exists) deletedSeriesIds.push(series.id);
+  }
+  if (deletedSeriesIds.length > 0) {
+    await db.delete(eventMembersTable).where(inArray(eventMembersTable.eventId, deletedSeriesIds));
+    await db.delete(eventsTable).where(inArray(eventsTable.id, deletedSeriesIds));
+    req.log.info({ deleted: deletedSeriesIds.length }, "gcal sync: removed locally-managed recurring series deleted from GCal");
+  }
+
+  req.log.info({ synced, deleted: staleIds.length + deletedSeriesIds.length, range: `${body.startDate}..${body.endDate}` }, "gcal sync complete");
   res.json({ connected: true, synced });
 });
 

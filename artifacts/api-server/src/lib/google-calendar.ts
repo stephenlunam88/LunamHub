@@ -354,6 +354,16 @@ export async function updateGCalEvent(
   }
 }
 
+/** Returns true if the event/series still exists in GCal, false if 404/410 (deleted). */
+export async function gcalEventExists(googleEventId: string): Promise<boolean> {
+  const resp = await directGCal(
+    `/calendars/primary/events/${encodeURIComponent(googleEventId)}`,
+    { method: "GET" },
+  );
+  if (!resp) return true; // no connection → assume exists, don't delete locally
+  return resp.status !== 404 && resp.status !== 410;
+}
+
 export async function deleteGCalEvent(googleEventId: string): Promise<void> {
   const resp = await directGCal(
     `/calendars/primary/events/${encodeURIComponent(googleEventId)}`,
