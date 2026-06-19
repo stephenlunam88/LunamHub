@@ -141,6 +141,18 @@ router.post("/sync-google", async (req, res): Promise<void> => {
 
   let synced = 0;
   for (const ge of gcalEvents) {
+    // If this is an expanded instance of a recurring series, skip it when we
+    // already manage that series locally (created in LunamHub and pushed to GCal).
+    // With singleEvents:true, Google expands each recurrence into an instance with a
+    // unique id like "baseId_date" and a recurringEventId pointing to the base series.
+    if (ge.recurringEventId) {
+      const [parentLocal] = await db
+        .select({ id: eventsTable.id })
+        .from(eventsTable)
+        .where(eq(eventsTable.googleEventId, ge.recurringEventId));
+      if (parentLocal) continue;
+    }
+
     // Log raw GCal datetimes so we can verify timezone parsing
     req.log.info(
       { gcalId: ge.id, startDt: ge.start.dateTime, endDt: ge.end.dateTime, startDate: ge.start.date },
@@ -244,6 +256,7 @@ router.post("/", async (req, res): Promise<void> => {
     timezone,
     recurrence: event.recurrence,
     recurrenceEndDate: event.recurrenceEndDate,
+    recurrenceDays: event.recurrenceDays,
   });
   if (gcalId) {
     await db.update(eventsTable).set({ googleEventId: gcalId }).where(eq(eventsTable.id, event.id));
@@ -289,6 +302,7 @@ router.patch("/:id", async (req, res): Promise<void> => {
       timezone,
       recurrence: event.recurrence,
       recurrenceEndDate: event.recurrenceEndDate,
+      recurrenceDays: event.recurrenceDays,
     }).catch(() => {});
   }
 

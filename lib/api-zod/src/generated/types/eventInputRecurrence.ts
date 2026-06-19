@@ -15,6 +15,7 @@ export type EventInputRecurrence = typeof EventInputRecurrence[keyof typeof Even
 export const EventInputRecurrence = {
   DAILY: 'DAILY',
   WEEKLY: 'WEEKLY',
+  FORTNIGHTLY: 'FORTNIGHTLY',
   MONTHLY: 'MONTHLY',
   YEARLY: 'YEARLY',
 } as const;

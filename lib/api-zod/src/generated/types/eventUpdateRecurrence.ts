@@ -16,6 +16,7 @@ export type EventUpdateRecurrence = typeof EventUpdateRecurrence[keyof typeof Ev
 export const EventUpdateRecurrence = {
   DAILY: 'DAILY',
   WEEKLY: 'WEEKLY',
+  FORTNIGHTLY: 'FORTNIGHTLY',
   MONTHLY: 'MONTHLY',
   YEARLY: 'YEARLY',
 } as const;

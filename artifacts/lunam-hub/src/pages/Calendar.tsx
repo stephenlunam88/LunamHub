@@ -32,9 +32,12 @@ const CATEGORY_COLORS: Record<string, string> = {
 const RECURRENCE_LABELS: Record<string, string> = {
   DAILY: "Daily",
   WEEKLY: "Weekly",
+  FORTNIGHTLY: "Fortnightly",
   MONTHLY: "Monthly",
   YEARLY: "Yearly",
 };
+
+const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function formatEventTime(time: string): string {
   const [hStr, mStr] = time.split(":");
@@ -75,11 +78,29 @@ function doesEventOccurOnDay(event: Event, day: Date): boolean {
     const endDate = parseLocalDate(event.recurrenceEndDate as string);
     if (day > endDate) return false;
   }
+  const activeDays = (event as Event & { recurrenceDays?: string | null }).recurrenceDays
+    ? (event as Event & { recurrenceDays?: string | null }).recurrenceDays!.split(",").map(Number)
+    : null;
   switch (event.recurrence as string) {
     case "DAILY":
       return true;
     case "WEEKLY":
+      if (activeDays) return activeDays.includes(getDay(day));
       return getDay(eventStart) === getDay(day);
+    case "FORTNIGHTLY": {
+      const targetDays = activeDays ?? [getDay(eventStart)];
+      if (!targetDays.includes(getDay(day))) return false;
+      // Check biweekly parity: is this day in an "active" week (same 2-week cycle as start)?
+      const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+      const startOfStartWeek = new Date(eventStart);
+      startOfStartWeek.setDate(eventStart.getDate() - eventStart.getDay());
+      startOfStartWeek.setHours(0, 0, 0, 0);
+      const startOfThisWeek = new Date(day);
+      startOfThisWeek.setDate(day.getDate() - day.getDay());
+      startOfThisWeek.setHours(0, 0, 0, 0);
+      const weekDiff = Math.round((startOfThisWeek.getTime() - startOfStartWeek.getTime()) / msPerWeek);
+      return weekDiff >= 0 && weekDiff % 2 === 0;
+    }
     case "MONTHLY":
       return getDate(eventStart) === getDate(day);
     case "YEARLY":
@@ -102,6 +123,7 @@ interface EventForm {
   location?: string;
   recurrence?: string;
   recurrenceEndDate?: string;
+  recurrenceDays?: string;
   assignedMembers: number[];
 }
 
@@ -114,6 +136,7 @@ const DEFAULT_FORM = (date: string): EventForm => ({
   location: "",
   recurrence: undefined,
   recurrenceEndDate: undefined,
+  recurrenceDays: undefined,
   assignedMembers: [],
 });
 
@@ -231,6 +254,7 @@ export default function Calendar() {
       location: e.location ?? "",
       recurrence: (e.recurrence as string | null | undefined) ?? undefined,
       recurrenceEndDate: (e.recurrenceEndDate as string | null | undefined) ?? undefined,
+      recurrenceDays: (e as Event & { recurrenceDays?: string | null }).recurrenceDays ?? undefined,
       assignedMembers: e.assignedMembers ?? [],
     });
     setOpen(true);
@@ -249,12 +273,13 @@ export default function Calendar() {
     const cleanedRecurrence = (form.recurrence || undefined) as EventInputRecurrence | undefined;
     const cleanedRecurrenceUpdate = (form.recurrence || null) as EventUpdateRecurrence | null;
     const cleanedRecurrenceEndDate = form.recurrenceEndDate || undefined;
+    const cleanedRecurrenceDays = form.recurrenceDays || undefined;
     const cleanedStartTime = form.startTime || undefined;
     const cleanedEndTime = form.endTime || undefined;
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     if (mode === "create") {
-      const data: EventInput = {
+      const data = {
         title: form.title,
         date: form.date,
         allDay: form.allDay ?? !cleanedStartTime,
@@ -264,13 +289,14 @@ export default function Calendar() {
         ...(form.location ? { location: form.location } : {}),
         ...(cleanedRecurrence ? { recurrence: cleanedRecurrence } : {}),
         ...(cleanedRecurrenceEndDate ? { recurrenceEndDate: cleanedRecurrenceEndDate } : {}),
+        ...(cleanedRecurrenceDays ? { recurrenceDays: cleanedRecurrenceDays } : {}),
         ...(cleanedStartTime ? { startTime: cleanedStartTime } : {}),
         ...(cleanedEndTime ? { endTime: cleanedEndTime } : {}),
         assignedMembers: form.assignedMembers,
-      };
+      } as EventInput;
       createEvent.mutate({ data });
     } else if (editingEventId !== null) {
-      const data: EventUpdate = {
+      const data = {
         title: form.title,
         date: form.date,
         allDay: form.allDay ?? !cleanedStartTime,
@@ -279,11 +305,12 @@ export default function Calendar() {
         location: form.location || undefined,
         recurrence: cleanedRecurrenceUpdate,
         recurrenceEndDate: cleanedRecurrenceEndDate ?? null,
+        recurrenceDays: cleanedRecurrenceDays ?? null,
         startTime: cleanedStartTime,
         endTime: cleanedEndTime,
         timezone,
         assignedMembers: form.assignedMembers,
-      };
+      } as EventUpdate;
       updateEvent.mutate({ id: editingEventId, data });
     }
   }
@@ -468,17 +495,46 @@ export default function Calendar() {
 
             <div>
               <Label>Repeat</Label>
-              <Select value={form.recurrence ?? "none"} onValueChange={v => setForm(f => ({ ...f, recurrence: v === "none" ? undefined : v, recurrenceEndDate: v === "none" ? undefined : f.recurrenceEndDate }))}>
+              <Select value={form.recurrence ?? "none"} onValueChange={v => setForm(f => ({ ...f, recurrence: v === "none" ? undefined : v, recurrenceEndDate: v === "none" ? undefined : f.recurrenceEndDate, recurrenceDays: v === "none" || v === "DAILY" || v === "MONTHLY" || v === "YEARLY" ? undefined : f.recurrenceDays }))}>
                 <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="None" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
                   <SelectItem value="DAILY">Daily</SelectItem>
                   <SelectItem value="WEEKLY">Weekly</SelectItem>
+                  <SelectItem value="FORTNIGHTLY">Fortnightly</SelectItem>
                   <SelectItem value="MONTHLY">Monthly</SelectItem>
                   <SelectItem value="YEARLY">Yearly</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {(form.recurrence === "WEEKLY" || form.recurrence === "FORTNIGHTLY") && (
+              <div>
+                <Label>Repeat on days (optional)</Label>
+                <div className="flex gap-1 mt-1 flex-wrap">
+                  {DOW_LABELS.map((label, idx) => {
+                    const active = form.recurrenceDays?.split(",").map(Number).includes(idx) ?? false;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          const current = form.recurrenceDays ? form.recurrenceDays.split(",").map(Number) : [];
+                          const next = active ? current.filter(d => d !== idx) : [...current, idx].sort((a, b) => a - b);
+                          setForm(f => ({ ...f, recurrenceDays: next.length > 0 ? next.join(",") : undefined }));
+                        }}
+                        className={cn(
+                          "px-2 py-1 rounded-lg text-xs font-medium border transition-colors",
+                          active ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border"
+                        )}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Leave blank to repeat on the event's start day</p>
+              </div>
+            )}
             {form.recurrence && (
               <div>
                 <Label>End Repeat (optional)</Label>

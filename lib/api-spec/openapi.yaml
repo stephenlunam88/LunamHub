@@ -1911,11 +1911,14 @@ components:
           enum: [school, sport, appointment, birthday, family, other]
         recurrence:
           type: ["string", "null"]
-          enum: [DAILY, WEEKLY, MONTHLY, YEARLY, null]
+          enum: [DAILY, WEEKLY, FORTNIGHTLY, MONTHLY, YEARLY, null]
           description: Recurrence rule for repeating events
         recurrenceEndDate:
           type: ["string", "null"]
           description: Optional end date (YYYY-MM-DD) for the recurrence
+        recurrenceDays:
+          type: ["string", "null"]
+          description: Comma-separated day-of-week numbers (0=Sun..6=Sat) for multi-day recurrence e.g. "1,4" for Mon+Thu
         googleEventId:
           type: ["string", "null"]
           description: Google Calendar event ID for synced events
@@ -1996,11 +1999,14 @@ components:
           enum: [school, sport, appointment, birthday, family, other]
         recurrence:
           type: string
-          enum: [DAILY, WEEKLY, MONTHLY, YEARLY]
+          enum: [DAILY, WEEKLY, FORTNIGHTLY, MONTHLY, YEARLY]
           description: Recurrence rule for repeating events
         recurrenceEndDate:
           type: string
           description: Optional end date (YYYY-MM-DD) for the recurrence
+        recurrenceDays:
+          type: string
+          description: Comma-separated day-of-week numbers (0=Sun..6=Sat) for multi-day recurrence e.g. "1,4" for Mon+Thu
         timezone:
           type: string
           description: IANA timezone name from the browser (e.g. Australia/Sydney) — used for Google Calendar sync only, not stored
@@ -2035,11 +2041,14 @@ components:
           enum: [school, sport, appointment, birthday, family, other]
         recurrence:
           type: ["string", "null"]
-          enum: [DAILY, WEEKLY, MONTHLY, YEARLY, null]
+          enum: [DAILY, WEEKLY, FORTNIGHTLY, MONTHLY, YEARLY, null]
           description: Recurrence rule — set to null to clear
         recurrenceEndDate:
           type: ["string", "null"]
           description: Optional end date (YYYY-MM-DD) for the recurrence — set to null to clear
+        recurrenceDays:
+          type: ["string", "null"]
+          description: Comma-separated day-of-week numbers (0=Sun..6=Sat) for multi-day recurrence — set to null to clear
         timezone:
           type: string
           description: IANA timezone name from the browser (e.g. Australia/Sydney) — used for Google Calendar sync only, not stored

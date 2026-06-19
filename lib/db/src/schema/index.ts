@@ -63,8 +63,9 @@ export const eventsTable = pgTable("events", {
   endTime: text("end_time"),
   allDay: boolean("all_day").notNull().default(false),
   category: eventCategoryEnum("category").notNull().default("other"),
-  recurrence: text("recurrence"), // DAILY | WEEKLY | MONTHLY | YEARLY | null
+  recurrence: text("recurrence"), // DAILY | WEEKLY | FORTNIGHTLY | MONTHLY | YEARLY | null
   recurrenceEndDate: text("recurrence_end_date"), // YYYY-MM-DD, optional end for recurring events
+  recurrenceDays: text("recurrence_days"), // comma-separated day-of-week numbers 0=Sun..6=Sat e.g. "1,4" for Mon+Thu
   googleEventId: text("google_event_id"), // Google Calendar event ID for synced events
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

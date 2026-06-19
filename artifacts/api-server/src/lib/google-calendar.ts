@@ -227,14 +227,38 @@ const RECURRENCE_MAP: Record<string, string> = {
   YEARLY: "YEARLY",
 };
 
-function buildRRule(recurrence: string | null | undefined, recurrenceEndDate: string | null | undefined): string[] {
+// Map JS day-of-week numbers (0=Sun..6=Sat) → RRULE BYDAY abbreviations
+const DOW_MAP: Record<number, string> = {
+  0: "SU", 1: "MO", 2: "TU", 3: "WE", 4: "TH", 5: "FR", 6: "SA",
+};
+
+function buildRRule(
+  recurrence: string | null | undefined,
+  recurrenceEndDate: string | null | undefined,
+  recurrenceDays?: string | null,
+): string[] {
   if (!recurrence) return [];
-  const freq = RECURRENCE_MAP[recurrence.toUpperCase()];
-  if (!freq) return [];
-  let rule = `RRULE:FREQ=${freq}`;
+  const upperRec = recurrence.toUpperCase();
+  let freq: string;
+  let interval = "";
+  if (upperRec === "FORTNIGHTLY") {
+    freq = "WEEKLY";
+    interval = ";INTERVAL=2";
+  } else {
+    freq = RECURRENCE_MAP[upperRec];
+    if (!freq) return [];
+  }
+  let rule = `RRULE:FREQ=${freq}${interval}`;
   if (recurrenceEndDate) {
-    // Google Calendar UNTIL format: YYYYMMDD (no dashes)
     rule += `;UNTIL=${recurrenceEndDate.replace(/-/g, "")}`;
+  }
+  if (recurrenceDays && (upperRec === "WEEKLY" || upperRec === "FORTNIGHTLY")) {
+    const byday = recurrenceDays
+      .split(",")
+      .map(d => DOW_MAP[parseInt(d)])
+      .filter(Boolean)
+      .join(",");
+    if (byday) rule += `;BYDAY=${byday}`;
   }
   return [rule];
 }
@@ -250,6 +274,7 @@ export async function createGCalEvent(event: {
   timezone?: string | null;
   recurrence?: string | null;
   recurrenceEndDate?: string | null;
+  recurrenceDays?: string | null;
 }): Promise<string | null> {
   const allDay = event.allDay || !event.startTime;
   const tz = event.timezone || (await getCalendarTimezone());
@@ -266,7 +291,7 @@ export async function createGCalEvent(event: {
     "gcal: createEvent datetime",
   );
 
-  const rrule = buildRRule(event.recurrence, event.recurrenceEndDate);
+  const rrule = buildRRule(event.recurrence, event.recurrenceEndDate, event.recurrenceDays);
   const body: Record<string, unknown> = {
     summary: event.title,
     ...(event.description ? { description: event.description } : {}),
@@ -298,11 +323,12 @@ export async function updateGCalEvent(
     timezone?: string | null;
     recurrence?: string | null;
     recurrenceEndDate?: string | null;
+    recurrenceDays?: string | null;
   },
 ): Promise<void> {
   const allDay = event.allDay || !event.startTime;
   const tz = event.timezone || (await getCalendarTimezone());
-  const rrule = buildRRule(event.recurrence, event.recurrenceEndDate);
+  const rrule = buildRRule(event.recurrence, event.recurrenceEndDate, event.recurrenceDays);
   const startDt = allDay ? undefined : localTimeToUTC(event.date, event.startTime!, tz);
   const endDt = allDay
     ? undefined

@@ -105,6 +105,7 @@ export type EventRecurrence = typeof EventRecurrence[keyof typeof EventRecurrenc
 export const EventRecurrence = {
   DAILY: 'DAILY',
   WEEKLY: 'WEEKLY',
+  FORTNIGHTLY: 'FORTNIGHTLY',
   MONTHLY: 'MONTHLY',
   YEARLY: 'YEARLY',
 } as const;
@@ -133,6 +134,11 @@ export interface Event {
      * @nullable
      */
   recurrenceEndDate?: string | null;
+  /**
+     * Comma-separated day-of-week numbers (0=Sun..6=Sat) for multi-day recurrence e.g. "1,4" for Mon+Thu
+     * @nullable
+     */
+  recurrenceDays?: string | null;
   /**
      * Google Calendar event ID for synced events
      * @nullable
@@ -183,6 +189,7 @@ export type EventInputRecurrence = typeof EventInputRecurrence[keyof typeof Even
 export const EventInputRecurrence = {
   DAILY: 'DAILY',
   WEEKLY: 'WEEKLY',
+  FORTNIGHTLY: 'FORTNIGHTLY',
   MONTHLY: 'MONTHLY',
   YEARLY: 'YEARLY',
 } as const;
@@ -200,6 +207,8 @@ export interface EventInput {
   recurrence?: EventInputRecurrence;
   /** Optional end date (YYYY-MM-DD) for the recurrence */
   recurrenceEndDate?: string;
+  /** Comma-separated day-of-week numbers (0=Sun..6=Sat) for multi-day recurrence e.g. "1,4" for Mon+Thu */
+  recurrenceDays?: string;
   /** IANA timezone name from the browser (e.g. Australia/Sydney) — used for Google Calendar sync only, not stored */
   timezone?: string;
   assignedMembers?: number[];
@@ -227,6 +236,7 @@ export type EventUpdateRecurrence = typeof EventUpdateRecurrence[keyof typeof Ev
 export const EventUpdateRecurrence = {
   DAILY: 'DAILY',
   WEEKLY: 'WEEKLY',
+  FORTNIGHTLY: 'FORTNIGHTLY',
   MONTHLY: 'MONTHLY',
   YEARLY: 'YEARLY',
 } as const;
@@ -250,6 +260,11 @@ export interface EventUpdate {
      * @nullable
      */
   recurrenceEndDate?: string | null;
+  /**
+     * Comma-separated day-of-week numbers (0=Sun..6=Sat) for multi-day recurrence — set to null to clear
+     * @nullable
+     */
+  recurrenceDays?: string | null;
   /** IANA timezone name from the browser (e.g. Australia/Sydney) — used for Google Calendar sync only, not stored */
   timezone?: string;
   assignedMembers?: number[];

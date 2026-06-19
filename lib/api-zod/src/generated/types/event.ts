@@ -33,6 +33,11 @@ export interface Event {
      */
   recurrenceEndDate?: string | null;
   /**
+     * Comma-separated day-of-week numbers (0=Sun..6=Sat) for multi-day recurrence e.g. "1,4" for Mon+Thu
+     * @nullable
+     */
+  recurrenceDays?: string | null;
+  /**
      * Google Calendar event ID for synced events
      * @nullable
      */

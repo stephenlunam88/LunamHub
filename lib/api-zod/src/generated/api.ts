@@ -125,8 +125,9 @@ export const ListEventsResponseItem = zod.object({
   "endTime": zod.string().nullish(),
   "allDay": zod.boolean(),
   "category": zod.enum(['school', 'sport', 'appointment', 'birthday', 'family', 'other']),
-  "recurrence": zod.union([zod.literal('DAILY'),zod.literal('WEEKLY'),zod.literal('MONTHLY'),zod.literal('YEARLY'),zod.literal(null)]).nullish().describe('Recurrence rule for repeating events'),
+  "recurrence": zod.union([zod.literal('DAILY'),zod.literal('WEEKLY'),zod.literal('FORTNIGHTLY'),zod.literal('MONTHLY'),zod.literal('YEARLY'),zod.literal(null)]).nullish().describe('Recurrence rule for repeating events'),
   "recurrenceEndDate": zod.string().nullish().describe('Optional end date (YYYY-MM-DD) for the recurrence'),
+  "recurrenceDays": zod.string().nullish().describe('Comma-separated day-of-week numbers (0=Sun..6=Sat) for multi-day recurrence e.g. \"1,4\" for Mon+Thu'),
   "googleEventId": zod.string().nullish().describe('Google Calendar event ID for synced events'),
   "assignedMembers": zod.array(zod.number()),
   "createdAt": zod.string()
@@ -146,8 +147,9 @@ export const CreateEventBody = zod.object({
   "endTime": zod.string().optional(),
   "allDay": zod.boolean().optional(),
   "category": zod.enum(['school', 'sport', 'appointment', 'birthday', 'family', 'other']),
-  "recurrence": zod.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY']).optional().describe('Recurrence rule for repeating events'),
+  "recurrence": zod.enum(['DAILY', 'WEEKLY', 'FORTNIGHTLY', 'MONTHLY', 'YEARLY']).optional().describe('Recurrence rule for repeating events'),
   "recurrenceEndDate": zod.string().optional().describe('Optional end date (YYYY-MM-DD) for the recurrence'),
+  "recurrenceDays": zod.string().optional().describe('Comma-separated day-of-week numbers (0=Sun..6=Sat) for multi-day recurrence e.g. \"1,4\" for Mon+Thu'),
   "timezone": zod.string().optional().describe('IANA timezone name from the browser (e.g. Australia\/Sydney) — used for Google Calendar sync only, not stored'),
   "assignedMembers": zod.array(zod.number()).optional()
 })
@@ -211,8 +213,9 @@ export const GetEventResponse = zod.object({
   "endTime": zod.string().nullish(),
   "allDay": zod.boolean(),
   "category": zod.enum(['school', 'sport', 'appointment', 'birthday', 'family', 'other']),
-  "recurrence": zod.union([zod.literal('DAILY'),zod.literal('WEEKLY'),zod.literal('MONTHLY'),zod.literal('YEARLY'),zod.literal(null)]).nullish().describe('Recurrence rule for repeating events'),
+  "recurrence": zod.union([zod.literal('DAILY'),zod.literal('WEEKLY'),zod.literal('FORTNIGHTLY'),zod.literal('MONTHLY'),zod.literal('YEARLY'),zod.literal(null)]).nullish().describe('Recurrence rule for repeating events'),
   "recurrenceEndDate": zod.string().nullish().describe('Optional end date (YYYY-MM-DD) for the recurrence'),
+  "recurrenceDays": zod.string().nullish().describe('Comma-separated day-of-week numbers (0=Sun..6=Sat) for multi-day recurrence e.g. \"1,4\" for Mon+Thu'),
   "googleEventId": zod.string().nullish().describe('Google Calendar event ID for synced events'),
   "assignedMembers": zod.array(zod.number()),
   "createdAt": zod.string()
@@ -235,8 +238,9 @@ export const UpdateEventBody = zod.object({
   "endTime": zod.string().optional(),
   "allDay": zod.boolean().optional(),
   "category": zod.enum(['school', 'sport', 'appointment', 'birthday', 'family', 'other']).optional(),
-  "recurrence": zod.union([zod.literal('DAILY'),zod.literal('WEEKLY'),zod.literal('MONTHLY'),zod.literal('YEARLY'),zod.literal(null)]).nullish().describe('Recurrence rule — set to null to clear'),
+  "recurrence": zod.union([zod.literal('DAILY'),zod.literal('WEEKLY'),zod.literal('FORTNIGHTLY'),zod.literal('MONTHLY'),zod.literal('YEARLY'),zod.literal(null)]).nullish().describe('Recurrence rule — set to null to clear'),
   "recurrenceEndDate": zod.string().nullish().describe('Optional end date (YYYY-MM-DD) for the recurrence — set to null to clear'),
+  "recurrenceDays": zod.string().nullish().describe('Comma-separated day-of-week numbers (0=Sun..6=Sat) for multi-day recurrence — set to null to clear'),
   "timezone": zod.string().optional().describe('IANA timezone name from the browser (e.g. Australia\/Sydney) — used for Google Calendar sync only, not stored'),
   "assignedMembers": zod.array(zod.number()).optional()
 })
@@ -251,8 +255,9 @@ export const UpdateEventResponse = zod.object({
   "endTime": zod.string().nullish(),
   "allDay": zod.boolean(),
   "category": zod.enum(['school', 'sport', 'appointment', 'birthday', 'family', 'other']),
-  "recurrence": zod.union([zod.literal('DAILY'),zod.literal('WEEKLY'),zod.literal('MONTHLY'),zod.literal('YEARLY'),zod.literal(null)]).nullish().describe('Recurrence rule for repeating events'),
+  "recurrence": zod.union([zod.literal('DAILY'),zod.literal('WEEKLY'),zod.literal('FORTNIGHTLY'),zod.literal('MONTHLY'),zod.literal('YEARLY'),zod.literal(null)]).nullish().describe('Recurrence rule for repeating events'),
   "recurrenceEndDate": zod.string().nullish().describe('Optional end date (YYYY-MM-DD) for the recurrence'),
+  "recurrenceDays": zod.string().nullish().describe('Comma-separated day-of-week numbers (0=Sun..6=Sat) for multi-day recurrence e.g. \"1,4\" for Mon+Thu'),
   "googleEventId": zod.string().nullish().describe('Google Calendar event ID for synced events'),
   "assignedMembers": zod.array(zod.number()),
   "createdAt": zod.string()
@@ -1212,8 +1217,9 @@ export const GetDashboardSummaryResponse = zod.object({
   "endTime": zod.string().nullish(),
   "allDay": zod.boolean(),
   "category": zod.enum(['school', 'sport', 'appointment', 'birthday', 'family', 'other']),
-  "recurrence": zod.union([zod.literal('DAILY'),zod.literal('WEEKLY'),zod.literal('MONTHLY'),zod.literal('YEARLY'),zod.literal(null)]).nullish().describe('Recurrence rule for repeating events'),
+  "recurrence": zod.union([zod.literal('DAILY'),zod.literal('WEEKLY'),zod.literal('FORTNIGHTLY'),zod.literal('MONTHLY'),zod.literal('YEARLY'),zod.literal(null)]).nullish().describe('Recurrence rule for repeating events'),
   "recurrenceEndDate": zod.string().nullish().describe('Optional end date (YYYY-MM-DD) for the recurrence'),
+  "recurrenceDays": zod.string().nullish().describe('Comma-separated day-of-week numbers (0=Sun..6=Sat) for multi-day recurrence e.g. \"1,4\" for Mon+Thu'),
   "googleEventId": zod.string().nullish().describe('Google Calendar event ID for synced events'),
   "assignedMembers": zod.array(zod.number()),
   "createdAt": zod.string()
@@ -1228,8 +1234,9 @@ export const GetDashboardSummaryResponse = zod.object({
   "endTime": zod.string().nullish(),
   "allDay": zod.boolean(),
   "category": zod.enum(['school', 'sport', 'appointment', 'birthday', 'family', 'other']),
-  "recurrence": zod.union([zod.literal('DAILY'),zod.literal('WEEKLY'),zod.literal('MONTHLY'),zod.literal('YEARLY'),zod.literal(null)]).nullish().describe('Recurrence rule for repeating events'),
+  "recurrence": zod.union([zod.literal('DAILY'),zod.literal('WEEKLY'),zod.literal('FORTNIGHTLY'),zod.literal('MONTHLY'),zod.literal('YEARLY'),zod.literal(null)]).nullish().describe('Recurrence rule for repeating events'),
   "recurrenceEndDate": zod.string().nullish().describe('Optional end date (YYYY-MM-DD) for the recurrence'),
+  "recurrenceDays": zod.string().nullish().describe('Comma-separated day-of-week numbers (0=Sun..6=Sat) for multi-day recurrence e.g. \"1,4\" for Mon+Thu'),
   "googleEventId": zod.string().nullish().describe('Google Calendar event ID for synced events'),
   "assignedMembers": zod.array(zod.number()),
   "createdAt": zod.string()
