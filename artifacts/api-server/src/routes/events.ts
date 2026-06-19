@@ -323,8 +323,10 @@ router.delete("/:id", async (req, res): Promise<void> => {
   const { id } = DeleteEventParams.parse({ id: Number(req.params.id) });
   const [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, id));
   if (event?.googleEventId) {
-    // Best-effort — don't block local delete on Google Calendar failure
-    deleteGCalEvent(event.googleEventId).catch(() => {});
+    // Await the GCal delete before responding — the client immediately re-syncs on
+    // success, and a fire-and-forget here causes a race where the sync re-imports
+    // the event before GCal has processed the delete.
+    await deleteGCalEvent(event.googleEventId).catch(() => {});
   }
   await db.delete(eventsTable).where(eq(eventsTable.id, id));
   res.status(204).send();
