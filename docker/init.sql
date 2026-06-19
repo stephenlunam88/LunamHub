@@ -45,6 +45,8 @@ CREATE TABLE events (
     category event_category NOT NULL DEFAULT 'other',
     recurrence TEXT,
     recurrence_end_date TEXT,
+    recurrence_days TEXT,
+    recurrence_exceptions TEXT,
     google_event_id TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
