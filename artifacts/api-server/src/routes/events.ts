@@ -141,11 +141,6 @@ router.post("/sync-google", async (req, res): Promise<void> => {
 
   let synced = 0;
   for (const ge of gcalEvents) {
-    // Skip expanded instances of recurring series — they have a different ID from
-    // the series record we stored as googleEventId, which would create duplicate rows.
-    // We handle recurrence expansion ourselves in the frontend.
-    if (ge.recurringEventId) continue;
-
     // Log raw GCal datetimes so we can verify timezone parsing
     req.log.info(
       { gcalId: ge.id, startDt: ge.start.dateTime, endDt: ge.end.dateTime, startDate: ge.start.date },

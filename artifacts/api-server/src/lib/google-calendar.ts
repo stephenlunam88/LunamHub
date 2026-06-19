@@ -169,7 +169,7 @@ export interface GCalEvent {
   location?: string;
   start: { date?: string; dateTime?: string; timeZone?: string };
   end: { date?: string; dateTime?: string; timeZone?: string };
-  recurringEventId?: string; // set on expanded instances — we skip these
+  recurringEventId?: string;
 }
 
 export async function listGCalEvents(
