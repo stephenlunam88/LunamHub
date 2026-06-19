@@ -26,7 +26,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload, CalendarDays, Flame, ImagePlay, Star, ListChecks, History, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload, CalendarDays, Flame, ImagePlay, Star, ListChecks, History, TrendingUp, TrendingDown, Minus, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import {
   useGetGoogleCalendarStatus,
   useDisconnectGoogleCalendar,
@@ -1326,6 +1327,30 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
       </Card>
 
       <GoogleCalendarCard />
+
+      <SignOutCard />
     </div>
+  );
+}
+
+function SignOutCard() {
+  const { passwordRequired, logout } = useAuth();
+  if (!passwordRequired) return null;
+  return (
+    <Card className="rounded-3xl border-0 shadow-sm">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <LogOut className="w-5 h-5" /> Sign Out
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-muted-foreground mb-4">
+          Sign out of LunamHub on this device. You'll need the app password to sign back in.
+        </p>
+        <Button variant="destructive" className="h-12 px-6 rounded-xl" onClick={logout}>
+          <LogOut className="w-4 h-4 mr-2" /> Sign Out
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

@@ -1,6 +1,7 @@
 // Main routes index — registers all feature routers under /api
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import authRouter from "./auth";
 import { familyRouter } from "./family";
 import { eventsRouter } from "./events";
 import { choresRouter } from "./chores";
@@ -21,10 +22,17 @@ import { pointMilestonesRouter } from "./pointMilestones";
 import { choreMilestonesRouter } from "./choreMilestones";
 import storageRouter from "./storage";
 import googleAuthRouter from "./google-auth";
+import { requireAuth } from "../middleware/requireAuth";
 
 const router: IRouter = Router();
 
+// Public — health check and auth endpoints (no login required)
 router.use(healthRouter);
+router.use("/auth", authRouter);
+
+// Everything below requires a valid session when APP_PASSWORD is set
+router.use(requireAuth);
+
 router.use("/family", familyRouter);
 router.use("/events", eventsRouter);
 router.use("/chores", choresRouter);

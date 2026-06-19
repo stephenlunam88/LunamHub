@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
+import Login from "@/pages/Login";
 import { Layout } from "@/components/Layout";
 import Dashboard from "@/pages/Dashboard";
 import Calendar from "@/pages/Calendar";
@@ -15,20 +16,18 @@ import Routines from "@/pages/Routines";
 import Admin from "@/pages/Admin";
 import Display from "@/pages/Display";
 import { useGetSettings, getGetSettingsQueryKey } from "@workspace/api-client-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000 } },
 });
 
-// Navigates to /display after N minutes of inactivity (any touch/mouse/key resets the timer).
-// Does nothing when already on the display/screensaver page.
 function InactivityWatcher() {
   const [location, navigate] = useLocation();
   const { data: settings } = useGetSettings({ query: { queryKey: getGetSettingsQueryKey() } });
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    // Don't run on the display/screensaver page itself
     if (location === "/display") {
       if (timerRef.current) clearTimeout(timerRef.current);
       return;
@@ -74,12 +73,22 @@ function Router() {
   );
 }
 
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { authenticated, passwordRequired, isLoading } = useAuth();
+
+  if (isLoading) return null;
+  if (passwordRequired && !authenticated) return <Login />;
+  return <>{children}</>;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
+          <AuthGate>
+            <Router />
+          </AuthGate>
         </WouterRouter>
         <Toaster />
       </TooltipProvider>
