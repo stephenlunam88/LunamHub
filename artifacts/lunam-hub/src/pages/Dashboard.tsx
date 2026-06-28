@@ -273,7 +273,8 @@ function EventRow({ e, memberById }: { e: Event; memberById: Record<number, Fami
 }
 
 export default function Dashboard() {
-  const { data: summary, isLoading } = useGetDashboardSummary();
+  const localDate = Intl.DateTimeFormat("en-CA").format(new Date()); // YYYY-MM-DD in browser local time
+  const { data: summary, isLoading } = useGetDashboardSummary({ date: localDate });
   const { data: allTimeBoard = [] } = useGetLeaderboard();
   const { data: weeklyBoard = [] } = useGetWeeklyLeaderboard();
   const [now, setNow] = useState(new Date());

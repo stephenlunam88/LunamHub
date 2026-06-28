@@ -17,8 +17,9 @@ import { pointTransactionsTable } from "@workspace/db";
 
 const router = Router();
 
-function today() {
-  return new Date().toISOString().split("T")[0]!; // YYYY-MM-DD
+function today(clientDate?: string) {
+  if (clientDate && /^\d{4}-\d{2}-\d{2}$/.test(clientDate)) return clientDate;
+  return new Date().toISOString().split("T")[0]!; // YYYY-MM-DD UTC fallback
 }
 
 function addDays(dateStr: string, days: number) {
@@ -45,8 +46,8 @@ function doesOccurOn(e: typeof eventsTable.$inferSelect, dateStr: string): boole
 }
 
 // GET /api/dashboard/summary
-router.get("/summary", async (_req, res) => {
-  const todayStr = today();
+router.get("/summary", async (req, res) => {
+  const todayStr = today(req.query["date"] as string | undefined);
   const upcomingEnd = addDays(todayStr, 7);
 
   // Fetch events that could appear today or in the upcoming week.

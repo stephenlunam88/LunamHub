@@ -1211,6 +1211,10 @@ export const CompleteRoutineItemResponse = zod.object({
 /**
  * @summary Get all today's data for the main dashboard
  */
+export const GetDashboardSummaryQueryParams = zod.object({
+  "date": zod.coerce.string().optional().describe('Today\'s date in YYYY-MM-DD format (client local time). Falls back to server UTC if omitted.')
+})
+
 export const GetDashboardSummaryResponse = zod.object({
   "todayEvents": zod.array(zod.object({
   "id": zod.number(),

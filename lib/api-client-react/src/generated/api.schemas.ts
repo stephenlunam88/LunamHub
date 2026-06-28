@@ -1023,6 +1023,13 @@ export type AddMealIngredientsToGrocery200 = {
   added: number;
 };
 
+export type GetDashboardSummaryParams = {
+/**
+ * Today's date in YYYY-MM-DD format (client local time). Falls back to server UTC if omitted.
+ */
+date?: string;
+};
+
 export type VerifyPin200 = {
   valid: boolean;
 };

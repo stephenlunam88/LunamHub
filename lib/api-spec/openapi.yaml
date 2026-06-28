@@ -1173,6 +1173,12 @@ paths:
       operationId: getDashboardSummary
       tags: [dashboard]
       summary: Get all today's data for the main dashboard
+      parameters:
+        - in: query
+          name: date
+          schema:
+            type: string
+          description: Today's date in YYYY-MM-DD format (client local time). Falls back to server UTC if omitted.
       responses:
         "200":
           description: Dashboard summary

@@ -46,6 +46,7 @@ export * from './familyMemberInputRole';
 export * from './familyMemberRole';
 export * from './familyMemberUpdate';
 export * from './familyMemberUpdateRole';
+export * from './getDashboardSummaryParams';
 export * from './getMealPlanParams';
 export * from './googleCalendarStatus';
 export * from './googleCalendarSyncInput';
