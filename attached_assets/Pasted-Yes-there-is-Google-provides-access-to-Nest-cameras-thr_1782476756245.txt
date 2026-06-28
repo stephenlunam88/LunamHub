@@ -1,0 +1,19 @@
+Yes, there is. Google provides access to Nest cameras through the **Smart Device Management (SDM) API**, which is part of their **Device Access** program. This program is available for both commercial developers and individual smart home enthusiasts (like those setting up private integrations or Home Assistant).
+Here is a breakdown of how it works and what you can do with it.
+### What You Can Do
+Using the SDM API with your Nest cameras, you can:
+ * **Access Live Streams:** Generate live video streams.
+   * *WebRTC* is supported for newer cameras and legacy cameras migrated to the Google Home app.
+   * *RTSP* is supported for legacy cameras still using the original Nest app.
+ * **Download Snapshot Images:** Trigger and download camera image snapshots when events occur.
+ * **Receive Event Notifications:** Listen for real-time motion, sound, or person-detection events via a Google Cloud Pub/Sub subscription.
+### Prerequisites & Getting Started
+To use the API for your personal cameras, you have to go through a specific developer setup process:
+ 1. **Register for Device Access:** You need to sign up for the Device Access Console using your Google account. Google charges a **one-time, non-refundable US$5 fee** to register an individual developer sandbox.
+ 2. **Set Up Google Cloud:** You will need to create a project in the Google Cloud Console, enable the **Smart Device Management API**, and generate OAuth 2.0 credentials.
+ 3. **Create a Device Access Project:** Link your Google Cloud credentials to the Device Access Console to get a unique Project ID.
+ 4. **Authorize Your Account:** Grant your cloud project permission to access your specific home structure and individual Nest cameras.
+### Restrictions to Keep in Mind
+ * **Account Types:** The SDM API does **not** support Google Workspace accounts or accounts enrolled in Google's Advanced Protection Program. You must use a standard, personal Google account.
+ * **Commercial vs. Individual:** The individual sandbox lets you connect your own personal devices. If you ever want to build a public app for other users, it requires a much more stringent commercial review and security assessment.
+If you are using an automation platform like Home Assistant, they have pre-built integrations that utilize this exact API infrastructure, making the configuration side a bit easier once your developer credentials are set up.
