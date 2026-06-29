@@ -107,7 +107,7 @@ export default function Display() {
 
   return (
     <div
-      className="fixed inset-0 overflow-hidden cursor-pointer select-none"
+      className="fixed inset-0 overflow-hidden cursor-pointer select-none bg-black"
       onClick={dismiss}
     >
       {/* ── Background ───────────────────────────────────────────────── */}
