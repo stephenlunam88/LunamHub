@@ -100,6 +100,25 @@ export default function Display() {
     return () => clearInterval(t);
   }, [settings?.weatherCity]);
 
+  // Force black background on html/body and theme-color while on display page
+  // so iOS Safari's bottom toolbar area and safe-area gaps show black, not white.
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+    const prevHtmlBg = html.style.backgroundColor;
+    const prevBodyBg = body.style.backgroundColor;
+    const prevTheme  = themeMeta?.getAttribute("content") ?? null;
+    html.style.backgroundColor = "black";
+    body.style.backgroundColor = "black";
+    themeMeta?.setAttribute("content", "#000000");
+    return () => {
+      html.style.backgroundColor = prevHtmlBg;
+      body.style.backgroundColor = prevBodyBg;
+      if (prevTheme !== null) themeMeta?.setAttribute("content", prevTheme);
+    };
+  }, []);
+
   const dismiss = useCallback(() => navigate("/"), [navigate]);
 
   const currentPhoto = photos[photoIdx];
