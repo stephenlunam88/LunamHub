@@ -4,7 +4,7 @@
 FROM node:24-slim AS builder
 
 # Pin pnpm to match the workspace version for lockfile compatibility
-RUN npm install -g pnpm@10
+RUN npm install -g pnpm@10.32.1
 
 WORKDIR /app
 

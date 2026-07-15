@@ -8,8 +8,8 @@ import { format, addDays, parseISO } from "date-fns";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trophy, CheckCircle2, Clock, Star, Flame, X, ChevronRight, Utensils, CalendarClock } from "lucide-react";
-import type { Chore, FamilyMember, MealPlanEntry, Event } from "@workspace/api-client-react";
+import { Trophy, CheckCircle2, Clock, Star, Flame, X, ChevronRight, CalendarClock } from "lucide-react";
+import type { Chore, FamilyMember, Event } from "@workspace/api-client-react";
 
 function fmt12(time: string): string {
   const [hStr, mStr] = time.split(":");
@@ -218,27 +218,6 @@ function NextEventPreview({ todayEvents, upcomingEvents, now }: { todayEvents: E
   );
 }
 
-function DinnerTonightCard({ meals }: { meals: MealPlanEntry[] }) {
-  const dinner = meals.find(m => m.mealType === "dinner");
-  return (
-    <Card className="rounded-3xl shadow-sm border-0 shrink-0" style={{ backgroundColor: "hsl(15 85% 60% / 0.08)" }}>
-      <CardContent className="p-4 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: "hsl(15 85% 60% / 0.15)" }}>
-          <Utensils className="w-5 h-5" style={{ color: "hsl(15 85% 45%)" }} />
-        </div>
-        <div className="min-w-0">
-          <div className="text-xs font-semibold text-muted-foreground">Dinner Tonight</div>
-          {dinner ? (
-            <div className="font-bold text-sm truncate">{dinner.meal?.name ?? "Planned"}</div>
-          ) : (
-            <div className="text-sm text-muted-foreground italic">Not planned yet</div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 /** Render a single event row in the events card */
 function EventRow({ e, memberById }: { e: Event; memberById: Record<number, FamilyMember> }) {
   return (
@@ -356,7 +335,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* ── Col 1: Events + Dinner Tonight stacked ── */}
+      {/* ── Col 1: Events ── */}
       <div className="row-start-2 flex flex-col gap-4 min-h-0 overflow-hidden">
         <Card className="rounded-3xl shadow-sm border-0 flex flex-col overflow-hidden flex-1 min-h-0" style={{ backgroundColor: "hsl(210 80% 52% / 0.07)" }}>
           <CardHeader className="pb-2 shrink-0">
@@ -396,8 +375,6 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
-
-        <DinnerTonightCard meals={summary.todayMeals} />
       </div>
 
       {/* ── Col 2: Chores widget ── */}

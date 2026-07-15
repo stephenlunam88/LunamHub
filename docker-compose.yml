@@ -28,7 +28,7 @@ services:
       PORT: "8080"
       NODE_ENV: production
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-lunam}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-lunamhub}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-lunam}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-lunamhub}}
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set in .env}
       LOCAL_PHOTO_DIR: /data/photos
       APP_PASSWORD: ${APP_PASSWORD:-}

@@ -3,7 +3,7 @@
 # pnpm-workspace.yaml excludes @esbuild/linux-x64-musl (the Alpine binary).
 FROM node:24-slim AS builder
 
-RUN npm install -g pnpm
+RUN npm install -g pnpm@10.32.1
 
 WORKDIR /app
 
