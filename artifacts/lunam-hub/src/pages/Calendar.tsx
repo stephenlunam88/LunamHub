@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { MemberAvatar as ProfileAvatar } from "@/components/MemberAvatar";
 import { ChevronLeft, ChevronRight, Plus, Trash2, Clock, RefreshCw, Pencil, Users, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { EventInput, EventUpdate, Event, FamilyMember } from "@workspace/api-client-react";
@@ -530,11 +531,7 @@ export default function Calendar() {
                         )}
                         style={selected ? { backgroundColor: m.color } : {}}
                       >
-                        {m.avatarUrl ? (
-                          <img src={m.avatarUrl} alt={m.name} className="w-4 h-4 rounded-full object-cover" />
-                        ) : (
-                          <span className="text-base leading-none">{m.emoji}</span>
-                        )}
+                        <ProfileAvatar name={m.name} avatarUrl={m.avatarUrl} className="h-4 w-4" />
                         {m.name}
                       </button>
                     );

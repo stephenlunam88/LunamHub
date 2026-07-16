@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MemberAvatar, MemberOption } from "@/components/MemberAvatar";
 import { CheckCircle2, Plus, Trash2, Star, Clock, Lock, Medal, XCircle, Pencil, Gift, X } from "lucide-react";
 import type { Chore, ChoreInput, ChoreUpdate } from "@workspace/api-client-react";
 
@@ -28,23 +29,8 @@ type ChoreFormState = Omit<ChoreInput, "status"> & { assignedToMany?: number[] }
 interface ParentInfo {
   id: number;
   name: string;
-  emoji: string;
+  avatarUrl?: string | null;
   hasPin?: boolean;
-}
-
-function MemberAvatar({ avatarUrl, emoji, name, sizeCls = "w-8 h-8" }: { avatarUrl?: string | null; emoji: string; name: string; sizeCls?: string }) {
-  const [failed, setFailed] = useState(false);
-  if (avatarUrl && !failed) {
-    return (
-      <img
-        src={avatarUrl}
-        alt={name}
-        className={`${sizeCls} rounded-full object-cover border border-muted shrink-0`}
-        onError={() => setFailed(true)}
-      />
-    );
-  }
-  return <span className="text-2xl leading-none shrink-0">{emoji}</span>;
 }
 
 function PinApproveDialog({ choreId, choreTitle, parents, onSuccess }: {
@@ -93,7 +79,7 @@ function PinApproveDialog({ choreId, choreTitle, parents, onSuccess }: {
               <Select value={selectedParentId.toString()} onValueChange={v => { setSelectedParentId(Number(v)); reset(); }}>
                 <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {parents.map(p => <SelectItem key={p.id} value={p.id.toString()}>{p.emoji} {p.name}</SelectItem>)}
+                  {parents.map(p => <SelectItem key={p.id} value={p.id.toString()}><MemberOption name={p.name} avatarUrl={p.avatarUrl} /></SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -178,7 +164,7 @@ function PinDismissDialog({ choreId, choreTitle, parents, onSuccess }: {
               <Select value={selectedParentId.toString()} onValueChange={v => { setSelectedParentId(Number(v)); reset(); }}>
                 <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {parents.map(p => <SelectItem key={p.id} value={p.id.toString()}>{p.emoji} {p.name}</SelectItem>)}
+                  {parents.map(p => <SelectItem key={p.id} value={p.id.toString()}><MemberOption name={p.name} avatarUrl={p.avatarUrl} /></SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -264,7 +250,7 @@ function PinRejectDialog({ choreId, choreTitle, parents, onSuccess }: {
               <Select value={selectedParentId.toString()} onValueChange={v => { setSelectedParentId(Number(v)); reset(); }}>
                 <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {parents.map(p => <SelectItem key={p.id} value={p.id.toString()}>{p.emoji} {p.name}</SelectItem>)}
+                  {parents.map(p => <SelectItem key={p.id} value={p.id.toString()}><MemberOption name={p.name} avatarUrl={p.avatarUrl} /></SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -394,7 +380,7 @@ function RedeemDialog({ memberId, memberName, memberBalance, parents, onSuccess 
                   <Select value={selectedParentId.toString()} onValueChange={v => { setSelectedParentId(Number(v)); reset(); setSelectedRewardId(selectedRewardId); }}>
                     <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {parents.map(p => <SelectItem key={p.id} value={p.id.toString()}>{p.emoji} {p.name}</SelectItem>)}
+                      {parents.map(p => <SelectItem key={p.id} value={p.id.toString()}><MemberOption name={p.name} avatarUrl={p.avatarUrl} /></SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -471,7 +457,7 @@ function PinDeleteDialog({ choreId, choreTitle, parents, onSuccess }: {
   };
 
   const options = [
-    ...parents.map(p => ({ value: String(p.id), label: `${p.emoji} ${p.name}` })),
+    ...parents.map(p => ({ value: String(p.id), label: p.name })),
     { value: ADMIN_OPTION, label: "🔑 Admin PIN" },
   ];
 
@@ -580,7 +566,7 @@ function PinEditDialog({ chore, children, parents, onSuccess }: {
   };
 
   const options = [
-    ...parents.map(p => ({ value: String(p.id), label: `${p.emoji} ${p.name}` })),
+    ...parents.map(p => ({ value: String(p.id), label: p.name })),
     { value: ADMIN_OPTION, label: "🔑 Admin PIN" },
   ];
 
@@ -611,7 +597,7 @@ function PinEditDialog({ chore, children, parents, onSuccess }: {
               <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue placeholder="Unassigned" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">Unassigned</SelectItem>
-                {children.map(m => <SelectItem key={m.id} value={String(m.id)}>{m.emoji} {m.name}</SelectItem>)}
+                {children.map(m => <SelectItem key={m.id} value={String(m.id)}><MemberOption name={m.name} avatarUrl={m.avatarUrl} /></SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -731,7 +717,7 @@ export default function Chores() {
     }
   });
   const addPinOptions = [
-    ...parents.map(p => ({ value: String(p.id), label: `${p.emoji} ${p.name}` })),
+    ...parents.map(p => ({ value: String(p.id), label: p.name })),
     { value: ADMIN_OPTION, label: "🔑 Admin PIN" },
   ];
   const isAddPending = addVerifyAdmin.isPending || addVerifyParent.isPending || createChore.isPending;
@@ -762,7 +748,7 @@ export default function Chores() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="flex items-center justify-between">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-4xl font-serif font-bold">Chores</h1>
         <Dialog open={open} onOpenChange={o => { setOpen(o); if (!o) resetAddDialog(); }}>
           <DialogTrigger asChild>
@@ -790,7 +776,7 @@ export default function Chores() {
                             }}
                             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all ${sel ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground hover:border-primary/40"}`}
                           >
-                            <span>{m.emoji}</span>
+                            <MemberAvatar name={m.name} avatarUrl={m.avatarUrl} className="h-6 w-6" />
                             <span>{m.name}</span>
                           </button>
                         );
@@ -867,7 +853,7 @@ export default function Chores() {
             )}
           </DialogContent>
         </Dialog>
-      </div>
+      </header>
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
         <Card
@@ -898,10 +884,7 @@ export default function Chores() {
             >
               <CardContent className="pt-6 pb-5">
                 <div className="mb-2 flex justify-center">
-                  {m.avatarUrl
-                    ? <img src={m.avatarUrl} alt={m.name} className="w-12 h-12 rounded-full object-cover border-2 border-muted" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; (e.currentTarget.nextSibling as HTMLElement | null)?.removeAttribute("style"); }} />
-                    : null}
-                  <span className="text-4xl" style={m.avatarUrl ? { display: "none" } : undefined}>{m.emoji}</span>
+                  <MemberAvatar name={m.name} avatarUrl={m.avatarUrl} className="h-12 w-12 border-2" />
                 </div>
                 <div className="font-bold text-lg">{m.name}</div>
                 <div className="text-3xl font-bold text-primary mt-1">{m.pointsBalance}</div>
@@ -937,9 +920,7 @@ export default function Chores() {
                   return (
                     <div key={m.id}>
                       <div className="flex items-center gap-2 mb-2">
-                        {m.avatarUrl
-                          ? <img src={m.avatarUrl} alt={m.name} className="w-6 h-6 rounded-full object-cover border border-muted" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                          : <span className="text-lg">{m.emoji}</span>}
+                        <MemberAvatar name={m.name} avatarUrl={m.avatarUrl} className="h-6 w-6" />
                         <span className="font-semibold text-sm">{m.name}</span>
                         <span className="text-xs text-muted-foreground">— {memberBadges.length} badge{memberBadges.length !== 1 ? "s" : ""}</span>
                       </div>
@@ -994,7 +975,7 @@ export default function Chores() {
               <Card key={c.id} className="rounded-2xl border-0 shadow-sm">
                 <CardContent className="p-5 flex items-center gap-4">
                   {member && (
-                    <MemberAvatar avatarUrl={member.avatarUrl} emoji={member.emoji} name={member.name} sizeCls="w-10 h-10" />
+                    <MemberAvatar avatarUrl={member.avatarUrl} name={member.name} className="h-10 w-10" />
                   )}
                   <div className="flex-1 min-w-0">
                     {member && <div className="font-bold text-base text-primary">{member.name}</div>}
@@ -1027,7 +1008,7 @@ export default function Chores() {
               <Card key={c.id} className="rounded-2xl border-0 shadow-sm bg-blue-50">
                 <CardContent className="p-5 flex items-center gap-4">
                   {member && (
-                    <MemberAvatar avatarUrl={member.avatarUrl} emoji={member.emoji} name={member.name} sizeCls="w-10 h-10" />
+                    <MemberAvatar avatarUrl={member.avatarUrl} name={member.name} className="h-10 w-10" />
                   )}
                   <div className="flex-1 min-w-0">
                     {member && <div className="font-bold text-base text-primary">{member.name}</div>}
@@ -1075,7 +1056,7 @@ export default function Chores() {
                 <CardContent className="p-5 flex items-center gap-4">
                   <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0" />
                   {member && (
-                    <MemberAvatar avatarUrl={member.avatarUrl} emoji={member.emoji} name={member.name} sizeCls="w-10 h-10" />
+                    <MemberAvatar avatarUrl={member.avatarUrl} name={member.name} className="h-10 w-10" />
                   )}
                   <div className="flex-1 min-w-0">
                     {member && <div className="font-bold text-base text-green-700">{member.name}</div>}
@@ -1083,9 +1064,7 @@ export default function Chores() {
                     {approver && (
                       <div className="flex items-center gap-1.5 text-sm text-green-700 mt-0.5">
                         <span>Approved by</span>
-                        {approver.avatarUrl
-                          ? <img src={approver.avatarUrl} alt="" className="w-4 h-4 rounded-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                          : <span>{approver.emoji}</span>}
+                        <MemberAvatar name={approver.name} avatarUrl={approver.avatarUrl} className="h-4 w-4" />
                         <span>{approver.name}</span>
                       </div>
                     )}
@@ -1115,7 +1094,7 @@ export default function Chores() {
                 <CardContent className="p-5 flex items-center gap-4">
                   <XCircle className="w-6 h-6 text-red-400 flex-shrink-0" />
                   {member && (
-                    <MemberAvatar avatarUrl={member.avatarUrl} emoji={member.emoji} name={member.name} sizeCls="w-10 h-10" />
+                    <MemberAvatar avatarUrl={member.avatarUrl} name={member.name} className="h-10 w-10" />
                   )}
                   <div className="flex-1 min-w-0">
                     {member && <div className="font-bold text-base text-red-600">{member.name}</div>}

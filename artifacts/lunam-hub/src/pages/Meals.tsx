@@ -17,12 +17,14 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, ShoppingCart, UtensilsCrossed } from "lucide-react";
 import type { MealInput, MealPlanEntryInput } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"];
 
 export default function Meals() {
   const qc = useQueryClient();
+  const { toast } = useToast();
   const weekStart = format(startOfWeek(new Date()), "yyyy-MM-dd");
   const invalidateMeals = () => qc.invalidateQueries({ queryKey: getListMealsQueryKey() });
   const invalidatePlan = () => qc.invalidateQueries({ queryKey: getGetMealPlanQueryKey({ weekStart }) });
@@ -43,8 +45,9 @@ export default function Meals() {
     mutation: {
       onSuccess: (data) => {
         qc.invalidateQueries({ queryKey: getListListsQueryKey() });
-        alert(`Added ${data.added} ingredients to grocery list!`);
-      }
+        toast({ title: "Grocery list updated", description: `Added ${data.added} ingredients.` });
+      },
+      onError: () => toast({ title: "Could not update grocery list", description: "Please try again.", variant: "destructive" }),
     }
   });
 

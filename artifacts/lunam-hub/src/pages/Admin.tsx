@@ -26,7 +26,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload, CalendarDays, Flame, ImagePlay, Star, ListChecks, History, TrendingUp, TrendingDown, Minus, LogOut } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { MemberOption } from "@/components/MemberAvatar";
+import { PageHeader } from "@/components/PageHeader";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
+import { useToast } from "@/hooks/use-toast";
+import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload, CalendarDays, Flame, ImagePlay, Star, ListChecks, History, TrendingUp, TrendingDown, Minus, LogOut, UserRound, Monitor, Plug } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useGetGoogleCalendarStatus,
@@ -84,7 +89,19 @@ export default function Admin() {
   return <AdminPanel onLock={() => setUnlocked(false)} />;
 }
 
-function SetPinDialog({ memberId, memberName, memberEmoji, hasPin }: { memberId: number; memberName: string; memberEmoji: string; hasPin?: boolean }) {
+function ProfileAvatar({ name, avatarUrl, className = "h-12 w-12" }: { name: string; avatarUrl?: string | null; className?: string }) {
+  return (
+    <Avatar className={`${className} border-2 border-background shadow-sm`}>
+      {avatarUrl && <AvatarImage src={avatarUrl} alt={`${name}'s profile`} className="object-cover" />}
+      <AvatarFallback className="bg-primary/10 text-primary">
+        <UserRound className="h-1/2 w-1/2" aria-hidden="true" />
+        <span className="sr-only">No profile photo for {name}</span>
+      </AvatarFallback>
+    </Avatar>
+  );
+}
+
+function SetPinDialog({ memberId, memberName, hasPin }: { memberId: number; memberName: string; hasPin?: boolean }) {
   const [open, setOpen] = useState(false);
   const [newPin, setNewPin] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -115,7 +132,7 @@ function SetPinDialog({ memberId, memberName, memberEmoji, hasPin }: { memberId:
       <DialogContent className="rounded-3xl max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-xl font-serif flex items-center gap-2">
-            <Key className="w-5 h-5" /> {hasPin ? "Change" : "Set"} PIN for {memberEmoji} {memberName}
+            <Key className="w-5 h-5" /> {hasPin ? "Change" : "Set"} PIN for {memberName}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
@@ -325,7 +342,7 @@ function GoogleCalendarCard() {
 function MilestoneForm({ form, setForm }: { form: StreakMilestoneInput; setForm: React.Dispatch<React.SetStateAction<StreakMilestoneInput>> }) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <Label>Days threshold</Label>
           <Input type="number" min={1} value={form.days} onChange={e => setForm(f => ({ ...f, days: Number(e.target.value) }))} className="rounded-xl h-12" />
@@ -343,7 +360,7 @@ function MilestoneForm({ form, setForm }: { form: StreakMilestoneInput; setForm:
         <Label>Description (optional)</Label>
         <Input value={form.description ?? ""} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="rounded-xl h-12" />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <Label>Tier</Label>
           <Select value={form.tier ?? "bronze"} onValueChange={v => setForm(f => ({ ...f, tier: v as StreakMilestoneInput["tier"] }))}>
@@ -379,7 +396,7 @@ function ThresholdMilestoneForm<T extends { threshold: number; title: string; de
 }: { form: T; setForm: React.Dispatch<React.SetStateAction<T>>; label: string }) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <Label>{label} threshold</Label>
           <Input type="number" min={1} value={form.threshold} onChange={e => setForm(f => ({ ...f, threshold: Number(e.target.value) }))} className="rounded-xl h-12" />
@@ -397,7 +414,7 @@ function ThresholdMilestoneForm<T extends { threshold: number; title: string; de
         <Label>Description (optional)</Label>
         <Input value={form.description ?? ""} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="rounded-xl h-12" />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <Label>Tier</Label>
           <Select value={form.tier ?? "bronze"} onValueChange={v => setForm(f => ({ ...f, tier: v as "bronze" | "silver" | "gold" }))}>
@@ -425,7 +442,7 @@ const TX_TYPE_CONFIG: Record<string, { label: string; chipClass: string; icon: R
   adjustment:   { label: "Adjustment",        chipClass: "bg-gray-100 text-gray-700",     icon: <Minus className="w-3.5 h-3.5" />,        sign: "" },
 };
 
-function PointsHistoryCard({ members }: { members: { id: number; name: string; emoji: string; role: string }[] }) {
+function PointsHistoryCard({ members }: { members: { id: number; name: string; avatarUrl?: string | null; role: string }[] }) {
   const [selectedId, setSelectedId] = useState<string>("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const memberId = selectedId ? Number(selectedId) : undefined;
@@ -469,7 +486,7 @@ function PointsHistoryCard({ members }: { members: { id: number; name: string; e
           <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Select a child…" /></SelectTrigger>
           <SelectContent>
             {children.map(m => (
-              <SelectItem key={m.id} value={String(m.id)}>{m.emoji} {m.name}</SelectItem>
+              <SelectItem key={m.id} value={String(m.id)}><MemberOption name={m.name} avatarUrl={m.avatarUrl} /></SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -558,8 +575,17 @@ function PointsHistoryCard({ members }: { members: { id: number; name: string; e
 }
 
 function AdminPanel({ onLock }: { onLock: () => void }) {
+  const [adminSection, setAdminSection] = useState<"family" | "rewards" | "milestones" | "display" | "connections" | "security">("family");
+  const [milestoneSection, setMilestoneSection] = useState<"streaks" | "points" | "chores">("streaks");
   const qc = useQueryClient();
+  const { toast } = useToast();
   const { data: settings } = useGetSettings();
+  const [settingsForm, setSettingsForm] = useState({
+    appName: "LunamHub",
+    weatherCity: "",
+    screensaverTimeout: 5,
+    screensaverPhotoInterval: 15,
+  });
   const { data: members = [] } = useListFamilyMembers();
   const { data: rewards = [] } = useListRewards();
   const { data: milestones = [] } = useListStreakMilestones();
@@ -570,6 +596,11 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
   const [ssUploading, setSsUploading] = useState(false);
   const ssFileRef = useRef<HTMLInputElement>(null);
   const [memberForm, setMemberForm] = useState<FamilyMemberInput>({ name: "", emoji: "😊", color: "#6366f1", role: "child" });
+  const [newMemberPhoto, setNewMemberPhoto] = useState<File | null>(null);
+  const [newMemberPhotoPreview, setNewMemberPhotoPreview] = useState<string | null>(null);
+  const [newMemberPhotoError, setNewMemberPhotoError] = useState<string | null>(null);
+  const [newMemberPhotoUploading, setNewMemberPhotoUploading] = useState(false);
+  const newMemberPhotoRef = useRef<HTMLInputElement>(null);
   const [newMemberPin, setNewMemberPin] = useState("");
   const [rewardOpen, setRewardOpen] = useState(false);
   const [rewardForm, setRewardForm] = useState<RewardInput>({ title: "", pointsCost: 100 });
@@ -600,11 +631,24 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
   const [bonusReason, setBonusReason] = useState<string>("");
   const [bonusSuccess, setBonusSuccess] = useState(false);
 
+  useEffect(() => {
+    if (!settings) return;
+    setSettingsForm({
+      appName: settings.appName ?? "LunamHub",
+      weatherCity: settings.weatherCity ?? "",
+      screensaverTimeout: settings.screensaverTimeout ?? 5,
+      screensaverPhotoInterval: settings.screensaverPhotoInterval ?? 15,
+    });
+  }, [settings]);
+
   const invalidateRewards = () => qc.invalidateQueries({ queryKey: getListRewardsQueryKey() });
   const invalidateMilestones = () => qc.invalidateQueries({ queryKey: getListStreakMilestonesQueryKey() });
   const invalidatePhotos = () => qc.invalidateQueries({ queryKey: getListScreensaverPhotosQueryKey() });
   const createPhoto = useCreateScreensaverPhoto({ mutation: { onSuccess: invalidatePhotos } });
-  const deletePhoto = useDeleteScreensaverPhoto({ mutation: { onSuccess: invalidatePhotos } });
+  const deletePhoto = useDeleteScreensaverPhoto({ mutation: {
+    onSuccess: () => { invalidatePhotos(); toast({ title: "Photo deleted" }); },
+    onError: () => toast({ title: "Could not delete photo", description: "Please try again.", variant: "destructive" }),
+  } });
   const requestUrl = useRequestUploadUrl();
 
   const handleSsPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -628,21 +672,46 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
   const invalidateChoreMilestones = () => qc.invalidateQueries({ queryKey: getListChoreMilestonesQueryKey() });
   const updateSettings = useUpdateSettings({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getGetSettingsQueryKey() }) } });
   const invalidateMembers = () => qc.invalidateQueries({ queryKey: getListFamilyMembersQueryKey() });
-  const createMember = useCreateFamilyMember({ mutation: { onSuccess: () => { invalidateMembers(); setMemberForm({ name: "", emoji: "😊", color: "#6366f1", role: "child" }); } } });
+  const createMember = useCreateFamilyMember({ mutation: { onSuccess: () => {
+    invalidateMembers();
+    setMemberForm({ name: "", emoji: "😊", color: "#6366f1", role: "child" });
+    setNewMemberPin("");
+    setNewMemberPhoto(null);
+    setNewMemberPhotoPreview(current => {
+      if (current) URL.revokeObjectURL(current);
+      return null;
+    });
+    if (newMemberPhotoRef.current) newMemberPhotoRef.current.value = "";
+  } } });
   const updateMember = useUpdateFamilyMember({ mutation: { onSuccess: () => { invalidateMembers(); setEditMemberOpen(false); setEditMemberTarget(null); } } });
-  const deleteMember = useDeleteFamilyMember({ mutation: { onSuccess: invalidateMembers } });
+  const deleteMember = useDeleteFamilyMember({ mutation: {
+    onSuccess: () => { invalidateMembers(); toast({ title: "Family member deleted" }); },
+    onError: () => toast({ title: "Could not delete family member", description: "Please try again.", variant: "destructive" }),
+  } });
   const createReward = useCreateReward({ mutation: { onSuccess: () => { invalidateRewards(); setRewardOpen(false); setRewardForm({ title: "", pointsCost: 100 }); } } });
   const updateReward = useUpdateReward({ mutation: { onSuccess: () => { invalidateRewards(); setEditRewardOpen(false); setEditRewardTarget(null); } } });
-  const deleteReward = useDeleteReward({ mutation: { onSuccess: invalidateRewards } });
+  const deleteReward = useDeleteReward({ mutation: {
+    onSuccess: () => { invalidateRewards(); toast({ title: "Reward deleted" }); },
+    onError: () => toast({ title: "Could not delete reward", description: "Please try again.", variant: "destructive" }),
+  } });
   const createMilestone = useCreateStreakMilestone({ mutation: { onSuccess: () => { invalidateMilestones(); setMilestoneOpen(false); setMilestoneForm(BLANK_MILESTONE); } } });
   const updateMilestone = useUpdateStreakMilestone({ mutation: { onSuccess: () => { invalidateMilestones(); setEditMilestoneOpen(false); setEditMilestoneTarget(null); } } });
-  const deleteMilestone = useDeleteStreakMilestone({ mutation: { onSuccess: invalidateMilestones } });
+  const deleteMilestone = useDeleteStreakMilestone({ mutation: {
+    onSuccess: () => { invalidateMilestones(); toast({ title: "Streak milestone deleted" }); },
+    onError: () => toast({ title: "Could not delete milestone", description: "Please try again.", variant: "destructive" }),
+  } });
   const createPointMilestone = useCreatePointMilestone({ mutation: { onSuccess: () => { invalidatePointMilestones(); setPointMilestoneOpen(false); setPointMilestoneForm(BLANK_POINT_MILESTONE); } } });
   const updatePointMilestone = useUpdatePointMilestone({ mutation: { onSuccess: () => { invalidatePointMilestones(); setEditPointMilestoneOpen(false); setEditPointMilestoneTarget(null); } } });
-  const deletePointMilestone = useDeletePointMilestone({ mutation: { onSuccess: invalidatePointMilestones } });
+  const deletePointMilestone = useDeletePointMilestone({ mutation: {
+    onSuccess: () => { invalidatePointMilestones(); toast({ title: "Point milestone deleted" }); },
+    onError: () => toast({ title: "Could not delete milestone", description: "Please try again.", variant: "destructive" }),
+  } });
   const createChoreMilestone = useCreateChoreMilestone({ mutation: { onSuccess: () => { invalidateChoreMilestones(); setChoreMilestoneOpen(false); setChoreMilestoneForm(BLANK_CHORE_MILESTONE); } } });
   const updateChoreMilestone = useUpdateChoreMilestone({ mutation: { onSuccess: () => { invalidateChoreMilestones(); setEditChoreMilestoneOpen(false); setEditChoreMilestoneTarget(null); } } });
-  const deleteChoreMilestone = useDeleteChoreMilestone({ mutation: { onSuccess: invalidateChoreMilestones } });
+  const deleteChoreMilestone = useDeleteChoreMilestone({ mutation: {
+    onSuccess: () => { invalidateChoreMilestones(); toast({ title: "Chore milestone deleted" }); },
+    onError: () => toast({ title: "Could not delete milestone", description: "Please try again.", variant: "destructive" }),
+  } });
   const awardBonus = useAwardBonusPoints({
     mutation: {
       onSuccess: () => {
@@ -680,21 +749,96 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
     setEditChoreMilestoneOpen(true);
   }
 
-  const parents = members.filter(m => m.role === "parent");
+  function handleNewMemberPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    setNewMemberPhoto(file);
+    setNewMemberPhotoError(null);
+    setNewMemberPhotoPreview(current => {
+      if (current) URL.revokeObjectURL(current);
+      return file ? URL.createObjectURL(file) : null;
+    });
+  }
+
+  async function handleCreateMember() {
+    setNewMemberPhotoError(null);
+    setNewMemberPhotoUploading(!!newMemberPhoto);
+    try {
+      let avatarUrl: string | undefined;
+      if (newMemberPhoto) {
+        const { uploadURL, objectPath } = await new Promise<{ uploadURL: string; objectPath: string }>((resolve, reject) => {
+          requestUrl.mutate(
+            { data: { name: newMemberPhoto.name, size: newMemberPhoto.size, contentType: newMemberPhoto.type } },
+            { onSuccess: resolve, onError: reject }
+          );
+        });
+        const uploadRes = await fetch(uploadURL, {
+          method: "PUT",
+          body: newMemberPhoto,
+          headers: { "Content-Type": newMemberPhoto.type },
+        });
+        if (!uploadRes.ok) throw new Error(`Upload failed: ${uploadRes.status}`);
+        avatarUrl = `/api/storage${objectPath}`;
+      }
+
+      const data = memberForm.role === "parent"
+        ? { ...memberForm, avatarUrl, pin: newMemberPin } as Parameters<typeof createMember.mutate>[0]["data"]
+        : { ...memberForm, avatarUrl };
+      createMember.mutate({ data });
+    } catch {
+      setNewMemberPhotoError("Profile picture upload failed. Please try again.");
+    } finally {
+      setNewMemberPhotoUploading(false);
+    }
+  }
+
+  const sections = [
+    { id: "family", label: "Family", icon: Users },
+    { id: "rewards", label: "Rewards & Points", icon: Gift },
+    { id: "milestones", label: "Milestones", icon: Star },
+    { id: "display", label: "Display", icon: Monitor },
+    { id: "connections", label: "Connections", icon: Plug },
+    { id: "security", label: "Security", icon: Shield },
+  ] as const;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Shield className="w-8 h-8 text-primary" />
-          <h1 className="text-4xl font-serif font-bold">Admin</h1>
-        </div>
-        <Button variant="outline" className="h-12 px-5 rounded-2xl gap-2" onClick={onLock}>
-          <Lock className="w-4 h-4" /> Lock
-        </Button>
-      </div>
+      <PageHeader
+        title="Parent Area"
+        icon={<Shield className="h-8 w-8 text-primary" aria-hidden="true" />}
+        actions={(
+          <Button variant="outline" className="h-12 rounded-2xl px-5 gap-2" onClick={onLock}>
+            <Lock className="h-4 w-4" aria-hidden="true" /> Lock
+          </Button>
+        )}
+      />
 
-      <Card className="rounded-3xl border-0 shadow-sm">
+      <nav aria-label="Admin sections" className="sticky top-0 z-20 -mx-2 overflow-x-auto rounded-2xl bg-background/95 p-2 shadow-sm backdrop-blur">
+        <div className="flex min-w-max gap-2">
+          {sections.map(({ id, label, icon: Icon }) => (
+            <Button
+              key={id}
+              type="button"
+              variant={adminSection === id ? "default" : "ghost"}
+              className="h-11 rounded-xl gap-2"
+              onClick={() => setAdminSection(id)}
+            >
+              <Icon className="h-4 w-4" /> {label}
+            </Button>
+          ))}
+        </div>
+      </nav>
+
+      {adminSection === "milestones" && (
+        <div className="flex gap-2 rounded-2xl bg-muted p-1.5" role="tablist" aria-label="Milestone type">
+          {(["streaks", "points", "chores"] as const).map(type => (
+            <Button key={type} variant={milestoneSection === type ? "secondary" : "ghost"} className="flex-1 capitalize rounded-xl" onClick={() => setMilestoneSection(type)}>
+              {type}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      <Card className={`${adminSection === "family" ? "" : "hidden"} rounded-3xl border-0 shadow-sm`}>
         <CardHeader><CardTitle className="flex items-center gap-2"><Users className="w-5 h-5" /> Family Members</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           {/* Edit Member Dialog */}
@@ -704,25 +848,15 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
                 <DialogTitle>Edit {editMemberTarget?.name}</DialogTitle>
               </DialogHeader>
               <div className="space-y-3 pt-2">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Name</Label>
-                    <Input
-                      value={editMemberForm.name ?? ""}
-                      onChange={e => setEditMemberForm(f => ({ ...f, name: e.target.value }))}
-                      className="rounded-xl h-12 mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label>Emoji</Label>
-                    <Input
-                      value={editMemberForm.emoji ?? ""}
-                      onChange={e => setEditMemberForm(f => ({ ...f, emoji: e.target.value }))}
-                      className="rounded-xl h-12 mt-1"
-                    />
-                  </div>
+                <div>
+                  <Label>Name</Label>
+                  <Input
+                    value={editMemberForm.name ?? ""}
+                    onChange={e => setEditMemberForm(f => ({ ...f, name: e.target.value }))}
+                    className="rounded-xl h-12 mt-1"
+                  />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label>Role</Label>
                     <Select
@@ -758,8 +892,8 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
           </Dialog>
 
           {members.map(m => (
-            <div key={m.id} className="flex items-center gap-4 bg-muted rounded-2xl p-4">
-              <div className="text-3xl">{m.emoji}</div>
+            <div key={m.id} className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 bg-muted rounded-2xl p-4">
+              <ProfileAvatar name={m.name} avatarUrl={m.avatarUrl} />
               <div className="flex-1 min-w-0">
                 <div className="font-bold">{m.name}</div>
                 <div className="text-sm text-muted-foreground capitalize">
@@ -769,31 +903,38 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
               <div className="flex flex-col gap-1.5 items-end">
                 <AvatarUploadButton memberId={m.id} currentAvatarUrl={m.avatarUrl} />
                 {m.role === "parent" && (
-                  <SetPinDialog memberId={m.id} memberName={m.name} memberEmoji={m.emoji} hasPin={m.hasPin} />
+                  <SetPinDialog memberId={m.id} memberName={m.name} hasPin={m.hasPin} />
                 )}
               </div>
               <button
                 onClick={() => {
                   setEditMemberTarget({ id: m.id, name: m.name });
-                  setEditMemberForm({ name: m.name, emoji: m.emoji ?? "😊", color: m.color ?? "#6366f1", role: m.role as FamilyMemberUpdate["role"] });
+                  setEditMemberForm({ name: m.name, color: m.color ?? "#6366f1", role: m.role as FamilyMemberUpdate["role"] });
                   setEditMemberOpen(true);
                 }}
-                className="text-muted-foreground hover:text-primary p-2"
-                title="Edit profile"
+                className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-primary"
+                aria-label={`Edit ${m.name}`}
               >
                 <Pencil className="w-4 h-4" />
               </button>
-              <button onClick={() => deleteMember.mutate({ id: m.id })} className="text-muted-foreground hover:text-destructive p-2">
-                <Trash2 className="w-5 h-5" />
-              </button>
+              <ConfirmDeleteDialog title={`Delete ${m.name}?`} description="This removes the family member and may remove related family data. This action cannot be undone." onConfirm={() => deleteMember.mutate({ id: m.id })} trigger={<button className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-destructive" aria-label={`Delete ${m.name}`}><Trash2 className="h-5 w-5" aria-hidden="true" /></button>} />
             </div>
           ))}
           <Separator />
           <div className="space-y-3">
             <h3 className="font-semibold text-muted-foreground text-sm uppercase tracking-wide">Add Member</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><Label>Name</Label><Input value={memberForm.name} onChange={e => setMemberForm(f => ({ ...f, name: e.target.value }))} className="rounded-xl h-12" /></div>
-              <div><Label>Emoji</Label><Input value={memberForm.emoji ?? ""} onChange={e => setMemberForm(f => ({ ...f, emoji: e.target.value }))} className="rounded-xl h-12" /></div>
+              <div>
+                <Label>Profile picture</Label>
+                <div className="mt-1 flex h-12 items-center gap-3">
+                  <ProfileAvatar name={memberForm.name || "New member"} avatarUrl={newMemberPhotoPreview} className="h-12 w-12" />
+                  <Button type="button" variant="outline" className="h-12 flex-1 rounded-xl gap-2" onClick={() => newMemberPhotoRef.current?.click()}>
+                    <Upload className="h-4 w-4" /> {newMemberPhoto ? "Change photo" : "Choose photo"}
+                  </Button>
+                  <input ref={newMemberPhotoRef} type="file" accept="image/*" className="hidden" onChange={handleNewMemberPhoto} />
+                </div>
+              </div>
               <div><Label>Role</Label>
                 <Select value={memberForm.role ?? "child"} onValueChange={v => setMemberForm(f => ({ ...f, role: v as FamilyMemberInput["role"] }))}>
                   <SelectTrigger className="rounded-xl h-12"><SelectValue /></SelectTrigger>
@@ -819,43 +960,19 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
                 />
               </div>
             )}
+            {newMemberPhotoError && <p className="text-sm text-red-600">{newMemberPhotoError}</p>}
             <Button
               className="w-full h-14 rounded-xl gap-2"
-              onClick={() => {
-                const data = memberForm.role === "parent"
-                  ? { ...memberForm, pin: newMemberPin } as Parameters<typeof createMember.mutate>[0]["data"]
-                  : memberForm;
-                createMember.mutate({ data });
-                setNewMemberPin("");
-              }}
-              disabled={!memberForm.name || (memberForm.role === "parent" && newMemberPin.length < 4) || createMember.isPending}
+              onClick={handleCreateMember}
+              disabled={!memberForm.name || (memberForm.role === "parent" && newMemberPin.length < 4) || newMemberPhotoUploading || createMember.isPending}
             >
-              <Plus className="w-4 h-4" /> {createMember.isPending ? "Adding…" : "Add Member"}
+              <Plus className="w-4 h-4" /> {newMemberPhotoUploading ? "Uploading photo…" : createMember.isPending ? "Adding…" : "Add Member"}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {parents.length > 0 && (
-        <Card className="rounded-3xl border-0 shadow-sm">
-          <CardHeader><CardTitle className="flex items-center gap-2"><Key className="w-5 h-5" /> Parent PINs</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">Set a PIN for each parent to gate chore approvals and reward decisions.</p>
-            {parents.map(m => (
-              <div key={m.id} className="flex items-center gap-4 bg-muted rounded-2xl p-4">
-                <div className="text-3xl">{m.emoji}</div>
-                <div className="flex-1">
-                  <div className="font-bold">{m.name}</div>
-                  <div className="text-sm text-muted-foreground">{m.hasPin ? "PIN set ✓" : "No PIN set — approval is open"}</div>
-                </div>
-                <SetPinDialog memberId={m.id} memberName={m.name} memberEmoji={m.emoji} hasPin={m.hasPin} />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      <Card className="rounded-3xl border-0 shadow-sm">
+      <Card className={`${adminSection === "rewards" ? "" : "hidden"} rounded-3xl border-0 shadow-sm`}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2"><Gift className="w-5 h-5" /> Reward Store</CardTitle>
@@ -894,17 +1011,15 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
               <div className="bg-primary text-primary-foreground px-3 py-1.5 rounded-xl font-bold text-sm">{r.pointsCost} pts</div>
               <button
                 onClick={() => updateReward.mutate({ id: r.id, data: { ...r, description: r.description ?? undefined, active: !r.active } })}
-                className="text-muted-foreground hover:text-foreground p-2"
-                title={r.active ? "Deactivate" : "Activate"}
+                className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-foreground"
+                aria-label={`${r.active ? "Deactivate" : "Activate"} ${r.title}`}
               >
                 {r.active ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
-              <button onClick={() => openEditReward(r)} className="text-muted-foreground hover:text-foreground p-2" title="Edit">
+              <button onClick={() => openEditReward(r)} className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-foreground" aria-label={`Edit ${r.title}`}>
                 <Pencil className="w-4 h-4" />
               </button>
-              <button onClick={() => deleteReward.mutate({ id: r.id })} className="text-muted-foreground hover:text-destructive p-2" title="Delete">
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <ConfirmDeleteDialog title={`Delete “${r.title}”?`} description="This reward will be removed from the store. This action cannot be undone." onConfirm={() => deleteReward.mutate({ id: r.id })} trigger={<button className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-destructive" aria-label={`Delete ${r.title}`}><Trash2 className="h-4 w-4" aria-hidden="true" /></button>} />
             </div>
           ))}
         </CardContent>
@@ -939,7 +1054,7 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
       </Dialog>
 
       {/* ── Streak Milestones ─────────────────────────────────────────── */}
-      <Card className="rounded-3xl border-0 shadow-sm">
+      <Card className={`${adminSection === "milestones" && milestoneSection === "streaks" ? "" : "hidden"} rounded-3xl border-0 shadow-sm`}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2"><Flame className="w-5 h-5" /> Streak Milestones</CardTitle>
@@ -975,17 +1090,15 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
               </div>
               <button
                 onClick={() => updateMilestone.mutate({ id: m.id, data: { days: m.days, title: m.title, description: m.description ?? undefined, emoji: m.emoji, tier: m.tier as StreakMilestoneInput["tier"], bonusPoints: m.bonusPoints, active: !m.active } })}
-                className="text-muted-foreground hover:text-foreground p-2"
-                title={m.active ? "Deactivate" : "Activate"}
+                className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-foreground"
+                aria-label={`${m.active ? "Deactivate" : "Activate"} ${m.title}`}
               >
                 {m.active ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
-              <button onClick={() => openEditMilestone(m)} className="text-muted-foreground hover:text-foreground p-2" title="Edit">
+              <button onClick={() => openEditMilestone(m)} className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-foreground" aria-label={`Edit ${m.title}`}>
                 <Pencil className="w-4 h-4" />
               </button>
-              <button onClick={() => deleteMilestone.mutate({ id: m.id })} className="text-muted-foreground hover:text-destructive p-2" title="Delete">
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <ConfirmDeleteDialog title={`Delete “${m.title}”?`} description="This streak milestone will be permanently removed." onConfirm={() => deleteMilestone.mutate({ id: m.id })} trigger={<button className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-destructive" aria-label={`Delete ${m.title}`}><Trash2 className="h-4 w-4" aria-hidden="true" /></button>} />
             </div>
           ))}
         </CardContent>
@@ -1006,7 +1119,7 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
       </Dialog>
 
       {/* ── Screensaver Photos ───────────────────────────────────────── */}
-      <Card className="rounded-3xl border-0 shadow-sm">
+      <Card className={`${adminSection === "display" ? "" : "hidden"} rounded-3xl border-0 shadow-sm`}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2"><ImagePlay className="w-5 h-5" /> Screensaver Photos</CardTitle>
@@ -1027,12 +1140,12 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
             {(ssPhotos as ScreensaverPhoto[]).map(p => (
               <div key={p.id} className="relative group rounded-2xl overflow-hidden aspect-video bg-muted">
                 <img src={p.url} alt={p.filename ?? "photo"} className="w-full h-full object-cover" />
-                <button
-                  onClick={() => deletePhoto.mutate({ id: p.id })}
-                  className="absolute top-1 right-1 bg-black/60 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                <ConfirmDeleteDialog
+                  title="Delete screensaver photo?"
+                  description="This photo will no longer appear on the wall display."
+                  onConfirm={() => deletePhoto.mutate({ id: p.id })}
+                  trigger={<button className="absolute right-1 top-1 min-h-11 min-w-11 rounded-full bg-black/60 p-2 text-white opacity-100 transition-opacity hover:bg-red-600 sm:opacity-0 sm:group-hover:opacity-100" aria-label="Delete screensaver photo"><Trash2 className="h-4 w-4" aria-hidden="true" /></button>}
+                />
                 {p.filename && (
                   <div className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-xs px-2 py-1 truncate opacity-0 group-hover:opacity-100 transition-opacity">
                     {p.filename}
@@ -1045,7 +1158,7 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
       </Card>
 
       {/* ── Point Milestones ──────────────────────────────────────────── */}
-      <Card className="rounded-3xl border-0 shadow-sm">
+      <Card className={`${adminSection === "milestones" && milestoneSection === "points" ? "" : "hidden"} rounded-3xl border-0 shadow-sm`}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2"><Star className="w-5 h-5" /> Point Milestones</CardTitle>
@@ -1081,17 +1194,15 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
               </div>
               <button
                 onClick={() => updatePointMilestone.mutate({ id: m.id, data: { threshold: m.threshold, title: m.title, description: m.description ?? undefined, emoji: m.emoji, tier: m.tier as PointMilestoneInput["tier"], bonusPoints: m.bonusPoints, active: !m.active } })}
-                className="text-muted-foreground hover:text-foreground p-2"
-                title={m.active ? "Deactivate" : "Activate"}
+                className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-foreground"
+                aria-label={`${m.active ? "Deactivate" : "Activate"} ${m.title}`}
               >
                 {m.active ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
-              <button onClick={() => openEditPointMilestone(m)} className="text-muted-foreground hover:text-foreground p-2" title="Edit">
+              <button onClick={() => openEditPointMilestone(m)} className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-foreground" aria-label={`Edit ${m.title}`}>
                 <Pencil className="w-4 h-4" />
               </button>
-              <button onClick={() => deletePointMilestone.mutate({ id: m.id })} className="text-muted-foreground hover:text-destructive p-2" title="Delete">
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <ConfirmDeleteDialog title={`Delete “${m.title}”?`} description="This point milestone will be permanently removed." onConfirm={() => deletePointMilestone.mutate({ id: m.id })} trigger={<button className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-destructive" aria-label={`Delete ${m.title}`}><Trash2 className="h-4 w-4" aria-hidden="true" /></button>} />
             </div>
           ))}
         </CardContent>
@@ -1112,7 +1223,7 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
       </Dialog>
 
       {/* ── Chore Milestones ─────────────────────────────────────────── */}
-      <Card className="rounded-3xl border-0 shadow-sm">
+      <Card className={`${adminSection === "milestones" && milestoneSection === "chores" ? "" : "hidden"} rounded-3xl border-0 shadow-sm`}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2"><ListChecks className="w-5 h-5" /> Chore Milestones</CardTitle>
@@ -1148,17 +1259,15 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
               </div>
               <button
                 onClick={() => updateChoreMilestone.mutate({ id: m.id, data: { threshold: m.threshold, title: m.title, description: m.description ?? undefined, emoji: m.emoji, tier: m.tier as ChoreMilestoneInput["tier"], bonusPoints: m.bonusPoints, active: !m.active } })}
-                className="text-muted-foreground hover:text-foreground p-2"
-                title={m.active ? "Deactivate" : "Activate"}
+                className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-foreground"
+                aria-label={`${m.active ? "Deactivate" : "Activate"} ${m.title}`}
               >
                 {m.active ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
-              <button onClick={() => openEditChoreMilestone(m)} className="text-muted-foreground hover:text-foreground p-2" title="Edit">
+              <button onClick={() => openEditChoreMilestone(m)} className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-foreground" aria-label={`Edit ${m.title}`}>
                 <Pencil className="w-4 h-4" />
               </button>
-              <button onClick={() => deleteChoreMilestone.mutate({ id: m.id })} className="text-muted-foreground hover:text-destructive p-2" title="Delete">
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <ConfirmDeleteDialog title={`Delete “${m.title}”?`} description="This chore milestone will be permanently removed." onConfirm={() => deleteChoreMilestone.mutate({ id: m.id })} trigger={<button className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-destructive" aria-label={`Delete ${m.title}`}><Trash2 className="h-4 w-4" aria-hidden="true" /></button>} />
             </div>
           ))}
         </CardContent>
@@ -1178,7 +1287,7 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
         </DialogContent>
       </Dialog>
 
-      <Card className="rounded-3xl border-0 shadow-sm">
+      <Card className={`${adminSection === "rewards" ? "" : "hidden"} rounded-3xl border-0 shadow-sm`}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             {bonusMode === "award" ? <Star className="w-5 h-5 text-amber-500" /> : <TrendingDown className="w-5 h-5 text-red-500" />}
@@ -1208,14 +1317,14 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
               ? "Give a spontaneous points boost — for great behaviour, extra effort, or a special occasion."
               : "Remove points as a consequence — for broken rules or agreed penalties. Balance can go negative; lifetime total is unaffected."}
           </p>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label>Child</Label>
               <Select value={bonusChildId} onValueChange={setBonusChildId}>
                 <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue placeholder="Pick a child…" /></SelectTrigger>
                 <SelectContent>
                   {members.filter(m => m.role === "child").map(m => (
-                    <SelectItem key={m.id} value={String(m.id)}>{m.emoji} {m.name}</SelectItem>
+                    <SelectItem key={m.id} value={String(m.id)}><MemberOption name={m.name} avatarUrl={m.avatarUrl} /></SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1264,26 +1373,26 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
         </CardContent>
       </Card>
 
-      <PointsHistoryCard members={members} />
+      <div className={adminSection === "rewards" ? "" : "hidden"}><PointsHistoryCard members={members} /></div>
 
-      <Card className="rounded-3xl border-0 shadow-sm">
+      <Card className={`${adminSection === "display" ? "" : "hidden"} rounded-3xl border-0 shadow-sm`}>
         <CardHeader><CardTitle className="flex items-center gap-2"><SettingsIcon className="w-5 h-5" /> App Settings</CardTitle></CardHeader>
         <CardContent className="space-y-5">
           <div>
             <Label>App Name</Label>
-            <Input defaultValue={settings?.appName ?? "LunamHub"} className="rounded-xl h-12 mt-1"
-              onBlur={e => updateSettings.mutate({ data: { appName: e.target.value } })} />
+            <Input value={settingsForm.appName} className="rounded-xl h-12 mt-1"
+              onChange={e => setSettingsForm(form => ({ ...form, appName: e.target.value }))} />
           </div>
           <Separator />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label>Weather City</Label>
               <p className="text-xs text-muted-foreground mb-1.5">Shown on the screensaver. E.g. "Sydney" or "London"</p>
               <Input
-                defaultValue={settings?.weatherCity ?? ""}
+                value={settingsForm.weatherCity}
                 placeholder="e.g. Sydney"
                 className="rounded-xl h-12"
-                onBlur={e => updateSettings.mutate({ data: { weatherCity: e.target.value } })}
+                onChange={e => setSettingsForm(form => ({ ...form, weatherCity: e.target.value }))}
               />
             </div>
             <div>
@@ -1293,9 +1402,9 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
                 type="number"
                 min={1}
                 max={60}
-                defaultValue={settings?.screensaverTimeout ?? 5}
+                value={settingsForm.screensaverTimeout}
                 className="rounded-xl h-12"
-                onBlur={e => updateSettings.mutate({ data: { screensaverTimeout: Number(e.target.value) } })}
+                onChange={e => setSettingsForm(form => ({ ...form, screensaverTimeout: Number(e.target.value) }))}
               />
             </div>
             <div>
@@ -1305,30 +1414,40 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
                 type="number"
                 min={5}
                 max={120}
-                defaultValue={settings?.screensaverPhotoInterval ?? 15}
+                value={settingsForm.screensaverPhotoInterval}
                 className="rounded-xl h-12"
-                onBlur={e => updateSettings.mutate({ data: { screensaverPhotoInterval: Number(e.target.value) } })}
+                onChange={e => setSettingsForm(form => ({ ...form, screensaverPhotoInterval: Number(e.target.value) }))}
               />
             </div>
           </div>
-          <Separator />
+          <Button className="w-full h-12 rounded-xl" disabled={updateSettings.isPending || !settingsForm.appName.trim()} onClick={() => updateSettings.mutate({ data: settingsForm })}>
+            {updateSettings.isPending ? "Saving…" : "Save display settings"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <div className={adminSection === "connections" ? "" : "hidden"}><GoogleCalendarCard /></div>
+
+      <Card className={`${adminSection === "security" ? "" : "hidden"} rounded-3xl border-0 shadow-sm`}>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Key className="w-5 h-5" /> Admin access</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
           <div>
-            <Label>Change Global Parent PIN</Label>
-            <p className="text-xs text-muted-foreground mb-2">This PIN gates the Admin area. Per-parent PINs above gate approvals.</p>
-            <div className="flex gap-3">
+            <Label>Change global Admin PIN</Label>
+            <p className="text-xs text-muted-foreground mb-2">This PIN unlocks the Admin area. Each parent’s approval PIN is managed on their Family profile.</p>
+            <div className="flex flex-col sm:flex-row gap-3">
               <Input type="password" inputMode="numeric" placeholder="New PIN (min 4 digits)" value={newPin}
-                onChange={e => setNewPin(e.target.value)} className="rounded-xl h-14 flex-1" />
-              <Button className="h-14 px-6 rounded-xl" onClick={() => { updateSettings.mutate({ data: { parentPin: newPin } }); setNewPin(""); }} disabled={!newPin || newPin.length < 4}>
+                onChange={e => setNewPin(e.target.value.replace(/\D/g, ""))} className="rounded-xl h-12 flex-1" />
+              <Button className="h-12 px-6 rounded-xl" onClick={() => { updateSettings.mutate({ data: { parentPin: newPin } }); setNewPin(""); }} disabled={!newPin || newPin.length < 4 || updateSettings.isPending}>
                 Save PIN
               </Button>
             </div>
           </div>
+          <Separator />
+          <Button variant="outline" className="h-12 rounded-xl gap-2" onClick={onLock}><Lock className="w-4 h-4" /> Lock Admin now</Button>
         </CardContent>
       </Card>
 
-      <GoogleCalendarCard />
-
-      <SignOutCard />
+      <div className={adminSection === "security" ? "" : "hidden"}><SignOutCard /></div>
     </div>
   );
 }

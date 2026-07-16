@@ -15,6 +15,7 @@ import Meals from "@/pages/Meals";
 import Routines from "@/pages/Routines";
 import Admin from "@/pages/Admin";
 import Display from "@/pages/Display";
+import GamesNight from "@/pages/GamesNight";
 import { useGetSettings, getGetSettingsQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -63,6 +64,7 @@ function Router() {
         <Route path="/chores" component={Chores} />
         <Route path="/rewards" component={Rewards} />
         <Route path="/lists" component={Lists} />
+        <Route path="/games" component={GamesNight} />
         <Route path="/meals" component={Meals} />
         <Route path="/routines" component={Routines} />
         <Route path="/admin" component={Admin} />

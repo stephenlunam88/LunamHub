@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, List, ShoppingCart, School, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import type { SharedListInput } from "@workspace/api-client-react";
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -60,7 +61,7 @@ export default function Lists() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="flex items-center justify-between">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-4xl font-serif font-bold">Lists</h1>
         <Dialog open={listOpen} onOpenChange={setListOpen}>
           <DialogTrigger asChild>
@@ -86,7 +87,7 @@ export default function Lists() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+      </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="space-y-3">
@@ -115,9 +116,12 @@ export default function Lists() {
                   <CardTitle className="text-2xl font-serif">{listWithItems.name}</CardTitle>
                   <p className="text-muted-foreground text-sm mt-1">{checked}/{items.length} completed</p>
                 </div>
-                <button onClick={() => deleteList.mutate({ id: selectedListId })} className="text-muted-foreground hover:text-destructive p-2">
-                  <Trash2 className="w-5 h-5" />
-                </button>
+                <ConfirmDeleteDialog
+                  title={`Delete “${listWithItems.name}”?`}
+                  description="The list and all of its items will be permanently removed."
+                  onConfirm={() => deleteList.mutate({ id: selectedListId })}
+                  trigger={<button className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-destructive" aria-label={`Delete ${listWithItems.name}`}><Trash2 className="h-5 w-5" aria-hidden="true" /></button>}
+                />
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex gap-3">
@@ -131,7 +135,7 @@ export default function Lists() {
                     }}
                     className="rounded-xl h-14 flex-1"
                   />
-                  <Button className="h-14 px-5 rounded-xl" onClick={() => {
+                  <Button aria-label="Add list item" className="h-14 px-5 rounded-xl" onClick={() => {
                     if (newItemText.trim()) createItem.mutate({ listId: selectedListId, data: { text: newItemText.trim() } });
                   }}>
                     <Plus className="w-5 h-5" />
@@ -144,10 +148,7 @@ export default function Lists() {
                       onCheckedChange={() => updateItem.mutate({ listId: selectedListId, itemId: item.id, data: { completed: true } })}
                       className="h-6 w-6 rounded-lg" />
                     <span className="flex-1 text-base">{item.text}</span>
-                    <button onClick={() => deleteItem.mutate({ listId: selectedListId, itemId: item.id })}
-                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <ConfirmDeleteDialog title={`Delete “${item.text}”?`} description="This item will be permanently removed from the list." onConfirm={() => deleteItem.mutate({ listId: selectedListId, itemId: item.id })} trigger={<button className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-destructive" aria-label={`Delete ${item.text}`}><Trash2 className="h-4 w-4" aria-hidden="true" /></button>} />
                   </div>
                 ))}
 
@@ -157,10 +158,7 @@ export default function Lists() {
                       onCheckedChange={() => updateItem.mutate({ listId: selectedListId, itemId: item.id, data: { completed: false } })}
                       className="h-6 w-6 rounded-lg" />
                     <span className="flex-1 text-base line-through">{item.text}</span>
-                    <button onClick={() => deleteItem.mutate({ listId: selectedListId, itemId: item.id })}
-                      className="text-muted-foreground hover:text-destructive">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <ConfirmDeleteDialog title={`Delete “${item.text}”?`} description="This item will be permanently removed from the list." onConfirm={() => deleteItem.mutate({ listId: selectedListId, itemId: item.id })} trigger={<button className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-destructive" aria-label={`Delete ${item.text}`}><Trash2 className="h-4 w-4" aria-hidden="true" /></button>} />
                   </div>
                 ))}
 

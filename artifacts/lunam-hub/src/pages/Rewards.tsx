@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MemberAvatar, MemberOption } from "@/components/MemberAvatar";
 import { Gift, Check, X, Star, Lock, AlertTriangle, PackageCheck, History, Sparkles, Trophy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -94,7 +95,7 @@ function ChildHistorySection({ memberId, memberName }: { memberId: number; membe
 interface ParentInfo {
   id: number;
   name: string;
-  emoji: string;
+  avatarUrl?: string | null;
   hasPin?: boolean;
 }
 
@@ -146,7 +147,7 @@ function PinActionDialog({ triggerIcon, triggerClassName, title, description, pa
               <Label>Approving as</Label>
               <Select value={selectedParentId.toString()} onValueChange={v => { setSelectedParentId(Number(v)); reset(); }}>
                 <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>{parents.map(p => <SelectItem key={p.id} value={p.id.toString()}>{p.emoji} {p.name}</SelectItem>)}</SelectContent>
+                <SelectContent>{parents.map(p => <SelectItem key={p.id} value={p.id.toString()}><MemberOption name={p.name} avatarUrl={p.avatarUrl} /></SelectItem>)}</SelectContent>
               </Select>
             </div>
           )}
@@ -281,8 +282,8 @@ export default function Rewards() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-4xl font-serif font-bold">Reward Store</h1>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-4xl font-serif font-bold">Rewards</h1>
         <Dialog open={redeemOpen} onOpenChange={o => { setRedeemOpen(o); if (!o) setRedeemForm({ rewardId: 0, memberId: 0 }); }}>
           <DialogTrigger asChild>
             <Button variant="outline" className="h-14 px-6 rounded-2xl text-lg gap-2"><Gift className="w-5 h-5" /> Request Reward</Button>
@@ -300,7 +301,7 @@ export default function Rewards() {
                   <SelectContent>
                     {children.map(m => (
                       <SelectItem key={m.id} value={m.id.toString()}>
-                        {m.emoji} {m.name} — {m.pointsBalance} pts
+                        <span className="flex items-center gap-2"><MemberOption name={m.name} avatarUrl={m.avatarUrl} /><span>— {m.pointsBalance} pts</span></span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -348,7 +349,7 @@ export default function Rewards() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+      </header>
 
       {pending.length > 0 && (
         <Card className="rounded-3xl border-0 shadow-sm bg-amber-50">
@@ -356,11 +357,7 @@ export default function Rewards() {
           <CardContent className="space-y-3">
             {pending.map(r => (
               <div key={r.id} className="bg-white rounded-2xl p-4 flex items-center gap-4">
-                <div className="shrink-0">
-                  {r.member?.avatarUrl
-                    ? <img src={r.member.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover border border-muted" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                    : <span className="text-3xl">{r.member?.emoji}</span>}
-                </div>
+                {r.member && <MemberAvatar name={r.member.name} avatarUrl={r.member.avatarUrl} className="h-10 w-10" />}
                 <div className="flex-1">
                   <div className="font-bold">{r.member?.name}</div>
                   <div className="text-muted-foreground">{r.reward?.title} — {r.reward?.pointsCost} pts</div>
@@ -412,11 +409,7 @@ export default function Rewards() {
           <CardContent className="space-y-3">
             {approved.map(r => (
               <div key={r.id} className="bg-white rounded-2xl p-4 flex items-center gap-4">
-                <div className="shrink-0">
-                  {r.member?.avatarUrl
-                    ? <img src={r.member.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover border border-muted" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                    : <span className="text-3xl">{r.member?.emoji}</span>}
-                </div>
+                {r.member && <MemberAvatar name={r.member.name} avatarUrl={r.member.avatarUrl} className="h-10 w-10" />}
                 <div className="flex-1">
                   <div className="font-bold">{r.member?.name}</div>
                   <div className="text-muted-foreground">{r.reward?.title} — {r.pointsCost} pts</div>
@@ -463,11 +456,7 @@ export default function Rewards() {
                   {canAffordList.length > 0 ? (
                     <div className="flex items-center gap-1">
                       <div className="flex -space-x-1.5">
-                        {canAffordList.map(m => (
-                          m.avatarUrl
-                            ? <img key={m.id} src={m.avatarUrl} alt={m.name} title={m.name} className="w-8 h-8 rounded-full object-cover border-2 border-background" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                            : <span key={m.id} title={m.name} className="w-8 h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-base">{m.emoji}</span>
-                        ))}
+                        {canAffordList.map(m => <MemberAvatar key={m.id} name={m.name} avatarUrl={m.avatarUrl} className="h-8 w-8 border-2 border-background" />)}
                       </div>
                       <span className="text-xs text-muted-foreground ml-1">can afford</span>
                     </div>
@@ -511,9 +500,7 @@ export default function Rewards() {
                         : "border-transparent bg-muted hover:border-primary/30 text-foreground"
                     }`}
                   >
-                    {m.avatarUrl
-                      ? <img src={m.avatarUrl} alt={m.name} className="w-7 h-7 rounded-full object-cover border border-muted" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                      : <span className="text-xl">{m.emoji}</span>}
+                    <MemberAvatar name={m.name} avatarUrl={m.avatarUrl} className="h-7 w-7" />
                     <span>{m.name}</span>
                     <span className="text-xs text-muted-foreground font-normal">{m.pointsBalance} pts</span>
                   </button>
@@ -544,7 +531,7 @@ export default function Rewards() {
               const actor = actorId ? members.find(m => m.id === actorId) : null;
               return (
                 <div key={r.id} className="bg-background rounded-2xl px-4 py-3 flex items-center gap-3">
-                  <div className="text-2xl">{r.member?.emoji}</div>
+                  {r.member && <MemberAvatar name={r.member.name} avatarUrl={r.member.avatarUrl} className="h-8 w-8" />}
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{r.reward?.title}</div>
                     <div className="text-xs text-muted-foreground">for {r.member?.name}</div>
@@ -556,9 +543,7 @@ export default function Rewards() {
                     }`}>
                       {r.status === "fulfilled" ? "✓ Delivered" : "Rejected"}
                     </div>
-                    {actor && (
-                      <div className="text-xs text-muted-foreground mt-0.5">by {actor.emoji} {actor.name}</div>
-                    )}
+                    {actor && <div className="text-xs text-muted-foreground mt-0.5">by {actor.name}</div>}
                   </div>
                 </div>
               );

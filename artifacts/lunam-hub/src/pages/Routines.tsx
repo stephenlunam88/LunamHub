@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { MemberAvatar, MemberOption } from "@/components/MemberAvatar";
 import { Plus, Trash2, CheckCircle2, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RoutineInput } from "@workspace/api-client-react";
@@ -70,7 +71,7 @@ export default function Routines() {
                   <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Everyone" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">Everyone</SelectItem>
-                    {members.map(m => <SelectItem key={m.id} value={m.id.toString()}>{m.emoji} {m.name}</SelectItem>)}
+                    {members.map(m => <SelectItem key={m.id} value={m.id.toString()}><MemberOption name={m.name} avatarUrl={m.avatarUrl} /></SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -105,8 +106,9 @@ export default function Routines() {
                   <div className="text-2xl">{TOD_ICONS[rt.timeOfDay ?? "morning"]}</div>
                   <div className="flex-1">
                     <div className="font-semibold text-lg">{rt.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {member ? `${member.emoji} ${member.name}` : "Everyone"} · {rt.timeOfDay}
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      {member && <MemberAvatar name={member.name} avatarUrl={member.avatarUrl} className="h-5 w-5" />}
+                      <span>{member?.name ?? "Everyone"} · {rt.timeOfDay}</span>
                     </div>
                   </div>
                 </div>
@@ -125,8 +127,13 @@ export default function Routines() {
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <Badge variant="outline">{TOD_ICONS[r.timeOfDay ?? "morning"]} {r.timeOfDay}</Badge>
                       {r.assignedTo && members.find(m => m.id === r.assignedTo) && (
-                        <Badge variant="outline">
-                          {members.find(m => m.id === r.assignedTo)?.emoji} {members.find(m => m.id === r.assignedTo)?.name}
+                        <Badge variant="outline" className="gap-1.5">
+                          <MemberAvatar
+                            name={members.find(m => m.id === r.assignedTo)?.name ?? "Member"}
+                            avatarUrl={members.find(m => m.id === r.assignedTo)?.avatarUrl}
+                            className="h-5 w-5"
+                          />
+                          {members.find(m => m.id === r.assignedTo)?.name}
                         </Badge>
                       )}
                     </div>
