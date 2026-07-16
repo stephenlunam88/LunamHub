@@ -1,25 +1,72 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  useListEvents, useCreateEvent, useDeleteEvent, useUpdateEvent,
-  useSyncGoogleCalendar, useGetGoogleCalendarStatus,
+  useListEvents,
+  useCreateEvent,
+  useDeleteEvent,
+  useUpdateEvent,
+  useSyncGoogleCalendar,
+  useGetGoogleCalendarStatus,
   useListFamilyMembers,
   getListEventsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay, parseISO, getDay, getDate, getMonth } from "date-fns";
+import {
+  format,
+  addMonths,
+  subMonths,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  isSameMonth,
+  isToday,
+  isSameDay,
+  parseISO,
+  getDay,
+  getDate,
+  getMonth,
+} from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { MemberAvatar as ProfileAvatar } from "@/components/MemberAvatar";
-import { ChevronLeft, ChevronRight, Plus, Trash2, Clock, RefreshCw, Pencil, Users, MapPin } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Trash2,
+  Clock,
+  RefreshCw,
+  Pencil,
+  Users,
+  MapPin,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { EventInput, EventUpdate, Event, FamilyMember } from "@workspace/api-client-react";
-import type { EventInputRecurrence, EventUpdateRecurrence } from "@workspace/api-client-react";
+import type {
+  EventInput,
+  EventUpdate,
+  Event,
+  FamilyMember,
+} from "@workspace/api-client-react";
+import type {
+  EventInputRecurrence,
+  EventUpdateRecurrence,
+} from "@workspace/api-client-react";
 
 const CATEGORY_COLORS: Record<string, string> = {
   school: "bg-blue-100 text-blue-800",
@@ -80,13 +127,17 @@ function doesEventOccurOnDay(event: Event, day: Date): boolean {
     if (day > endDate) return false;
   }
   // Check exceptions (single-occurrence deletes)
-  const exceptions = (event as Event & { recurrenceExceptions?: string | null }).recurrenceExceptions;
+  const exceptions = (event as Event & { recurrenceExceptions?: string | null })
+    .recurrenceExceptions;
   if (exceptions) {
     const dayStr = format(day, "yyyy-MM-dd");
     if (exceptions.split(",").includes(dayStr)) return false;
   }
-  const activeDays = (event as Event & { recurrenceDays?: string | null }).recurrenceDays
-    ? (event as Event & { recurrenceDays?: string | null }).recurrenceDays!.split(",").map(Number)
+  const activeDays = (event as Event & { recurrenceDays?: string | null })
+    .recurrenceDays
+    ? (event as Event & { recurrenceDays?: string | null })
+        .recurrenceDays!.split(",")
+        .map(Number)
     : null;
   switch (event.recurrence as string) {
     case "DAILY":
@@ -105,13 +156,18 @@ function doesEventOccurOnDay(event: Event, day: Date): boolean {
       const startOfThisWeek = new Date(day);
       startOfThisWeek.setDate(day.getDate() - day.getDay());
       startOfThisWeek.setHours(0, 0, 0, 0);
-      const weekDiff = Math.round((startOfThisWeek.getTime() - startOfStartWeek.getTime()) / msPerWeek);
+      const weekDiff = Math.round(
+        (startOfThisWeek.getTime() - startOfStartWeek.getTime()) / msPerWeek,
+      );
       return weekDiff >= 0 && weekDiff % 2 === 0;
     }
     case "MONTHLY":
       return getDate(eventStart) === getDate(day);
     case "YEARLY":
-      return getMonth(eventStart) === getMonth(day) && getDate(eventStart) === getDate(day);
+      return (
+        getMonth(eventStart) === getMonth(day) &&
+        getDate(eventStart) === getDate(day)
+      );
     default:
       return isSameDay(eventStart, day);
   }
@@ -147,7 +203,13 @@ const DEFAULT_FORM = (date: string): EventForm => ({
   assignedMembers: [],
 });
 
-function MemberAvatar({ member, size = "sm" }: { member: FamilyMember; size?: "sm" | "xs" }) {
+function MemberAvatar({
+  member,
+  size = "sm",
+}: {
+  member: FamilyMember;
+  size?: "sm" | "xs";
+}) {
   const initials = member.name.slice(0, 2).toUpperCase();
   const sizeClass = size === "xs" ? "w-5 h-5 text-[10px]" : "w-6 h-6 text-xs";
   if (member.avatarUrl) {
@@ -156,14 +218,20 @@ function MemberAvatar({ member, size = "sm" }: { member: FamilyMember; size?: "s
         src={member.avatarUrl}
         alt={member.name}
         title={member.name}
-        className={cn("rounded-full object-cover ring-2 ring-background", sizeClass)}
+        className={cn(
+          "rounded-full object-cover ring-2 ring-background",
+          sizeClass,
+        )}
       />
     );
   }
   return (
     <div
       title={member.name}
-      className={cn("rounded-full flex items-center justify-center font-semibold ring-2 ring-background", sizeClass)}
+      className={cn(
+        "rounded-full flex items-center justify-center font-semibold ring-2 ring-background",
+        sizeClass,
+      )}
       style={{ backgroundColor: member.color, color: "#fff" }}
     >
       {initials}
@@ -178,25 +246,33 @@ export default function Calendar() {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<FormMode>("create");
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
-  const [form, setForm] = useState<EventForm>(DEFAULT_FORM(format(new Date(), "yyyy-MM-dd")));
+  const [form, setForm] = useState<EventForm>(
+    DEFAULT_FORM(format(new Date(), "yyyy-MM-dd")),
+  );
   const [filterMemberId, setFilterMemberId] = useState<number | null>(null);
-  const [deleteDialog, setDeleteDialog] = useState<{ event: Event; day: Date } | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{
+    event: Event;
+    day: Date;
+  } | null>(null);
 
   const startDate = format(startOfMonth(currentMonth), "yyyy-MM-dd");
   const endDate = format(endOfMonth(currentMonth), "yyyy-MM-dd");
 
   const { data: familyMembers = [] } = useListFamilyMembers();
-  const memberById = Object.fromEntries(familyMembers.map(m => [m.id, m]));
+  const memberById = Object.fromEntries(familyMembers.map((m) => [m.id, m]));
 
   const { data: events = [] } = useListEvents(
-    filterMemberId ? { startDate, endDate, memberId: filterMemberId } : { startDate, endDate }
+    filterMemberId
+      ? { startDate, endDate, memberId: filterMemberId }
+      : { startDate, endDate },
   );
   const { data: gcalStatus } = useGetGoogleCalendarStatus();
   const isConnected = gcalStatus?.connected ?? false;
 
   const sync = useSyncGoogleCalendar({
     mutation: {
-      onSuccess: () => qc.invalidateQueries({ queryKey: getListEventsQueryKey() }),
+      onSuccess: () =>
+        qc.invalidateQueries({ queryKey: getListEventsQueryKey() }),
     },
   });
 
@@ -204,7 +280,7 @@ export default function Calendar() {
     if (isConnected) {
       sync.mutate({ data: { startDate, endDate } });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate, isConnected]);
 
   function invalidate() {
@@ -248,6 +324,14 @@ export default function Calendar() {
     setOpen(true);
   }
 
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("quick") === "add") {
+      openCreate(new Date());
+    }
+    // Open once when entering from mobile Quick Add.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function openEdit(e: Event) {
     setMode("edit");
     setEditingEventId(e.id);
@@ -261,25 +345,31 @@ export default function Calendar() {
       description: e.description ?? "",
       location: e.location ?? "",
       recurrence: (e.recurrence as string | null | undefined) ?? undefined,
-      recurrenceEndDate: (e.recurrenceEndDate as string | null | undefined) ?? undefined,
-      recurrenceDays: (e as Event & { recurrenceDays?: string | null }).recurrenceDays ?? undefined,
+      recurrenceEndDate:
+        (e.recurrenceEndDate as string | null | undefined) ?? undefined,
+      recurrenceDays:
+        (e as Event & { recurrenceDays?: string | null }).recurrenceDays ??
+        undefined,
       assignedMembers: e.assignedMembers ?? [],
     });
     setOpen(true);
   }
 
   function toggleMember(id: number) {
-    setForm(f => ({
+    setForm((f) => ({
       ...f,
       assignedMembers: f.assignedMembers.includes(id)
-        ? f.assignedMembers.filter(m => m !== id)
+        ? f.assignedMembers.filter((m) => m !== id)
         : [...f.assignedMembers, id],
     }));
   }
 
   function handleSubmit() {
-    const cleanedRecurrence = (form.recurrence || undefined) as EventInputRecurrence | undefined;
-    const cleanedRecurrenceUpdate = (form.recurrence || null) as EventUpdateRecurrence | null;
+    const cleanedRecurrence = (form.recurrence || undefined) as
+      | EventInputRecurrence
+      | undefined;
+    const cleanedRecurrenceUpdate = (form.recurrence ||
+      null) as EventUpdateRecurrence | null;
     const cleanedRecurrenceEndDate = form.recurrenceEndDate || undefined;
     const cleanedRecurrenceDays = form.recurrenceDays || undefined;
     const cleanedStartTime = form.startTime || undefined;
@@ -296,8 +386,12 @@ export default function Calendar() {
         ...(form.description ? { description: form.description } : {}),
         ...(form.location ? { location: form.location } : {}),
         ...(cleanedRecurrence ? { recurrence: cleanedRecurrence } : {}),
-        ...(cleanedRecurrenceEndDate ? { recurrenceEndDate: cleanedRecurrenceEndDate } : {}),
-        ...(cleanedRecurrenceDays ? { recurrenceDays: cleanedRecurrenceDays } : {}),
+        ...(cleanedRecurrenceEndDate
+          ? { recurrenceEndDate: cleanedRecurrenceEndDate }
+          : {}),
+        ...(cleanedRecurrenceDays
+          ? { recurrenceDays: cleanedRecurrenceDays }
+          : {}),
         ...(cleanedStartTime ? { startTime: cleanedStartTime } : {}),
         ...(cleanedEndTime ? { endTime: cleanedEndTime } : {}),
         assignedMembers: form.assignedMembers,
@@ -325,14 +419,22 @@ export default function Calendar() {
 
   const isPending = createEvent.isPending || updateEvent.isPending;
 
-  const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
-  const selectedDayEvents = events.filter(e => doesEventOccurOnDay(e, selectedDay));
+  const days = eachDayOfInterval({
+    start: startOfMonth(currentMonth),
+    end: endOfMonth(currentMonth),
+  });
+  const selectedDayEvents = events.filter((e) =>
+    doesEventOccurOnDay(e, selectedDay),
+  );
 
   const dayEventsMap = useMemo(() => {
     const map = new Map<string, Event[]>();
     for (const day of days) {
       const key = format(day, "yyyy-MM-dd");
-      map.set(key, events.filter(e => doesEventOccurOnDay(e, day)));
+      map.set(
+        key,
+        events.filter((e) => doesEventOccurOnDay(e, day)),
+      );
     }
     return map;
   }, [days, events]);
@@ -346,7 +448,9 @@ export default function Calendar() {
             <span className="flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
               Google Calendar
-              {sync.isPending && <RefreshCw className="w-3 h-3 animate-spin ml-0.5" />}
+              {sync.isPending && (
+                <RefreshCw className="w-3 h-3 animate-spin ml-0.5" />
+              )}
             </span>
           )}
         </div>
@@ -360,26 +464,32 @@ export default function Calendar() {
                   "flex items-center gap-2 px-4 h-full rounded-xl text-base font-medium transition-colors",
                   filterMemberId === null
                     ? "bg-background shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <Users className="w-4 h-4" />
                 All
               </button>
-              {familyMembers.map(m => (
+              {familyMembers.map((m) => (
                 <button
                   key={m.id}
-                  onClick={() => setFilterMemberId(prev => prev === m.id ? null : m.id)}
+                  onClick={() =>
+                    setFilterMemberId((prev) => (prev === m.id ? null : m.id))
+                  }
                   className={cn(
                     "flex items-center gap-2 px-4 h-full rounded-xl text-base font-medium transition-colors",
                     filterMemberId === m.id
                       ? "bg-background shadow-sm text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
                   )}
                   title={m.name}
                 >
                   {m.avatarUrl ? (
-                    <img src={m.avatarUrl} alt={m.name} className="w-7 h-7 rounded-full object-cover" />
+                    <img
+                      src={m.avatarUrl}
+                      alt={m.name}
+                      className="w-7 h-7 rounded-full object-cover"
+                    />
                   ) : (
                     <span
                       className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white"
@@ -393,19 +503,29 @@ export default function Calendar() {
               ))}
             </div>
           )}
-          <Button className="h-14 px-6 rounded-2xl text-lg gap-2" onClick={() => openCreate(selectedDay)}>
+          <Button
+            className="h-14 px-6 rounded-2xl text-lg gap-2"
+            onClick={() => openCreate(selectedDay)}
+          >
             <Plus className="w-5 h-5" /> Add Event
           </Button>
         </div>
       </div>
 
       {/* ── Delete recurring event dialog ─────────────────────────────────── */}
-      <Dialog open={!!deleteDialog} onOpenChange={(v) => { if (!v) setDeleteDialog(null); }}>
+      <Dialog
+        open={!!deleteDialog}
+        onOpenChange={(v) => {
+          if (!v) setDeleteDialog(null);
+        }}
+      >
         <DialogContent className="rounded-3xl max-w-sm">
           <DialogHeader>
             <DialogTitle>Delete "{deleteDialog?.event.title}"</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">This is a recurring event. What would you like to delete?</p>
+          <p className="text-sm text-muted-foreground">
+            This is a recurring event. What would you like to delete?
+          </p>
           <div className="flex flex-col gap-2 mt-2">
             <Button
               variant="outline"
@@ -413,18 +533,27 @@ export default function Calendar() {
               disabled={deleteEvent.isPending || updateEvent.isPending}
               onClick={() => {
                 if (!deleteDialog) return;
-                const ev = deleteDialog.event as Event & { recurrenceExceptions?: string | null };
+                const ev = deleteDialog.event as Event & {
+                  recurrenceExceptions?: string | null;
+                };
                 const dateStr = format(deleteDialog.day, "yyyy-MM-dd");
-                const current = ev.recurrenceExceptions ? ev.recurrenceExceptions.split(",") : [];
+                const current = ev.recurrenceExceptions
+                  ? ev.recurrenceExceptions.split(",")
+                  : [];
                 if (!current.includes(dateStr)) {
                   const updated = [...current, dateStr].join(",");
-                  updateEvent.mutate({ id: ev.id, data: { recurrenceExceptions: updated } as EventUpdate });
+                  updateEvent.mutate({
+                    id: ev.id,
+                    data: { recurrenceExceptions: updated } as EventUpdate,
+                  });
                 }
                 setDeleteDialog(null);
               }}
             >
               <span className="font-medium">Delete this date only</span>
-              <span className="text-muted-foreground text-xs ml-1">({deleteDialog ? format(deleteDialog.day, "d MMM yyyy") : ""})</span>
+              <span className="text-muted-foreground text-xs ml-1">
+                ({deleteDialog ? format(deleteDialog.day, "d MMM yyyy") : ""})
+              </span>
             </Button>
             <Button
               variant="destructive"
@@ -438,7 +567,11 @@ export default function Calendar() {
             >
               Delete entire series
             </Button>
-            <Button variant="ghost" className="rounded-xl h-10" onClick={() => setDeleteDialog(null)}>
+            <Button
+              variant="ghost"
+              className="rounded-xl h-10"
+              onClick={() => setDeleteDialog(null)}
+            >
               Cancel
             </Button>
           </div>
@@ -446,21 +579,38 @@ export default function Calendar() {
       </Dialog>
 
       {/* ── Add / Edit Dialog ─────────────────────────────────────────────── */}
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditingEventId(null); }}>
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          setOpen(v);
+          if (!v) setEditingEventId(null);
+        }}
+      >
         <DialogContent className="rounded-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{mode === "edit" ? "Edit Event" : "New Event"}</DialogTitle>
+            <DialogTitle>
+              {mode === "edit" ? "Edit Event" : "New Event"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <Label>Title</Label>
-              <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="rounded-xl h-12" placeholder="Event name" />
+              <Input
+                value={form.title}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, title: e.target.value }))
+                }
+                className="rounded-xl h-12"
+                placeholder="Event name"
+              />
             </div>
             <div>
               <Label>Description</Label>
               <Textarea
                 value={form.description ?? ""}
-                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, description: e.target.value }))
+                }
                 className="rounded-xl resize-none"
                 rows={3}
                 placeholder="Notes or details (optional)"
@@ -470,14 +620,23 @@ export default function Calendar() {
               <Label>Location</Label>
               <Input
                 value={form.location ?? ""}
-                onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, location: e.target.value }))
+                }
                 className="rounded-xl h-12"
                 placeholder="Address or place name (optional)"
               />
             </div>
             <div>
               <Label>Date</Label>
-              <Input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className="rounded-xl h-12" />
+              <Input
+                type="date"
+                value={form.date}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, date: e.target.value }))
+                }
+                className="rounded-xl h-12"
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -485,7 +644,13 @@ export default function Calendar() {
                 <Input
                   type="time"
                   value={form.startTime ?? ""}
-                  onChange={e => setForm(f => ({ ...f, startTime: e.target.value, allDay: !e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      startTime: e.target.value,
+                      allDay: !e.target.value,
+                    }))
+                  }
                   className="rounded-xl h-12"
                 />
               </div>
@@ -494,18 +659,39 @@ export default function Calendar() {
                 <Input
                   type="time"
                   value={form.endTime ?? ""}
-                  onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, endTime: e.target.value }))
+                  }
                   className="rounded-xl h-12"
                 />
               </div>
             </div>
             <div>
               <Label>Category</Label>
-              <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v as EventInput["category"] }))}>
-                <SelectTrigger className="rounded-xl h-12"><SelectValue /></SelectTrigger>
+              <Select
+                value={form.category}
+                onValueChange={(v) =>
+                  setForm((f) => ({
+                    ...f,
+                    category: v as EventInput["category"],
+                  }))
+                }
+              >
+                <SelectTrigger className="rounded-xl h-12">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {["school", "sport", "appointment", "birthday", "family", "other"].map(c => (
-                    <SelectItem key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</SelectItem>
+                  {[
+                    "school",
+                    "sport",
+                    "appointment",
+                    "birthday",
+                    "family",
+                    "other",
+                  ].map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c.charAt(0).toUpperCase() + c.slice(1)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -516,7 +702,7 @@ export default function Calendar() {
               <div>
                 <Label>Family Members</Label>
                 <div className="flex flex-wrap gap-2 mt-1.5">
-                  {familyMembers.map(m => {
+                  {familyMembers.map((m) => {
                     const selected = form.assignedMembers.includes(m.id);
                     return (
                       <button
@@ -527,26 +713,51 @@ export default function Calendar() {
                           "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border-2 transition-all",
                           selected
                             ? "border-transparent shadow-sm text-white"
-                            : "border-muted bg-muted/30 text-muted-foreground hover:border-muted-foreground/30"
+                            : "border-muted bg-muted/30 text-muted-foreground hover:border-muted-foreground/30",
                         )}
                         style={selected ? { backgroundColor: m.color } : {}}
                       >
-                        <ProfileAvatar name={m.name} avatarUrl={m.avatarUrl} className="h-4 w-4" />
+                        <ProfileAvatar
+                          name={m.name}
+                          avatarUrl={m.avatarUrl}
+                          className="h-4 w-4"
+                        />
                         {m.name}
                       </button>
                     );
                   })}
                 </div>
                 {form.assignedMembers.length === 0 && (
-                  <p className="text-xs text-muted-foreground mt-1">Leave blank to assign to everyone</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Leave blank to assign to everyone
+                  </p>
                 )}
               </div>
             )}
 
             <div>
               <Label>Repeat</Label>
-              <Select value={form.recurrence ?? "none"} onValueChange={v => setForm(f => ({ ...f, recurrence: v === "none" ? undefined : v, recurrenceEndDate: v === "none" ? undefined : f.recurrenceEndDate, recurrenceDays: v === "none" || v === "DAILY" || v === "MONTHLY" || v === "YEARLY" ? undefined : f.recurrenceDays }))}>
-                <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="None" /></SelectTrigger>
+              <Select
+                value={form.recurrence ?? "none"}
+                onValueChange={(v) =>
+                  setForm((f) => ({
+                    ...f,
+                    recurrence: v === "none" ? undefined : v,
+                    recurrenceEndDate:
+                      v === "none" ? undefined : f.recurrenceEndDate,
+                    recurrenceDays:
+                      v === "none" ||
+                      v === "DAILY" ||
+                      v === "MONTHLY" ||
+                      v === "YEARLY"
+                        ? undefined
+                        : f.recurrenceDays,
+                  }))
+                }
+              >
+                <SelectTrigger className="rounded-xl h-12">
+                  <SelectValue placeholder="None" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
                   <SelectItem value="DAILY">Daily</SelectItem>
@@ -557,24 +768,39 @@ export default function Calendar() {
                 </SelectContent>
               </Select>
             </div>
-            {(form.recurrence === "WEEKLY" || form.recurrence === "FORTNIGHTLY") && (
+            {(form.recurrence === "WEEKLY" ||
+              form.recurrence === "FORTNIGHTLY") && (
               <div>
                 <Label>Repeat on days (optional)</Label>
                 <div className="flex gap-1 mt-1 flex-wrap">
                   {DOW_LABELS.map((label, idx) => {
-                    const active = form.recurrenceDays?.split(",").map(Number).includes(idx) ?? false;
+                    const active =
+                      form.recurrenceDays
+                        ?.split(",")
+                        .map(Number)
+                        .includes(idx) ?? false;
                     return (
                       <button
                         key={idx}
                         type="button"
                         onClick={() => {
-                          const current = form.recurrenceDays ? form.recurrenceDays.split(",").map(Number) : [];
-                          const next = active ? current.filter(d => d !== idx) : [...current, idx].sort((a, b) => a - b);
-                          setForm(f => ({ ...f, recurrenceDays: next.length > 0 ? next.join(",") : undefined }));
+                          const current = form.recurrenceDays
+                            ? form.recurrenceDays.split(",").map(Number)
+                            : [];
+                          const next = active
+                            ? current.filter((d) => d !== idx)
+                            : [...current, idx].sort((a, b) => a - b);
+                          setForm((f) => ({
+                            ...f,
+                            recurrenceDays:
+                              next.length > 0 ? next.join(",") : undefined,
+                          }));
                         }}
                         className={cn(
                           "px-2 py-1 rounded-lg text-xs font-medium border transition-colors",
-                          active ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border"
+                          active
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background text-muted-foreground border-border",
                         )}
                       >
                         {label}
@@ -582,7 +808,9 @@ export default function Calendar() {
                     );
                   })}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Leave blank to repeat on the event's start day</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Leave blank to repeat on the event's start day
+                </p>
               </div>
             )}
             {form.recurrence && (
@@ -591,7 +819,12 @@ export default function Calendar() {
                 <Input
                   type="date"
                   value={form.recurrenceEndDate ?? ""}
-                  onChange={e => setForm(f => ({ ...f, recurrenceEndDate: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      recurrenceEndDate: e.target.value,
+                    }))
+                  }
                   className="rounded-xl h-12"
                 />
               </div>
@@ -601,7 +834,13 @@ export default function Calendar() {
               onClick={handleSubmit}
               disabled={!form.title || isPending}
             >
-              {isPending ? (mode === "edit" ? "Saving…" : "Adding…") : (mode === "edit" ? "Save Changes" : "Add Event")}
+              {isPending
+                ? mode === "edit"
+                  ? "Saving…"
+                  : "Adding…"
+                : mode === "edit"
+                  ? "Save Changes"
+                  : "Add Event"}
             </Button>
           </div>
         </DialogContent>
@@ -611,23 +850,46 @@ export default function Calendar() {
         {/* ── Month calendar ──────────────────────────────────────────────── */}
         <Card className="lg:col-span-3 rounded-3xl border-0 shadow-sm flex flex-col overflow-hidden">
           <CardHeader className="flex-row items-center justify-between pb-3 shrink-0">
-            <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(m => subMonths(m, 1))} className="h-10 w-10 rounded-xl">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCurrentMonth((m) => subMonths(m, 1))}
+              className="h-10 w-10 rounded-xl"
+            >
               <ChevronLeft className="w-5 h-5" />
             </Button>
-            <CardTitle className="text-xl font-serif">{format(currentMonth, "MMMM yyyy")}</CardTitle>
-            <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(m => addMonths(m, 1))} className="h-10 w-10 rounded-xl">
+            <CardTitle className="text-xl font-serif">
+              {format(currentMonth, "MMMM yyyy")}
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCurrentMonth((m) => addMonths(m, 1))}
+              className="h-10 w-10 rounded-xl"
+            >
               <ChevronRight className="w-5 h-5" />
             </Button>
           </CardHeader>
           <CardContent className="p-0 flex-1 flex flex-col overflow-hidden min-h-0 rounded-b-3xl">
             <div className="grid grid-cols-7 border-b border-border shrink-0">
-              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
-                <div key={d} className="text-center text-xs font-semibold text-muted-foreground py-2">{d}</div>
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+                <div
+                  key={d}
+                  className="text-center text-xs font-semibold text-muted-foreground py-2"
+                >
+                  {d}
+                </div>
               ))}
             </div>
-            <div className="grid grid-cols-7 flex-1 min-h-0" style={{ gridAutoRows: "1fr" }}>
+            <div
+              className="grid grid-cols-7 flex-1 min-h-0"
+              style={{ gridAutoRows: "1fr" }}
+            >
               {Array.from({ length: days[0].getDay() }).map((_, i) => (
-                <div key={`pad-${i}`} className="border-r border-b border-border last:border-r-0" />
+                <div
+                  key={`pad-${i}`}
+                  className="border-r border-b border-border last:border-r-0"
+                />
               ))}
               {days.map((day, idx) => {
                 const dayKey = format(day, "yyyy-MM-dd");
@@ -642,36 +904,60 @@ export default function Calendar() {
                     className={cn(
                       "flex flex-col items-stretch text-left p-1.5 transition-colors border-b border-border touch-manipulation overflow-hidden",
                       !isLastCol && "border-r",
-                      selected ? "bg-primary/5 ring-inset ring-2 ring-primary" : "hover:bg-muted/40",
-                      !isSameMonth(day, currentMonth) && "opacity-35"
+                      selected
+                        ? "bg-primary/5 ring-inset ring-2 ring-primary"
+                        : "hover:bg-muted/40",
+                      !isSameMonth(day, currentMonth) && "opacity-35",
                     )}
                   >
-                    <div className={cn(
-                      "w-6 h-6 text-xs font-semibold flex items-center justify-center rounded-full self-end mb-0.5 shrink-0",
-                      todayDay ? "bg-primary text-primary-foreground" : selected ? "text-primary" : "text-foreground"
-                    )}>
+                    <div
+                      className={cn(
+                        "w-6 h-6 text-xs font-semibold flex items-center justify-center rounded-full self-end mb-0.5 shrink-0",
+                        todayDay
+                          ? "bg-primary text-primary-foreground"
+                          : selected
+                            ? "text-primary"
+                            : "text-foreground",
+                      )}
+                    >
                       {format(day, "d")}
                     </div>
-                    {dayEvents.slice(0, 5).map(ev => {
+                    {dayEvents.slice(0, 5).map((ev) => {
                       const cat = ev.category ?? "other";
                       return ev.allDay ? (
                         <div
                           key={ev.id}
-                          className={cn("text-[10px] leading-tight px-1.5 py-0.5 rounded mb-0.5 font-medium truncate", CATEGORY_PILL_BG[cat] ?? "bg-sky-500 text-white")}
+                          className={cn(
+                            "text-[10px] leading-tight px-1.5 py-0.5 rounded mb-0.5 font-medium truncate",
+                            CATEGORY_PILL_BG[cat] ?? "bg-sky-500 text-white",
+                          )}
                         >
                           {ev.title}
                         </div>
                       ) : (
-                        <div key={ev.id} className="text-[10px] leading-tight flex items-center gap-0.5 mb-0.5 min-w-0">
-                          <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", CATEGORY_DOT_BG[cat] ?? "bg-sky-500")} />
+                        <div
+                          key={ev.id}
+                          className="text-[10px] leading-tight flex items-center gap-0.5 mb-0.5 min-w-0"
+                        >
+                          <span
+                            className={cn(
+                              "w-1.5 h-1.5 rounded-full shrink-0",
+                              CATEGORY_DOT_BG[cat] ?? "bg-sky-500",
+                            )}
+                          />
                           <span className="truncate text-foreground/80">
-                            {ev.startTime ? formatEventTime(ev.startTime) + " " : ""}{ev.title}
+                            {ev.startTime
+                              ? formatEventTime(ev.startTime) + " "
+                              : ""}
+                            {ev.title}
                           </span>
                         </div>
                       );
                     })}
                     {dayEvents.length > 5 && (
-                      <div className="text-[9px] text-muted-foreground px-1 mt-auto">+{dayEvents.length - 5} more</div>
+                      <div className="text-[9px] text-muted-foreground px-1 mt-auto">
+                        +{dayEvents.length - 5} more
+                      </div>
                     )}
                   </button>
                 );
@@ -683,51 +969,74 @@ export default function Calendar() {
         {/* ── Day panel ───────────────────────────────────────────────────── */}
         <Card className="rounded-3xl border-0 shadow-sm flex flex-col overflow-hidden">
           <CardHeader className="shrink-0">
-            <CardTitle className="text-xl font-serif">{format(selectedDay, "EEEE, MMM d")}</CardTitle>
+            <CardTitle className="text-xl font-serif">
+              {format(selectedDay, "EEEE, MMM d")}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 overflow-y-auto flex-1 min-h-0">
             {selectedDayEvents.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No events this day</p>
+              <p className="text-muted-foreground text-center py-8">
+                No events this day
+              </p>
             ) : (
-              selectedDayEvents.map(e => {
+              selectedDayEvents.map((e) => {
                 const assignedMemberObjects = (e.assignedMembers ?? [])
-                  .map(id => memberById[id])
+                  .map((id) => memberById[id])
                   .filter(Boolean) as FamilyMember[];
                 return (
-                  <div key={e.id} className="bg-muted rounded-2xl p-4 flex gap-3">
+                  <div
+                    key={e.id}
+                    className="bg-muted rounded-2xl p-4 flex gap-3"
+                  >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-base">{e.title}</span>
+                        <span className="font-semibold text-base">
+                          {e.title}
+                        </span>
                         {e.googleEventId && (
-                          <span className="text-[10px] font-medium text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">GCal</span>
+                          <span className="text-[10px] font-medium text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">
+                            GCal
+                          </span>
                         )}
                         {e.recurrence && (
                           <span className="text-[10px] font-medium text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded-full">
-                            {RECURRENCE_LABELS[e.recurrence as string] ?? e.recurrence}
+                            {RECURRENCE_LABELS[e.recurrence as string] ??
+                              e.recurrence}
                           </span>
                         )}
                       </div>
                       {e.startTime && (
                         <div className="flex items-center gap-1 text-muted-foreground text-sm mt-1">
-                          <Clock className="w-3 h-3" />{formatEventTime(e.startTime)}{e.endTime ? ` – ${formatEventTime(e.endTime)}` : ""}
+                          <Clock className="w-3 h-3" />
+                          {formatEventTime(e.startTime)}
+                          {e.endTime ? ` – ${formatEventTime(e.endTime)}` : ""}
                         </div>
                       )}
                       {e.location && (
                         <div className="flex items-center gap-1 text-muted-foreground text-sm mt-1">
-                          <MapPin className="w-3 h-3 shrink-0" /><span className="line-clamp-1">{e.location}</span>
+                          <MapPin className="w-3 h-3 shrink-0" />
+                          <span className="line-clamp-1">{e.location}</span>
                         </div>
                       )}
                       {e.description && (
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{e.description}</p>
+                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                          {e.description}
+                        </p>
                       )}
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        <Badge className={cn("text-xs", CATEGORY_COLORS[e.category ?? "other"])} variant="outline">
+                        <Badge
+                          className={cn(
+                            "text-xs",
+                            CATEGORY_COLORS[e.category ?? "other"],
+                          )}
+                          variant="outline"
+                        >
                           {e.category}
                         </Badge>
                         {/* Assigned member avatars */}
                         {assignedMemberObjects.length > 0 && (
                           <div className="flex -space-x-1">
-                            {assignedMemberObjects.map(m => (
+                            {assignedMemberObjects.map((m) => (
                               <MemberAvatar key={m.id} member={m} size="xs" />
                             ))}
                           </div>
@@ -774,7 +1083,12 @@ export default function Calendar() {
                 onClick={() => sync.mutate({ data: { startDate, endDate } })}
                 disabled={sync.isPending}
               >
-                <RefreshCw className={cn("w-3.5 h-3.5", sync.isPending && "animate-spin")} />
+                <RefreshCw
+                  className={cn(
+                    "w-3.5 h-3.5",
+                    sync.isPending && "animate-spin",
+                  )}
+                />
                 {sync.isPending ? "Syncing…" : "Sync Google Calendar"}
               </Button>
             )}

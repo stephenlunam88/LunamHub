@@ -13,6 +13,22 @@ import {
 const router = Router();
 const Id = z.coerce.number().int().positive();
 const PlayerKey = z.string().regex(/^(member|guest):\d+$/);
+const PlayedDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Date played must use YYYY-MM-DD")
+  .refine(
+    (value) =>
+      new Date(`${value}T12:00:00.000Z`).toISOString().slice(0, 10) === value,
+    "Date played must be a valid date",
+  )
+  .refine(
+    (value) =>
+      value <=
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Australia/Sydney",
+      }).format(new Date()),
+    "Date played cannot be in the future",
+  );
 const CustomOutcome = z.object({
   id: z.string().trim().min(1).max(60),
   name: z.string().trim().min(1).max(80),
@@ -117,9 +133,13 @@ const ResultInput = z.discriminatedUnion("type", [
 const SessionInput = z.object({
   gameId: z.number().int().positive(),
   playerKeys: z.array(PlayerKey).min(1),
-  playedAt: z.string().datetime().optional(),
+  playedAt: PlayedDate.optional(),
   result: ResultInput,
 });
+
+function datePlayed(value?: string) {
+  return value ? new Date(`${value}T12:00:00.000Z`) : new Date();
+}
 
 async function ensureDefaultGames() {
   for (const game of DEFAULT_GAMES) {
@@ -333,7 +353,7 @@ async function saveSession(
         .set({
           gameId: input.gameId,
           playedAt: input.playedAt
-            ? new Date(input.playedAt)
+            ? datePlayed(input.playedAt)
             : existing.playedAt,
           resultSummary: scored.summary,
           updatedAt: new Date(),
@@ -347,7 +367,7 @@ async function saveSession(
         .insert(gameSessionsTable)
         .values({
           gameId: input.gameId,
-          playedAt: input.playedAt ? new Date(input.playedAt) : new Date(),
+          playedAt: datePlayed(input.playedAt),
           resultSummary: scored.summary,
         })
         .returning();
@@ -381,16 +401,14 @@ async function formatSessions(limit?: number) {
   const games = await db.select().from(gamesTable);
   const participants = await db.select().from(gameParticipantsTable);
   const gameMap = new Map(games.map((g) => [g.id, g]));
-  return sessions
-    .slice(0, limit)
-    .map((s) => ({
-      ...s,
-      playedAt: s.playedAt.toISOString(),
-      createdAt: s.createdAt.toISOString(),
-      updatedAt: s.updatedAt.toISOString(),
-      game: gameMap.get(s.gameId)!,
-      participants: participants.filter((p) => p.sessionId === s.id),
-    }));
+  return sessions.slice(0, limit).map((s) => ({
+    ...s,
+    playedAt: s.playedAt.toISOString(),
+    createdAt: s.createdAt.toISOString(),
+    updatedAt: s.updatedAt.toISOString(),
+    game: gameMap.get(s.gameId)!,
+    participants: participants.filter((p) => p.sessionId === s.id),
+  }));
 }
 
 router.get("/players", async (req, res) =>
@@ -463,12 +481,9 @@ router.post("/results", async (req, res) => {
     const row = (await formatSessions()).find((s) => s.id === id);
     res.status(201).json(row);
   } catch (error) {
-    res
-      .status(400)
-      .json({
-        error:
-          error instanceof Error ? error.message : "Could not record result",
-      });
+    res.status(400).json({
+      error: error instanceof Error ? error.message : "Could not record result",
+    });
   }
 });
 router.patch("/results/:id", async (req, res) => {
@@ -479,12 +494,9 @@ router.patch("/results/:id", async (req, res) => {
     const row = (await formatSessions()).find((s) => s.id === id);
     res.json(row);
   } catch (error) {
-    res
-      .status(400)
-      .json({
-        error:
-          error instanceof Error ? error.message : "Could not update result",
-      });
+    res.status(400).json({
+      error: error instanceof Error ? error.message : "Could not update result",
+    });
   }
 });
 router.delete("/results/:id", async (req, res) => {
@@ -566,7 +578,7 @@ router.get("/dashboard", async (req, res) => {
     leaderboard,
     recentResults: (await formatSessions())
       .filter((s) => ids.has(s.id))
-      .slice(0, 8),
+      .slice(0, 5),
   });
 });
 

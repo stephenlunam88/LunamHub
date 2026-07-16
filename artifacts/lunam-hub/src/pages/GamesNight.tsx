@@ -140,6 +140,10 @@ function pointValue(config: PointsConfig, key: string, fallback = 0) {
   return typeof config[key] === "number" ? (config[key] as number) : fallback;
 }
 
+function localDateValue(date = new Date()) {
+  return format(date, "yyyy-MM-dd");
+}
+
 function PlayerAvatar({
   player,
   className = "h-14 w-14",
@@ -179,6 +183,33 @@ function PlayerAvatar({
         {player.avatarEmoji || initials || "?"}
       </AvatarFallback>
     </Avatar>
+  );
+}
+
+function CompactPlayerAvatar({
+  name,
+  avatarUrl,
+  avatarEmoji,
+}: {
+  name: string;
+  avatarUrl: string | null;
+  avatarEmoji: string | null;
+}) {
+  const initial = name.trim().charAt(0).toUpperCase() || "?";
+  return (
+    <span className="relative block h-8 w-8 min-w-8 shrink-0 overflow-hidden rounded-full border-2 border-background bg-primary/10 text-primary shadow-sm">
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <span className="absolute inset-0 flex items-center justify-center text-xs font-bold leading-none">
+          {avatarEmoji || initial}
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -501,6 +532,11 @@ function RecordGameDialog({
   const [customRole, setCustomRole] = useState("");
   const [customOutcome, setCustomOutcome] = useState("");
   const [customSide, setCustomSide] = useState<string[]>([]);
+  const [playedDate, setPlayedDate] = useState(
+    editResult
+      ? localDateValue(new Date(editResult.playedAt))
+      : localDateValue(),
+  );
   const [manual, setManual] = useState<Record<string, number>>(
     Object.fromEntries(
       editResult?.participants.map((p) => [p.playerKey, p.points]) ?? [],
@@ -608,7 +644,7 @@ function RecordGameDialog({
         gameId: game.id,
         playerKeys: selected,
         result: resultPayload(),
-        ...(editResult ? { playedAt: editResult.playedAt } : {}),
+        playedAt: playedDate || localDateValue(),
       });
   }
   function resetResult() {
@@ -629,7 +665,7 @@ function RecordGameDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[88dvh] max-w-4xl flex-col rounded-3xl p-0 overflow-hidden">
+      <DialogContent className="flex h-dvh max-h-dvh w-screen max-w-none flex-col overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[88dvh] sm:max-w-4xl sm:rounded-3xl">
         <DialogHeader className="border-b px-6 py-5">
           <DialogTitle className="flex items-center gap-3 font-serif text-3xl">
             <Dice5 className="h-7 w-7 text-primary" />{" "}
@@ -697,7 +733,7 @@ function RecordGameDialog({
                   <UserPlus className="h-4 w-4" /> Add Guest
                 </Button>
               </div>
-              <div className="grid grid-cols-4 gap-4 sm:grid-cols-6">
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-6 sm:gap-4">
                 {players
                   .filter((p) => p.active)
                   .map((player) => {
@@ -737,6 +773,20 @@ function RecordGameDialog({
                   <p className="text-muted-foreground">Record the result</p>
                 </div>
               </div>
+              <div className="max-w-xs">
+                <Label htmlFor="game-played-date">Date played</Label>
+                <Input
+                  id="game-played-date"
+                  type="date"
+                  max={localDateValue()}
+                  className="mt-1 h-12 rounded-xl text-base"
+                  value={playedDate}
+                  onChange={(event) => setPlayedDate(event.target.value)}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Defaults to today. Future dates are not allowed.
+                </p>
+              </div>
               {game.name === "Chameleon" ? (
                 <>
                   <div>
@@ -762,7 +812,7 @@ function RecordGameDialog({
                       })}
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     {(
                       [
                         ["escaped", "Chameleon escaped", "3 pts to Chameleon"],
@@ -883,6 +933,9 @@ function RecordGameDialog({
                   {saved.game.icon} {saved.game.name}
                 </p>
                 <p className="text-muted-foreground">{saved.resultSummary}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Played {format(new Date(saved.playedAt), "d MMMM yyyy")}
+                </p>
               </div>
               <div className="space-y-2 rounded-3xl bg-muted p-4 text-left">
                 {saved.participants
@@ -900,7 +953,7 @@ function RecordGameDialog({
                     </div>
                   ))}
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <Button
                   variant="outline"
                   className="h-14 rounded-xl"
@@ -1745,7 +1798,9 @@ export default function GamesNight() {
   const { toast } = useToast();
   const [period, setPeriod] = useState<"overall" | "month">("overall");
   const [gameFilter, setGameFilter] = useState("all");
-  const [recordOpen, setRecordOpen] = useState(false);
+  const [recordOpen, setRecordOpen] = useState(
+    new URLSearchParams(window.location.search).get("quick") === "record",
+  );
   const [profileKey, setProfileKey] = useState<string | null>(null);
   const [editResult, setEditResult] = useState<GameResult | null>(null);
   const [adminUnlocked, setAdminUnlocked] = useState(false);
@@ -1874,7 +1929,7 @@ export default function GamesNight() {
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-[minmax(0,1.35fr)_minmax(320px,.65fr)] gap-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1.35fr)_minmax(320px,.65fr)] md:gap-6">
             <Card className="rounded-3xl border-0 shadow-sm">
               <CardHeader>
                 <CardTitle>Leaderboard</CardTitle>
@@ -1900,7 +1955,7 @@ export default function GamesNight() {
                       <button
                         key={leader.key}
                         onClick={() => setProfileKey(leader.key)}
-                        className="grid w-full grid-cols-[48px_64px_1fr_110px_100px_110px] items-center gap-3 rounded-2xl bg-muted/60 p-3 text-left transition hover:bg-muted"
+                        className="grid w-full grid-cols-[36px_48px_1fr_64px] items-center gap-2 rounded-2xl bg-muted/60 p-3 text-left transition hover:bg-muted md:grid-cols-[48px_64px_1fr_110px_100px_110px] md:gap-3"
                       >
                         <span className="text-center text-xl font-bold">
                           {index < 3
@@ -1926,13 +1981,13 @@ export default function GamesNight() {
                             points
                           </small>
                         </span>
-                        <span className="text-center">
+                        <span className="hidden text-center md:block">
                           <b>{leader.gamesPlayed}</b>
                           <small className="block text-muted-foreground">
                             played
                           </small>
                         </span>
-                        <span className="text-center">
+                        <span className="hidden text-center md:block">
                           <b>{leader.pointsPerGame}</b>
                           <small className="block text-muted-foreground">
                             pts / game
@@ -2132,7 +2187,7 @@ function RecentResults({ results }: { results: GameResult[] }) {
             Results will appear here.
           </p>
         ) : (
-          results.map((result) => (
+          results.slice(0, 5).map((result) => (
             <div key={result.id} className="rounded-2xl bg-muted/60 p-4">
               <div className="flex items-center justify-between">
                 <b>
@@ -2143,22 +2198,23 @@ function RecentResults({ results }: { results: GameResult[] }) {
                 </span>
               </div>
               <p className="mt-1 text-sm">{result.resultSummary}</p>
-              <div className="mt-3 flex flex-wrap gap-3">
+              <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
                 {result.participants.map((p) => (
-                  <div key={p.playerKey} className="flex items-center gap-1.5">
-                    <PlayerAvatar
-                      player={{
-                        name: p.displayName,
-                        nickname: null,
-                        avatarUrl: p.avatarUrl,
-                        avatarEmoji: p.avatarEmoji,
-                        color: null,
-                      }}
-                      className="h-8 w-8"
+                  <div
+                    key={p.playerKey}
+                    className="flex min-w-0 items-center gap-1.5"
+                  >
+                    <CompactPlayerAvatar
+                      name={p.displayName}
+                      avatarUrl={p.avatarUrl}
+                      avatarEmoji={p.avatarEmoji}
                     />
-                    <span className="text-xs font-medium">
-                      {p.displayName} {p.points >= 0 ? "+" : ""}
-                      {p.points}
+                    <span className="min-w-0 truncate text-xs font-medium">
+                      {p.displayName}{" "}
+                      <b className="whitespace-nowrap text-primary">
+                        {p.points >= 0 ? "+" : ""}
+                        {p.points}
+                      </b>
                     </span>
                   </div>
                 ))}

@@ -1,30 +1,89 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  useListChores, useListFamilyMembers, useCreateChore, useCompleteChore,
-  useApproveChore, useRejectChore, useDeleteChore, useUpdateChore, useGetChoresSummary, useListBadges, useVerifyPin, useVerifyFamilyMemberPin,
-  useListRewards, useRequestRedemption, useApproveRedemption,
-  getListChoresQueryKey, getGetChoresSummaryQueryKey, getListFamilyMembersQueryKey,
+  useListChores,
+  useListFamilyMembers,
+  useCreateChore,
+  useCompleteChore,
+  useApproveChore,
+  useRejectChore,
+  useDeleteChore,
+  useUpdateChore,
+  useGetChoresSummary,
+  useListBadges,
+  useVerifyPin,
+  useVerifyFamilyMemberPin,
+  useListRewards,
+  useRequestRedemption,
+  useApproveRedemption,
+  getListChoresQueryKey,
+  getGetChoresSummaryQueryKey,
+  getListFamilyMembersQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MemberAvatar, MemberOption } from "@/components/MemberAvatar";
-import { CheckCircle2, Plus, Trash2, Star, Clock, Lock, Medal, XCircle, Pencil, Gift, X } from "lucide-react";
-import type { Chore, ChoreInput, ChoreUpdate } from "@workspace/api-client-react";
+import {
+  CheckCircle2,
+  Plus,
+  Trash2,
+  Star,
+  Clock,
+  Lock,
+  Medal,
+  XCircle,
+  Pencil,
+  Gift,
+  X,
+} from "lucide-react";
+import type {
+  Chore,
+  ChoreInput,
+  ChoreUpdate,
+} from "@workspace/api-client-react";
 
 const TIER_STYLES = {
-  bronze: { bg: "bg-amber-100", text: "text-amber-800", border: "border-amber-300", ring: "ring-amber-400" },
-  silver: { bg: "bg-slate-100", text: "text-slate-700", border: "border-slate-300", ring: "ring-slate-400" },
-  gold:   { bg: "bg-yellow-100", text: "text-yellow-800", border: "border-yellow-300", ring: "ring-yellow-400" },
+  bronze: {
+    bg: "bg-amber-100",
+    text: "text-amber-800",
+    border: "border-amber-300",
+    ring: "ring-amber-400",
+  },
+  silver: {
+    bg: "bg-slate-100",
+    text: "text-slate-700",
+    border: "border-slate-300",
+    ring: "ring-slate-400",
+  },
+  gold: {
+    bg: "bg-yellow-100",
+    text: "text-yellow-800",
+    border: "border-yellow-300",
+    ring: "ring-yellow-400",
+  },
 } as const;
 
-type ChoreFormState = Omit<ChoreInput, "status"> & { assignedToMany?: number[] };
+type ChoreFormState = Omit<ChoreInput, "status"> & {
+  assignedToMany?: number[];
+};
 
 interface ParentInfo {
   id: number;
@@ -33,33 +92,60 @@ interface ParentInfo {
   hasPin?: boolean;
 }
 
-function PinApproveDialog({ choreId, choreTitle, parents, onSuccess }: {
+function PinApproveDialog({
+  choreId,
+  choreTitle,
+  parents,
+  onSuccess,
+}: {
   choreId: number;
   choreTitle: string;
   parents: ParentInfo[];
   onSuccess: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [selectedParentId, setSelectedParentId] = useState<number>(parents[0]?.id ?? 0);
+  const [selectedParentId, setSelectedParentId] = useState<number>(
+    parents[0]?.id ?? 0,
+  );
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const approveChore = useApproveChore({
     mutation: {
-      onSuccess: () => { setOpen(false); setPin(""); setError(null); onSuccess(); },
-      onError: (err: unknown) => {
-        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "";
-        setError(msg.includes("PIN") || msg.includes("Invalid") ? "Incorrect PIN — try again" : "Failed to approve");
+      onSuccess: () => {
+        setOpen(false);
         setPin("");
-      }
-    }
+        setError(null);
+        onSuccess();
+      },
+      onError: (err: unknown) => {
+        const msg =
+          (err as { response?: { data?: { error?: string } } })?.response?.data
+            ?.error ?? "";
+        setError(
+          msg.includes("PIN") || msg.includes("Invalid")
+            ? "Incorrect PIN — try again"
+            : "Failed to approve",
+        );
+        setPin("");
+      },
+    },
   });
 
-  const selectedParent = parents.find(p => p.id === selectedParentId);
-  const reset = () => { setPin(""); setError(null); };
+  const selectedParent = parents.find((p) => p.id === selectedParentId);
+  const reset = () => {
+    setPin("");
+    setError(null);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={o => { setOpen(o); reset(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        reset();
+      }}
+    >
       <DialogTrigger asChild>
         <Button className="rounded-xl h-14 px-6 bg-green-600 hover:bg-green-700 shrink-0">
           <Star className="w-4 h-4 mr-2" /> Approve
@@ -76,10 +162,22 @@ function PinApproveDialog({ choreId, choreTitle, parents, onSuccess }: {
           {parents.length > 1 && (
             <div>
               <Label>Approving as</Label>
-              <Select value={selectedParentId.toString()} onValueChange={v => { setSelectedParentId(Number(v)); reset(); }}>
-                <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
+              <Select
+                value={selectedParentId.toString()}
+                onValueChange={(v) => {
+                  setSelectedParentId(Number(v));
+                  reset();
+                }}
+              >
+                <SelectTrigger className="rounded-xl h-12 mt-1">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {parents.map(p => <SelectItem key={p.id} value={p.id.toString()}><MemberOption name={p.name} avatarUrl={p.avatarUrl} /></SelectItem>)}
+                  {parents.map((p) => (
+                    <SelectItem key={p.id} value={p.id.toString()}>
+                      <MemberOption name={p.name} avatarUrl={p.avatarUrl} />
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -91,8 +189,20 @@ function PinApproveDialog({ choreId, choreTitle, parents, onSuccess }: {
                 type="password"
                 inputMode="numeric"
                 value={pin}
-                onChange={e => { setPin(e.target.value); setError(null); }}
-                onKeyDown={e => { if (e.key === "Enter") approveChore.mutate({ id: choreId, data: { parentId: selectedParentId, pin: selectedParent?.hasPin ? pin : undefined } }); }}
+                onChange={(e) => {
+                  setPin(e.target.value);
+                  setError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter")
+                    approveChore.mutate({
+                      id: choreId,
+                      data: {
+                        parentId: selectedParentId,
+                        pin: selectedParent?.hasPin ? pin : undefined,
+                      },
+                    });
+                }}
                 placeholder="••••"
                 className={`rounded-xl h-12 text-center tracking-[0.4em] text-xl mt-1 ${error ? "border-red-500 bg-red-50" : ""}`}
                 autoFocus
@@ -100,11 +210,23 @@ function PinApproveDialog({ choreId, choreTitle, parents, onSuccess }: {
               {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
             </div>
           )}
-          {!selectedParent?.hasPin && error && <p className="text-red-600 text-sm">{error}</p>}
+          {!selectedParent?.hasPin && error && (
+            <p className="text-red-600 text-sm">{error}</p>
+          )}
           <Button
             className="w-full h-12 rounded-xl bg-green-600 hover:bg-green-700"
-            onClick={() => approveChore.mutate({ id: choreId, data: { parentId: selectedParentId, pin: selectedParent?.hasPin ? pin : undefined } })}
-            disabled={(selectedParent?.hasPin ? !pin : false) || approveChore.isPending}
+            onClick={() =>
+              approveChore.mutate({
+                id: choreId,
+                data: {
+                  parentId: selectedParentId,
+                  pin: selectedParent?.hasPin ? pin : undefined,
+                },
+              })
+            }
+            disabled={
+              (selectedParent?.hasPin ? !pin : false) || approveChore.isPending
+            }
           >
             {approveChore.isPending ? "Approving…" : "Approve & Award Points"}
           </Button>
@@ -114,37 +236,70 @@ function PinApproveDialog({ choreId, choreTitle, parents, onSuccess }: {
   );
 }
 
-function PinDismissDialog({ choreId, choreTitle, parents, onSuccess }: {
+function PinDismissDialog({
+  choreId,
+  choreTitle,
+  parents,
+  onSuccess,
+}: {
   choreId: number;
   choreTitle: string;
   parents: ParentInfo[];
   onSuccess: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [selectedParentId, setSelectedParentId] = useState<number>(parents[0]?.id ?? 0);
+  const [selectedParentId, setSelectedParentId] = useState<number>(
+    parents[0]?.id ?? 0,
+  );
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const rejectChore = useRejectChore({
     mutation: {
-      onSuccess: () => { setOpen(false); setPin(""); setError(null); onSuccess(); },
-      onError: (err: unknown) => {
-        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "";
-        setError(msg.includes("PIN") || msg.includes("Invalid") ? "Incorrect PIN — try again" : "Failed to dismiss");
+      onSuccess: () => {
+        setOpen(false);
         setPin("");
-      }
-    }
+        setError(null);
+        onSuccess();
+      },
+      onError: (err: unknown) => {
+        const msg =
+          (err as { response?: { data?: { error?: string } } })?.response?.data
+            ?.error ?? "";
+        setError(
+          msg.includes("PIN") || msg.includes("Invalid")
+            ? "Incorrect PIN — try again"
+            : "Failed to dismiss",
+        );
+        setPin("");
+      },
+    },
   });
 
-  const selectedParent = parents.find(p => p.id === selectedParentId);
-  const reset = () => { setPin(""); setError(null); };
+  const selectedParent = parents.find((p) => p.id === selectedParentId);
+  const reset = () => {
+    setPin("");
+    setError(null);
+  };
 
   const handleConfirm = () => {
-    rejectChore.mutate({ id: choreId, data: { parentId: selectedParentId, pin: selectedParent?.hasPin ? pin : undefined } });
+    rejectChore.mutate({
+      id: choreId,
+      data: {
+        parentId: selectedParentId,
+        pin: selectedParent?.hasPin ? pin : undefined,
+      },
+    });
   };
 
   return (
-    <Dialog open={open} onOpenChange={o => { setOpen(o); reset(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        reset();
+      }}
+    >
       <DialogTrigger asChild>
         <Button variant="outline" className="rounded-xl h-14 px-5 shrink-0">
           Dismiss
@@ -157,14 +312,28 @@ function PinDismissDialog({ choreId, choreTitle, parents, onSuccess }: {
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <p className="text-muted-foreground text-sm">Dismiss "{choreTitle}" without awarding points?</p>
+          <p className="text-muted-foreground text-sm">
+            Dismiss "{choreTitle}" without awarding points?
+          </p>
           {parents.length > 1 && (
             <div>
               <Label>Confirming as</Label>
-              <Select value={selectedParentId.toString()} onValueChange={v => { setSelectedParentId(Number(v)); reset(); }}>
-                <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
+              <Select
+                value={selectedParentId.toString()}
+                onValueChange={(v) => {
+                  setSelectedParentId(Number(v));
+                  reset();
+                }}
+              >
+                <SelectTrigger className="rounded-xl h-12 mt-1">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {parents.map(p => <SelectItem key={p.id} value={p.id.toString()}><MemberOption name={p.name} avatarUrl={p.avatarUrl} /></SelectItem>)}
+                  {parents.map((p) => (
+                    <SelectItem key={p.id} value={p.id.toString()}>
+                      <MemberOption name={p.name} avatarUrl={p.avatarUrl} />
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -176,8 +345,13 @@ function PinDismissDialog({ choreId, choreTitle, parents, onSuccess }: {
                 type="password"
                 inputMode="numeric"
                 value={pin}
-                onChange={e => { setPin(e.target.value); setError(null); }}
-                onKeyDown={e => { if (e.key === "Enter") handleConfirm(); }}
+                onChange={(e) => {
+                  setPin(e.target.value);
+                  setError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleConfirm();
+                }}
                 placeholder="••••"
                 className={`rounded-xl h-12 text-center tracking-[0.4em] text-xl mt-1 ${error ? "border-red-500 bg-red-50" : ""}`}
                 autoFocus
@@ -185,12 +359,16 @@ function PinDismissDialog({ choreId, choreTitle, parents, onSuccess }: {
               {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
             </div>
           )}
-          {!selectedParent?.hasPin && error && <p className="text-red-600 text-sm">{error}</p>}
+          {!selectedParent?.hasPin && error && (
+            <p className="text-red-600 text-sm">{error}</p>
+          )}
           <Button
             variant="destructive"
             className="w-full h-12 rounded-xl"
             onClick={handleConfirm}
-            disabled={(selectedParent?.hasPin ? !pin : false) || rejectChore.isPending}
+            disabled={
+              (selectedParent?.hasPin ? !pin : false) || rejectChore.isPending
+            }
           >
             {rejectChore.isPending ? "Dismissing…" : "Dismiss Chore"}
           </Button>
@@ -200,39 +378,76 @@ function PinDismissDialog({ choreId, choreTitle, parents, onSuccess }: {
   );
 }
 
-function PinRejectDialog({ choreId, choreTitle, parents, onSuccess }: {
+function PinRejectDialog({
+  choreId,
+  choreTitle,
+  parents,
+  onSuccess,
+}: {
   choreId: number;
   choreTitle: string;
   parents: ParentInfo[];
   onSuccess: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [selectedParentId, setSelectedParentId] = useState<number>(parents[0]?.id ?? 0);
+  const [selectedParentId, setSelectedParentId] = useState<number>(
+    parents[0]?.id ?? 0,
+  );
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const rejectChore = useRejectChore({
     mutation: {
-      onSuccess: () => { setOpen(false); setPin(""); setError(null); onSuccess(); },
-      onError: (err: unknown) => {
-        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "";
-        setError(msg.includes("PIN") || msg.includes("Invalid") ? "Incorrect PIN — try again" : "Failed to reject");
+      onSuccess: () => {
+        setOpen(false);
         setPin("");
-      }
-    }
+        setError(null);
+        onSuccess();
+      },
+      onError: (err: unknown) => {
+        const msg =
+          (err as { response?: { data?: { error?: string } } })?.response?.data
+            ?.error ?? "";
+        setError(
+          msg.includes("PIN") || msg.includes("Invalid")
+            ? "Incorrect PIN — try again"
+            : "Failed to reject",
+        );
+        setPin("");
+      },
+    },
   });
 
-  const selectedParent = parents.find(p => p.id === selectedParentId);
-  const reset = () => { setPin(""); setError(null); };
+  const selectedParent = parents.find((p) => p.id === selectedParentId);
+  const reset = () => {
+    setPin("");
+    setError(null);
+  };
 
   const mutate = (markAsMissed: boolean) => {
-    rejectChore.mutate({ id: choreId, data: { parentId: selectedParentId, pin: selectedParent?.hasPin ? pin : undefined, markAsMissed } });
+    rejectChore.mutate({
+      id: choreId,
+      data: {
+        parentId: selectedParentId,
+        pin: selectedParent?.hasPin ? pin : undefined,
+        markAsMissed,
+      },
+    });
   };
 
   return (
-    <Dialog open={open} onOpenChange={o => { setOpen(o); reset(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        reset();
+      }}
+    >
       <DialogTrigger asChild>
-        <Button variant="outline" className="rounded-xl h-14 px-5 border-red-300 text-red-600 hover:bg-red-50 shrink-0">
+        <Button
+          variant="outline"
+          className="rounded-xl h-14 px-5 border-red-300 text-red-600 hover:bg-red-50 shrink-0"
+        >
           <X className="w-4 h-4 mr-1.5" /> Reject
         </Button>
       </DialogTrigger>
@@ -247,10 +462,22 @@ function PinRejectDialog({ choreId, choreTitle, parents, onSuccess }: {
           {parents.length > 1 && (
             <div>
               <Label>Rejecting as</Label>
-              <Select value={selectedParentId.toString()} onValueChange={v => { setSelectedParentId(Number(v)); reset(); }}>
-                <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
+              <Select
+                value={selectedParentId.toString()}
+                onValueChange={(v) => {
+                  setSelectedParentId(Number(v));
+                  reset();
+                }}
+              >
+                <SelectTrigger className="rounded-xl h-12 mt-1">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {parents.map(p => <SelectItem key={p.id} value={p.id.toString()}><MemberOption name={p.name} avatarUrl={p.avatarUrl} /></SelectItem>)}
+                  {parents.map((p) => (
+                    <SelectItem key={p.id} value={p.id.toString()}>
+                      <MemberOption name={p.name} avatarUrl={p.avatarUrl} />
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -262,7 +489,10 @@ function PinRejectDialog({ choreId, choreTitle, parents, onSuccess }: {
                 type="password"
                 inputMode="numeric"
                 value={pin}
-                onChange={e => { setPin(e.target.value); setError(null); }}
+                onChange={(e) => {
+                  setPin(e.target.value);
+                  setError(null);
+                }}
                 placeholder="••••"
                 className={`rounded-xl h-12 text-center tracking-[0.4em] text-xl mt-1 ${error ? "border-red-500 bg-red-50" : ""}`}
                 autoFocus
@@ -270,14 +500,20 @@ function PinRejectDialog({ choreId, choreTitle, parents, onSuccess }: {
               {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
             </div>
           )}
-          {!selectedParent?.hasPin && error && <p className="text-red-600 text-sm">{error}</p>}
-          <p className="text-sm font-medium">What should happen to this chore?</p>
+          {!selectedParent?.hasPin && error && (
+            <p className="text-red-600 text-sm">{error}</p>
+          )}
+          <p className="text-sm font-medium">
+            What should happen to this chore?
+          </p>
           <div className="grid grid-cols-2 gap-3">
             <Button
               variant="outline"
               className="h-12 rounded-xl text-sm"
               onClick={() => mutate(false)}
-              disabled={(selectedParent?.hasPin ? !pin : false) || rejectChore.isPending}
+              disabled={
+                (selectedParent?.hasPin ? !pin : false) || rejectChore.isPending
+              }
             >
               Send Back to To Do
             </Button>
@@ -285,7 +521,9 @@ function PinRejectDialog({ choreId, choreTitle, parents, onSuccess }: {
               variant="destructive"
               className="h-12 rounded-xl text-sm"
               onClick={() => mutate(true)}
-              disabled={(selectedParent?.hasPin ? !pin : false) || rejectChore.isPending}
+              disabled={
+                (selectedParent?.hasPin ? !pin : false) || rejectChore.isPending
+              }
             >
               Mark as Missed
             </Button>
@@ -296,7 +534,13 @@ function PinRejectDialog({ choreId, choreTitle, parents, onSuccess }: {
   );
 }
 
-function RedeemDialog({ memberId, memberName, memberBalance, parents, onSuccess }: {
+function RedeemDialog({
+  memberId,
+  memberName,
+  memberBalance,
+  parents,
+  onSuccess,
+}: {
   memberId: number;
   memberName: string;
   memberBalance: number;
@@ -304,43 +548,78 @@ function RedeemDialog({ memberId, memberName, memberBalance, parents, onSuccess 
   onSuccess: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [selectedParentId, setSelectedParentId] = useState<number>(parents[0]?.id ?? 0);
+  const [selectedParentId, setSelectedParentId] = useState<number>(
+    parents[0]?.id ?? 0,
+  );
   const [pin, setPin] = useState("");
   const [selectedRewardId, setSelectedRewardId] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
   const { data: rewards = [] } = useListRewards();
-  const affordableRewards = rewards.filter(r => r.active && r.pointsCost <= memberBalance);
-  const selectedReward = rewards.find(r => r.id === selectedRewardId) ?? null;
-  const selectedParent = parents.find(p => p.id === selectedParentId);
-  const reset = () => { setPin(""); setError(null); setSelectedRewardId(0); };
+  const affordableRewards = rewards.filter(
+    (r) => r.active && r.pointsCost <= memberBalance,
+  );
+  const selectedReward = rewards.find((r) => r.id === selectedRewardId) ?? null;
+  const selectedParent = parents.find((p) => p.id === selectedParentId);
+  const reset = () => {
+    setPin("");
+    setError(null);
+    setSelectedRewardId(0);
+  };
 
   const approveRedemption = useApproveRedemption({
     mutation: {
-      onSuccess: () => { setOpen(false); reset(); onSuccess(); },
+      onSuccess: () => {
+        setOpen(false);
+        reset();
+        onSuccess();
+      },
       onError: (err: unknown) => {
-        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "";
-        setError(msg.includes("PIN") || msg.includes("Invalid") ? "Incorrect PIN — try again" : "Failed to approve");
+        const msg =
+          (err as { response?: { data?: { error?: string } } })?.response?.data
+            ?.error ?? "";
+        setError(
+          msg.includes("PIN") || msg.includes("Invalid")
+            ? "Incorrect PIN — try again"
+            : "Failed to approve",
+        );
         setPin("");
-      }
-    }
+      },
+    },
   });
 
   const requestRedemption = useRequestRedemption({
     mutation: {
       onSuccess: (newRedemption) => {
-        approveRedemption.mutate({ id: newRedemption.id, data: { parentId: selectedParentId, pin: selectedParent?.hasPin ? pin : undefined } });
+        approveRedemption.mutate({
+          id: newRedemption.id,
+          data: {
+            parentId: selectedParentId,
+            pin: selectedParent?.hasPin ? pin : undefined,
+          },
+        });
       },
-      onError: () => { setError("Could not create redemption — try again"); }
-    }
+      onError: () => {
+        setError("Could not create redemption — try again");
+      },
+    },
   });
 
   const isPending = requestRedemption.isPending || approveRedemption.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={o => { setOpen(o); if (!o) reset(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) reset();
+      }}
+    >
       <DialogTrigger asChild>
-        <Button variant="outline" className="rounded-xl h-14 px-5 shrink-0 gap-1.5">
+        <Button
+          variant="outline"
+          className="rounded-xl h-14 px-5 shrink-0 gap-1.5"
+        >
           <Gift className="w-4 h-4" /> Redeem
         </Button>
       </DialogTrigger>
@@ -351,36 +630,65 @@ function RedeemDialog({ memberId, memberName, memberBalance, parents, onSuccess 
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">Balance: <span className="font-semibold text-foreground">{memberBalance} pts</span></p>
+          <p className="text-sm text-muted-foreground">
+            Balance:{" "}
+            <span className="font-semibold text-foreground">
+              {memberBalance} pts
+            </span>
+          </p>
           {affordableRewards.length === 0 ? (
             <p className="text-sm text-amber-700 bg-amber-50 rounded-xl px-4 py-3">
-              {memberName} doesn't have enough points for any current reward yet.
+              {memberName} doesn't have enough points for any current reward
+              yet.
             </p>
           ) : (
             <>
               <div>
                 <Label>Choose a reward</Label>
-                <Select value={selectedRewardId ? selectedRewardId.toString() : ""} onValueChange={v => setSelectedRewardId(Number(v))}>
-                  <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue placeholder="Select reward…" /></SelectTrigger>
+                <Select
+                  value={selectedRewardId ? selectedRewardId.toString() : ""}
+                  onValueChange={(v) => setSelectedRewardId(Number(v))}
+                >
+                  <SelectTrigger className="rounded-xl h-12 mt-1">
+                    <SelectValue placeholder="Select reward…" />
+                  </SelectTrigger>
                   <SelectContent>
-                    {affordableRewards.map(r => (
-                      <SelectItem key={r.id} value={r.id.toString()}>{r.title} — {r.pointsCost} pts</SelectItem>
+                    {affordableRewards.map((r) => (
+                      <SelectItem key={r.id} value={r.id.toString()}>
+                        {r.title} — {r.pointsCost} pts
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 {selectedReward && (
                   <p className="text-sm text-muted-foreground mt-1.5 ml-1">
-                    Remaining after: <span className="font-semibold">{memberBalance - selectedReward.pointsCost} pts</span>
+                    Remaining after:{" "}
+                    <span className="font-semibold">
+                      {memberBalance - selectedReward.pointsCost} pts
+                    </span>
                   </p>
                 )}
               </div>
               {parents.length > 1 && (
                 <div>
                   <Label>Approving as</Label>
-                  <Select value={selectedParentId.toString()} onValueChange={v => { setSelectedParentId(Number(v)); reset(); setSelectedRewardId(selectedRewardId); }}>
-                    <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
+                  <Select
+                    value={selectedParentId.toString()}
+                    onValueChange={(v) => {
+                      setSelectedParentId(Number(v));
+                      reset();
+                      setSelectedRewardId(selectedRewardId);
+                    }}
+                  >
+                    <SelectTrigger className="rounded-xl h-12 mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {parents.map(p => <SelectItem key={p.id} value={p.id.toString()}><MemberOption name={p.name} avatarUrl={p.avatarUrl} /></SelectItem>)}
+                      {parents.map((p) => (
+                        <SelectItem key={p.id} value={p.id.toString()}>
+                          <MemberOption name={p.name} avatarUrl={p.avatarUrl} />
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -392,19 +700,34 @@ function RedeemDialog({ memberId, memberName, memberBalance, parents, onSuccess 
                     type="password"
                     inputMode="numeric"
                     value={pin}
-                    onChange={e => { setPin(e.target.value); setError(null); }}
+                    onChange={(e) => {
+                      setPin(e.target.value);
+                      setError(null);
+                    }}
                     placeholder="••••"
                     className={`rounded-xl h-12 text-center tracking-[0.4em] text-xl mt-1 ${error ? "border-red-500 bg-red-50" : ""}`}
                     autoFocus
                   />
-                  {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
+                  {error && (
+                    <p className="text-red-600 text-sm mt-1">{error}</p>
+                  )}
                 </div>
               )}
-              {!selectedParent?.hasPin && error && <p className="text-red-600 text-sm">{error}</p>}
+              {!selectedParent?.hasPin && error && (
+                <p className="text-red-600 text-sm">{error}</p>
+              )}
               <Button
                 className="w-full h-12 rounded-xl"
-                onClick={() => requestRedemption.mutate({ data: { memberId, rewardId: selectedRewardId } })}
-                disabled={!selectedRewardId || (selectedParent?.hasPin ? !pin : false) || isPending}
+                onClick={() =>
+                  requestRedemption.mutate({
+                    data: { memberId, rewardId: selectedRewardId },
+                  })
+                }
+                disabled={
+                  !selectedRewardId ||
+                  (selectedParent?.hasPin ? !pin : false) ||
+                  isPending
+                }
               >
                 {isPending ? "Redeeming…" : "Redeem Reward"}
               </Button>
@@ -418,35 +741,55 @@ function RedeemDialog({ memberId, memberName, memberBalance, parents, onSuccess 
 
 const ADMIN_OPTION = "__admin__";
 
-function PinDeleteDialog({ choreId, choreTitle, parents, onSuccess }: {
+function PinDeleteDialog({
+  choreId,
+  choreTitle,
+  parents,
+  onSuccess,
+}: {
   choreId: number;
   choreTitle: string;
   parents: ParentInfo[];
   onSuccess: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<string>(parents[0] ? String(parents[0].id) : ADMIN_OPTION);
+  const [selected, setSelected] = useState<string>(
+    parents[0] ? String(parents[0].id) : ADMIN_OPTION,
+  );
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const reset = () => { setPin(""); setError(null); };
+  const reset = () => {
+    setPin("");
+    setError(null);
+  };
 
   const deleteChore = useDeleteChore({
-    mutation: { onSuccess: () => { setOpen(false); reset(); onSuccess(); } }
+    mutation: {
+      onSuccess: () => {
+        setOpen(false);
+        reset();
+        onSuccess();
+      },
+    },
   });
 
   const onVerifySuccess = () => deleteChore.mutate({ id: choreId });
-  const onVerifyError = () => { setError("Incorrect PIN — try again"); setPin(""); };
+  const onVerifyError = () => {
+    setError("Incorrect PIN — try again");
+    setPin("");
+  };
 
   const verifyAdmin = useVerifyPin({
-    mutation: { onSuccess: onVerifySuccess, onError: onVerifyError }
+    mutation: { onSuccess: onVerifySuccess, onError: onVerifyError },
   });
 
   const verifyParent = useVerifyFamilyMemberPin({
-    mutation: { onSuccess: onVerifySuccess, onError: onVerifyError }
+    mutation: { onSuccess: onVerifySuccess, onError: onVerifyError },
   });
 
-  const isPending = verifyAdmin.isPending || verifyParent.isPending || deleteChore.isPending;
+  const isPending =
+    verifyAdmin.isPending || verifyParent.isPending || deleteChore.isPending;
 
   const handleConfirm = () => {
     if (selected === ADMIN_OPTION) {
@@ -457,14 +800,24 @@ function PinDeleteDialog({ choreId, choreTitle, parents, onSuccess }: {
   };
 
   const options = [
-    ...parents.map(p => ({ value: String(p.id), label: p.name })),
+    ...parents.map((p) => ({ value: String(p.id), label: p.name })),
     { value: ADMIN_OPTION, label: "🔑 Admin PIN" },
   ];
 
   return (
-    <Dialog open={open} onOpenChange={o => { setOpen(o); reset(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        reset();
+      }}
+    >
       <DialogTrigger asChild>
-        <Button size="icon" variant="ghost" className="h-12 w-12 rounded-xl text-muted-foreground hover:text-destructive">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-12 w-12 rounded-xl text-muted-foreground hover:text-destructive"
+        >
           <Trash2 className="w-5 h-5" />
         </Button>
       </DialogTrigger>
@@ -475,26 +828,47 @@ function PinDeleteDialog({ choreId, choreTitle, parents, onSuccess }: {
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <p className="text-muted-foreground text-sm">Delete "{choreTitle}"?</p>
+          <p className="text-muted-foreground text-sm">
+            Delete "{choreTitle}"?
+          </p>
           {options.length > 1 && (
             <div>
               <Label>Authorising as</Label>
-              <Select value={selected} onValueChange={v => { setSelected(v); reset(); }}>
-                <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
+              <Select
+                value={selected}
+                onValueChange={(v) => {
+                  setSelected(v);
+                  reset();
+                }}
+              >
+                <SelectTrigger className="rounded-xl h-12 mt-1">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  {options.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           )}
           <div>
-            <Label>{selected === ADMIN_OPTION ? "Admin PIN" : "Parent PIN"}</Label>
+            <Label>
+              {selected === ADMIN_OPTION ? "Admin PIN" : "Parent PIN"}
+            </Label>
             <Input
               type="password"
               inputMode="numeric"
               value={pin}
-              onChange={e => { setPin(e.target.value); setError(null); }}
-              onKeyDown={e => { if (e.key === "Enter" && pin) handleConfirm(); }}
+              onChange={(e) => {
+                setPin(e.target.value);
+                setError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && pin) handleConfirm();
+              }}
               placeholder="••••"
               className={`rounded-xl h-12 text-center tracking-[0.4em] text-xl mt-1 ${error ? "border-red-500 bg-red-50" : ""}`}
               autoFocus
@@ -515,9 +889,17 @@ function PinDeleteDialog({ choreId, choreTitle, parents, onSuccess }: {
   );
 }
 
-type EditFormState = Pick<ChoreUpdate, "title" | "pointsValue" | "repeatType"> & { assignedTo?: number | null };
+type EditFormState = Pick<
+  ChoreUpdate,
+  "title" | "pointsValue" | "repeatType"
+> & { assignedTo?: number | null };
 
-function PinEditDialog({ chore, children, parents, onSuccess }: {
+function PinEditDialog({
+  chore,
+  children,
+  parents,
+  onSuccess,
+}: {
   chore: Chore;
   children: ParentInfo[];
   parents: ParentInfo[];
@@ -530,18 +912,27 @@ function PinEditDialog({ chore, children, parents, onSuccess }: {
     pointsValue: chore.pointsValue,
     repeatType: chore.repeatType as ChoreUpdate["repeatType"],
   });
-  const [selected, setSelected] = useState<string>(parents[0] ? String(parents[0].id) : ADMIN_OPTION);
+  const [selected, setSelected] = useState<string>(
+    parents[0] ? String(parents[0].id) : ADMIN_OPTION,
+  );
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const pendingFormRef = useRef<EditFormState | null>(null);
 
-  const reset = () => { setPin(""); setError(null); };
+  const reset = () => {
+    setPin("");
+    setError(null);
+  };
 
   const updateChore = useUpdateChore({
     mutation: {
-      onSuccess: () => { setOpen(false); reset(); onSuccess(); },
+      onSuccess: () => {
+        setOpen(false);
+        reset();
+        onSuccess();
+      },
       onError: () => setError("Failed to save chore"),
-    }
+    },
   });
 
   const onVerifySuccess = () => {
@@ -549,12 +940,20 @@ function PinEditDialog({ chore, children, parents, onSuccess }: {
       updateChore.mutate({ id: chore.id, data: pendingFormRef.current });
     }
   };
-  const onVerifyError = () => { setError("Incorrect PIN — try again"); setPin(""); };
+  const onVerifyError = () => {
+    setError("Incorrect PIN — try again");
+    setPin("");
+  };
 
-  const verifyAdmin = useVerifyPin({ mutation: { onSuccess: onVerifySuccess, onError: onVerifyError } });
-  const verifyParent = useVerifyFamilyMemberPin({ mutation: { onSuccess: onVerifySuccess, onError: onVerifyError } });
+  const verifyAdmin = useVerifyPin({
+    mutation: { onSuccess: onVerifySuccess, onError: onVerifyError },
+  });
+  const verifyParent = useVerifyFamilyMemberPin({
+    mutation: { onSuccess: onVerifySuccess, onError: onVerifyError },
+  });
 
-  const isPending = verifyAdmin.isPending || verifyParent.isPending || updateChore.isPending;
+  const isPending =
+    verifyAdmin.isPending || verifyParent.isPending || updateChore.isPending;
 
   const handleSave = () => {
     pendingFormRef.current = { ...form };
@@ -566,14 +965,32 @@ function PinEditDialog({ chore, children, parents, onSuccess }: {
   };
 
   const options = [
-    ...parents.map(p => ({ value: String(p.id), label: p.name })),
+    ...parents.map((p) => ({ value: String(p.id), label: p.name })),
     { value: ADMIN_OPTION, label: "🔑 Admin PIN" },
   ];
 
   return (
-    <Dialog open={open} onOpenChange={o => { setOpen(o); if (o) { setForm({ title: chore.title, assignedTo: chore.assignedTo ?? null, pointsValue: chore.pointsValue, repeatType: chore.repeatType as ChoreUpdate["repeatType"] }); } reset(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (o) {
+          setForm({
+            title: chore.title,
+            assignedTo: chore.assignedTo ?? null,
+            pointsValue: chore.pointsValue,
+            repeatType: chore.repeatType as ChoreUpdate["repeatType"],
+          });
+        }
+        reset();
+      }}
+    >
       <DialogTrigger asChild>
-        <Button size="icon" variant="ghost" className="h-12 w-12 rounded-xl text-muted-foreground hover:text-primary">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-12 w-12 rounded-xl text-muted-foreground hover:text-primary"
+        >
           <Pencil className="w-4 h-4" />
         </Button>
       </DialogTrigger>
@@ -586,30 +1003,69 @@ function PinEditDialog({ chore, children, parents, onSuccess }: {
         <div className="space-y-4">
           <div>
             <Label>Title</Label>
-            <Input value={form.title ?? ""} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="rounded-xl h-12 mt-1" />
+            <Input
+              value={form.title ?? ""}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, title: e.target.value }))
+              }
+              className="rounded-xl h-12 mt-1"
+            />
           </div>
           <div>
             <Label>Assign to</Label>
             <Select
-              value={form.assignedTo != null ? String(form.assignedTo) : "__none__"}
-              onValueChange={v => setForm(f => ({ ...f, assignedTo: v === "__none__" ? null : Number(v) }))}
+              value={
+                form.assignedTo != null ? String(form.assignedTo) : "__none__"
+              }
+              onValueChange={(v) =>
+                setForm((f) => ({
+                  ...f,
+                  assignedTo: v === "__none__" ? null : Number(v),
+                }))
+              }
             >
-              <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue placeholder="Unassigned" /></SelectTrigger>
+              <SelectTrigger className="rounded-xl h-12 mt-1">
+                <SelectValue placeholder="Unassigned" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">Unassigned</SelectItem>
-                {children.map(m => <SelectItem key={m.id} value={String(m.id)}><MemberOption name={m.name} avatarUrl={m.avatarUrl} /></SelectItem>)}
+                {children.map((m) => (
+                  <SelectItem key={m.id} value={String(m.id)}>
+                    <MemberOption name={m.name} avatarUrl={m.avatarUrl} />
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Points</Label>
-              <Input type="number" value={form.pointsValue ?? 10} onChange={e => setForm(f => ({ ...f, pointsValue: Number(e.target.value) }))} className="rounded-xl h-12 mt-1" />
+              <Input
+                type="number"
+                value={form.pointsValue ?? 10}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    pointsValue: Number(e.target.value),
+                  }))
+                }
+                className="rounded-xl h-12 mt-1"
+              />
             </div>
             <div>
               <Label>Repeat</Label>
-              <Select value={form.repeatType ?? "once"} onValueChange={v => setForm(f => ({ ...f, repeatType: v as ChoreUpdate["repeatType"] }))}>
-                <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
+              <Select
+                value={form.repeatType ?? "once"}
+                onValueChange={(v) =>
+                  setForm((f) => ({
+                    ...f,
+                    repeatType: v as ChoreUpdate["repeatType"],
+                  }))
+                }
+              >
+                <SelectTrigger className="rounded-xl h-12 mt-1">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="once">Once</SelectItem>
                   <SelectItem value="daily">Daily</SelectItem>
@@ -619,28 +1075,49 @@ function PinEditDialog({ chore, children, parents, onSuccess }: {
             </div>
           </div>
           {chore.repeatType !== "once" && (
-            <p className="text-xs text-muted-foreground">Changes to a recurring chore apply to all future instances.</p>
+            <p className="text-xs text-muted-foreground">
+              Changes to a recurring chore apply to all future instances.
+            </p>
           )}
           <div className="border-t pt-4 space-y-3">
             {options.length > 1 && (
               <div>
                 <Label>Authorising as</Label>
-                <Select value={selected} onValueChange={v => { setSelected(v); reset(); }}>
-                  <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
+                <Select
+                  value={selected}
+                  onValueChange={(v) => {
+                    setSelected(v);
+                    reset();
+                  }}
+                >
+                  <SelectTrigger className="rounded-xl h-12 mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    {options.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             )}
             <div>
-              <Label>{selected === ADMIN_OPTION ? "Admin PIN" : "Parent PIN"}</Label>
+              <Label>
+                {selected === ADMIN_OPTION ? "Admin PIN" : "Parent PIN"}
+              </Label>
               <Input
                 type="password"
                 inputMode="numeric"
                 value={pin}
-                onChange={e => { setPin(e.target.value); setError(null); }}
-                onKeyDown={e => { if (e.key === "Enter" && pin && form.title) handleSave(); }}
+                onChange={(e) => {
+                  setPin(e.target.value);
+                  setError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && pin && form.title) handleSave();
+                }}
                 placeholder="••••"
                 className={`rounded-xl h-12 text-center tracking-[0.4em] text-xl mt-1 ${error ? "border-red-500 bg-red-50" : ""}`}
                 autoFocus
@@ -663,9 +1140,17 @@ function PinEditDialog({ chore, children, parents, onSuccess }: {
 
 export default function Chores() {
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const quickAction = new URLSearchParams(window.location.search).get("quick");
+  const [open, setOpen] = useState(quickAction === "add");
+  const [activeTab, setActiveTab] = useState(
+    quickAction === "approval" ? "approval" : "todo",
+  );
   const [addStep, setAddStep] = useState<"form" | "pin">("form");
-  const [form, setForm] = useState<ChoreFormState>({ title: "", pointsValue: 10, repeatType: "once" });
+  const [form, setForm] = useState<ChoreFormState>({
+    title: "",
+    pointsValue: 10,
+    repeatType: "once",
+  });
   const pendingAddRef = useRef<ChoreFormState | null>(null);
   const [addSelected, setAddSelected] = useState<string>(ADMIN_OPTION);
   const [addPin, setAddPin] = useState("");
@@ -673,7 +1158,12 @@ export default function Chores() {
   const [filterChildId, setFilterChildId] = useState<number | null>(null);
 
   const resetAddDialog = () => {
-    setForm({ title: "", pointsValue: 10, repeatType: "once", assignedToMany: [] });
+    setForm({
+      title: "",
+      pointsValue: 10,
+      repeatType: "once",
+      assignedToMany: [],
+    });
     setAddStep("form");
     setAddPin("");
     setAddPinError(null);
@@ -686,58 +1176,87 @@ export default function Chores() {
   };
 
   const { data: allChores = [] } = useListChores(
-    filterChildId ? { assignedTo: filterChildId } : undefined
+    filterChildId ? { assignedTo: filterChildId } : undefined,
   );
   const { data: members = [] } = useListFamilyMembers();
   const { data: summary = [] } = useGetChoresSummary();
   const { data: allBadges = [] } = useListBadges();
 
-  const createChore = useCreateChore({ mutation: { onSuccess: () => { invalidate(); setOpen(false); resetAddDialog(); } } });
-  const completeChore = useCompleteChore({ mutation: { onSuccess: invalidate } });
+  const createChore = useCreateChore({
+    mutation: {
+      onSuccess: () => {
+        invalidate();
+        setOpen(false);
+        resetAddDialog();
+      },
+    },
+  });
+  const completeChore = useCompleteChore({
+    mutation: { onSuccess: invalidate },
+  });
   const approveChore = useApproveChore({ mutation: { onSuccess: invalidate } });
 
-  const children = members.filter(m => m.role === "child");
-  const parents = members.filter(m => m.role === "parent") as ParentInfo[];
+  const children = members.filter((m) => m.role === "child");
+  const parents = members.filter((m) => m.role === "parent") as ParentInfo[];
 
   const doCreateChore = () => {
     if (!pendingAddRef.current) return;
     const { assignedToMany, ...base } = pendingAddRef.current;
-    createChore.mutate({ data: assignedToMany && assignedToMany.length > 0 ? { ...base, assignedToMany } : base });
+    createChore.mutate({
+      data:
+        assignedToMany && assignedToMany.length > 0
+          ? { ...base, assignedToMany }
+          : base,
+    });
   };
   const addVerifyAdmin = useVerifyPin({
     mutation: {
       onSuccess: doCreateChore,
-      onError: () => { setAddPinError("Incorrect PIN — try again"); setAddPin(""); },
-    }
+      onError: () => {
+        setAddPinError("Incorrect PIN — try again");
+        setAddPin("");
+      },
+    },
   });
   const addVerifyParent = useVerifyFamilyMemberPin({
     mutation: {
       onSuccess: doCreateChore,
-      onError: () => { setAddPinError("Incorrect PIN — try again"); setAddPin(""); },
-    }
+      onError: () => {
+        setAddPinError("Incorrect PIN — try again");
+        setAddPin("");
+      },
+    },
   });
   const addPinOptions = [
-    ...parents.map(p => ({ value: String(p.id), label: p.name })),
+    ...parents.map((p) => ({ value: String(p.id), label: p.name })),
     { value: ADMIN_OPTION, label: "🔑 Admin PIN" },
   ];
-  const isAddPending = addVerifyAdmin.isPending || addVerifyParent.isPending || createChore.isPending;
+  const isAddPending =
+    addVerifyAdmin.isPending ||
+    addVerifyParent.isPending ||
+    createChore.isPending;
 
   const handleAddConfirm = () => {
     pendingAddRef.current = { ...form };
     if (addSelected === ADMIN_OPTION) {
       addVerifyAdmin.mutate({ data: { pin: addPin } });
     } else {
-      addVerifyParent.mutate({ id: Number(addSelected), data: { pin: addPin } });
+      addVerifyParent.mutate({
+        id: Number(addSelected),
+        data: { pin: addPin },
+      });
     }
   };
 
-  const todo = allChores.filter(c => c.status === "todo");
-  const needsApproval = allChores.filter(c => c.status === "pending_approval");
-  const done = allChores.filter(c => c.status === "done");
-  const missed = allChores.filter(c => c.status === "missed");
+  const todo = allChores.filter((c) => c.status === "todo");
+  const needsApproval = allChores.filter(
+    (c) => c.status === "pending_approval",
+  );
+  const done = allChores.filter((c) => c.status === "done");
+  const missed = allChores.filter((c) => c.status === "missed");
 
   const summarySlice = filterChildId
-    ? summary.filter(s => s.memberId === filterChildId)
+    ? summary.filter((s) => s.memberId === filterChildId)
     : summary;
   const tabCounts = {
     todo: summarySlice.reduce((a, s) => a + s.todoPending, 0),
@@ -749,21 +1268,42 @@ export default function Chores() {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-4xl font-serif font-bold">Chores</h1>
-        <Dialog open={open} onOpenChange={o => { setOpen(o); if (!o) resetAddDialog(); }}>
+        <h1 className="font-serif text-3xl font-bold md:text-4xl">Chores</h1>
+        <Dialog
+          open={open}
+          onOpenChange={(o) => {
+            setOpen(o);
+            if (!o) resetAddDialog();
+          }}
+        >
           <DialogTrigger asChild>
-            <Button className="h-14 px-6 rounded-2xl text-lg gap-2"><Plus className="w-5 h-5" /> Add Chore</Button>
+            <Button className="h-14 px-6 rounded-2xl text-lg gap-2">
+              <Plus className="w-5 h-5" /> Add Chore
+            </Button>
           </DialogTrigger>
           <DialogContent className="rounded-3xl">
             {addStep === "form" ? (
               <>
-                <DialogHeader><DialogTitle className="text-xl font-serif">New Chore</DialogTitle></DialogHeader>
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-serif">
+                    New Chore
+                  </DialogTitle>
+                </DialogHeader>
                 <div className="space-y-4">
-                  <div><Label>Title</Label><Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="rounded-xl h-12" /></div>
+                  <div>
+                    <Label>Title</Label>
+                    <Input
+                      value={form.title}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, title: e.target.value }))
+                      }
+                      className="rounded-xl h-12"
+                    />
+                  </div>
                   <div>
                     <Label>Assign to</Label>
                     <div className="flex flex-wrap gap-2 mt-2">
-                      {children.map(m => {
+                      {children.map((m) => {
                         const many = form.assignedToMany ?? [];
                         const sel = many.includes(m.id);
                         return (
@@ -771,29 +1311,83 @@ export default function Chores() {
                             key={m.id}
                             type="button"
                             onClick={() => {
-                              const next = sel ? many.filter(id => id !== m.id) : [...many, m.id];
-                              setForm(f => ({ ...f, assignedToMany: next, assignedTo: next.length === 1 ? next[0] : undefined }));
+                              const next = sel
+                                ? many.filter((id) => id !== m.id)
+                                : [...many, m.id];
+                              setForm((f) => ({
+                                ...f,
+                                assignedToMany: next,
+                                assignedTo:
+                                  next.length === 1 ? next[0] : undefined,
+                              }));
                             }}
                             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all ${sel ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground hover:border-primary/40"}`}
                           >
-                            <MemberAvatar name={m.name} avatarUrl={m.avatarUrl} className="h-6 w-6" />
+                            <MemberAvatar
+                              name={m.name}
+                              avatarUrl={m.avatarUrl}
+                              className="h-6 w-6"
+                            />
                             <span>{m.name}</span>
                           </button>
                         );
                       })}
-                      {children.length === 0 && <span className="text-muted-foreground text-sm">No children added yet</span>}
+                      {children.length === 0 && (
+                        <span className="text-muted-foreground text-sm">
+                          No children added yet
+                        </span>
+                      )}
                     </div>
                     {(form.assignedToMany?.length ?? 0) > 1 && (
-                      <p className="text-xs text-muted-foreground mt-1">Creates {form.assignedToMany?.length} separate chores</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Creates {form.assignedToMany?.length} separate chores
+                      </p>
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div><Label>Points</Label><Input type="number" value={form.pointsValue} onChange={e => setForm(f => ({ ...f, pointsValue: Number(e.target.value) }))} className="rounded-xl h-12" /></div>
-                    <div><Label>Due date</Label><Input type="date" value={form.dueDate ?? ""} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value || undefined }))} className="rounded-xl h-12" /></div>
+                    <div>
+                      <Label>Points</Label>
+                      <Input
+                        type="number"
+                        value={form.pointsValue}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            pointsValue: Number(e.target.value),
+                          }))
+                        }
+                        className="rounded-xl h-12"
+                      />
+                    </div>
+                    <div>
+                      <Label>Due date</Label>
+                      <Input
+                        type="date"
+                        value={form.dueDate ?? ""}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            dueDate: e.target.value || undefined,
+                          }))
+                        }
+                        className="rounded-xl h-12"
+                      />
+                    </div>
                   </div>
-                  <div><Label>Repeat</Label>
-                    <Select value={form.repeatType ?? "once"} onValueChange={v => setForm(f => ({ ...f, repeatType: v as ChoreInput["repeatType"] }))}>
-                      <SelectTrigger className="rounded-xl h-12"><SelectValue /></SelectTrigger>
+                  <div>
+                    <Label>Repeat</Label>
+                    <Select
+                      value={form.repeatType ?? "once"}
+                      onValueChange={(v) =>
+                        setForm((f) => ({
+                          ...f,
+                          repeatType: v as ChoreInput["repeatType"],
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="rounded-xl h-12">
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="once">Once</SelectItem>
                         <SelectItem value="daily">Daily</SelectItem>
@@ -801,7 +1395,11 @@ export default function Chores() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button className="w-full h-12 rounded-xl" onClick={() => setAddStep("pin")} disabled={!form.title}>
+                  <Button
+                    className="w-full h-12 rounded-xl"
+                    onClick={() => setAddStep("pin")}
+                    disabled={!form.title}
+                  >
                     Continue →
                   </Button>
                 </div>
@@ -814,37 +1412,78 @@ export default function Chores() {
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
-                  <p className="text-muted-foreground text-sm">Creating: <span className="font-semibold text-foreground">"{form.title}"</span></p>
+                  <p className="text-muted-foreground text-sm">
+                    Creating:{" "}
+                    <span className="font-semibold text-foreground">
+                      "{form.title}"
+                    </span>
+                  </p>
                   {addPinOptions.length > 1 && (
                     <div>
                       <Label>Authorising as</Label>
-                      <Select value={addSelected} onValueChange={v => { setAddSelected(v); setAddPin(""); setAddPinError(null); }}>
-                        <SelectTrigger className="rounded-xl h-12 mt-1"><SelectValue /></SelectTrigger>
+                      <Select
+                        value={addSelected}
+                        onValueChange={(v) => {
+                          setAddSelected(v);
+                          setAddPin("");
+                          setAddPinError(null);
+                        }}
+                      >
+                        <SelectTrigger className="rounded-xl h-12 mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
-                          {addPinOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                          {addPinOptions.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>
+                              {o.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
                   )}
                   <div>
-                    <Label>{addSelected === ADMIN_OPTION ? "Admin PIN" : "Parent PIN"}</Label>
+                    <Label>
+                      {addSelected === ADMIN_OPTION
+                        ? "Admin PIN"
+                        : "Parent PIN"}
+                    </Label>
                     <Input
                       type="password"
                       inputMode="numeric"
                       value={addPin}
-                      onChange={e => { setAddPin(e.target.value); setAddPinError(null); }}
-                      onKeyDown={e => { if (e.key === "Enter" && addPin) handleAddConfirm(); }}
+                      onChange={(e) => {
+                        setAddPin(e.target.value);
+                        setAddPinError(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && addPin) handleAddConfirm();
+                      }}
                       placeholder="••••"
                       className={`rounded-xl h-12 text-center tracking-[0.4em] text-xl mt-1 ${addPinError ? "border-red-500 bg-red-50" : ""}`}
                       autoFocus
                     />
-                    {addPinError && <p className="text-red-600 text-sm mt-1">{addPinError}</p>}
+                    {addPinError && (
+                      <p className="text-red-600 text-sm mt-1">{addPinError}</p>
+                    )}
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => { setAddStep("form"); setAddPin(""); setAddPinError(null); }}>
+                    <Button
+                      variant="outline"
+                      className="flex-1 h-12 rounded-xl"
+                      onClick={() => {
+                        setAddStep("form");
+                        setAddPin("");
+                        setAddPinError(null);
+                      }}
+                    >
                       ← Back
                     </Button>
-                    <Button className="flex-1 h-12 rounded-xl" onClick={handleAddConfirm} disabled={!addPin || isAddPending}>
+                    <Button
+                      className="flex-1 h-12 rounded-xl"
+                      onClick={handleAddConfirm}
+                      disabled={!addPin || isAddPending}
+                    >
                       {isAddPending ? "Adding…" : "Add Chore"}
                     </Button>
                   </div>
@@ -855,7 +1494,40 @@ export default function Chores() {
         </Dialog>
       </header>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:hidden">
+        <button
+          onClick={() => setFilterChildId(null)}
+          className={`flex min-w-20 flex-col items-center gap-1 rounded-2xl border-2 px-3 py-2 ${filterChildId === null ? "border-primary bg-primary/10" : "border-border bg-card"}`}
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-xl">
+            👨‍👩‍👧‍👦
+          </span>
+          <b className="text-xs">All</b>
+        </button>
+        {children.map((member) => (
+          <button
+            key={member.id}
+            onClick={() =>
+              setFilterChildId((current) =>
+                current === member.id ? null : member.id,
+              )
+            }
+            className={`flex min-w-24 flex-col items-center gap-1 rounded-2xl border-2 px-3 py-2 ${filterChildId === member.id ? "border-primary bg-primary/10" : "border-border bg-card"}`}
+          >
+            <MemberAvatar
+              name={member.name}
+              avatarUrl={member.avatarUrl}
+              className="h-10 w-10"
+            />
+            <b className="max-w-20 truncate text-xs">{member.name}</b>
+            <span className="text-[10px] text-muted-foreground">
+              {member.pointsBalance} pts
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div className="hidden gap-4 md:grid md:grid-cols-4 lg:grid-cols-5">
         <Card
           className={`rounded-3xl border-2 shadow-sm text-center cursor-pointer transition-all select-none ${!filterChildId ? "border-primary bg-primary/5 shadow-md scale-[1.02]" : "border-transparent hover:border-primary/30 hover:shadow-md"}`}
           onClick={() => setFilterChildId(null)}
@@ -867,15 +1539,18 @@ export default function Chores() {
           </CardContent>
         </Card>
 
-        {children.map(m => {
-          const s = summary.find(s => s.memberId === m.id);
+        {children.map((m) => {
+          const s = summary.find((s) => s.memberId === m.id);
           const isActive = filterChildId === m.id;
-          const memberBadges = allBadges.filter(b => b.memberId === m.id);
+          const memberBadges = allBadges.filter((b) => b.memberId === m.id);
           const badgeCount = memberBadges.length;
-          const topTier = memberBadges.some(b => b.tier === "gold") ? "gold"
-            : memberBadges.some(b => b.tier === "silver") ? "silver"
-            : memberBadges.length > 0 ? "bronze"
-            : null;
+          const topTier = memberBadges.some((b) => b.tier === "gold")
+            ? "gold"
+            : memberBadges.some((b) => b.tier === "silver")
+              ? "silver"
+              : memberBadges.length > 0
+                ? "bronze"
+                : null;
           return (
             <Card
               key={m.id}
@@ -884,15 +1559,31 @@ export default function Chores() {
             >
               <CardContent className="pt-6 pb-5">
                 <div className="mb-2 flex justify-center">
-                  <MemberAvatar name={m.name} avatarUrl={m.avatarUrl} className="h-12 w-12 border-2" />
+                  <MemberAvatar
+                    name={m.name}
+                    avatarUrl={m.avatarUrl}
+                    className="h-12 w-12 border-2"
+                  />
                 </div>
                 <div className="font-bold text-lg">{m.name}</div>
-                <div className="text-3xl font-bold text-primary mt-1">{m.pointsBalance}</div>
-                <div className="text-xs text-muted-foreground">store balance</div>
-                <div className="text-sm font-semibold text-amber-600 mt-0.5">{m.lifetimePoints ?? 0} all-time</div>
-                {s && <div className="text-xs text-muted-foreground mt-1">{s.todoPending} to do · {s.doneToday} done</div>}
+                <div className="text-3xl font-bold text-primary mt-1">
+                  {m.pointsBalance}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  store balance
+                </div>
+                <div className="text-sm font-semibold text-amber-600 mt-0.5">
+                  {m.lifetimePoints ?? 0} all-time
+                </div>
+                {s && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {s.todoPending} to do · {s.doneToday} done
+                  </div>
+                )}
                 {badgeCount > 0 && topTier && (
-                  <div className={`inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-xs font-semibold border ${TIER_STYLES[topTier].bg} ${TIER_STYLES[topTier].text} ${TIER_STYLES[topTier].border}`}>
+                  <div
+                    className={`inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-xs font-semibold border ${TIER_STYLES[topTier].bg} ${TIER_STYLES[topTier].text} ${TIER_STYLES[topTier].border}`}
+                  >
                     <Medal className="w-3 h-3" />
                     {badgeCount} badge{badgeCount !== 1 ? "s" : ""}
                   </div>
@@ -903,96 +1594,181 @@ export default function Chores() {
         })}
       </div>
 
-      {filterChildId !== null && allBadges.some(b => b.memberId === filterChildId) && (
-        <Card className="rounded-3xl border-0 shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Medal className="w-5 h-5 text-amber-500" /> My Badges
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-5">
-              {children
-                .filter(m => !filterChildId || m.id === filterChildId)
-                .map(m => {
-                  const memberBadges = allBadges.filter(b => b.memberId === m.id);
-                  if (memberBadges.length === 0) return null;
-                  return (
-                    <div key={m.id}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <MemberAvatar name={m.name} avatarUrl={m.avatarUrl} className="h-6 w-6" />
-                        <span className="font-semibold text-sm">{m.name}</span>
-                        <span className="text-xs text-muted-foreground">— {memberBadges.length} badge{memberBadges.length !== 1 ? "s" : ""}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {memberBadges.map(badge => {
-                          const tier = (badge.tier ?? "bronze") as keyof typeof TIER_STYLES;
-                          const styles = TIER_STYLES[tier] ?? TIER_STYLES.bronze;
-                          return (
-                            <div
-                              key={badge.id}
-                              title={badge.description ?? badge.title}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-semibold ${styles.bg} ${styles.text} ${styles.border}`}
-                            >
-                              <span className="text-base leading-none">{badge.emoji}</span>
-                              <div>
-                                <div>{badge.title}</div>
-                                <div className={`text-[10px] font-normal capitalize ${styles.text} opacity-70`}>{tier}</div>
+      {filterChildId !== null &&
+        allBadges.some((b) => b.memberId === filterChildId) && (
+          <Card className="hidden rounded-3xl border-0 shadow-sm md:block">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Medal className="w-5 h-5 text-amber-500" /> My Badges
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-5">
+                {children
+                  .filter((m) => !filterChildId || m.id === filterChildId)
+                  .map((m) => {
+                    const memberBadges = allBadges.filter(
+                      (b) => b.memberId === m.id,
+                    );
+                    if (memberBadges.length === 0) return null;
+                    return (
+                      <div key={m.id}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <MemberAvatar
+                            name={m.name}
+                            avatarUrl={m.avatarUrl}
+                            className="h-6 w-6"
+                          />
+                          <span className="font-semibold text-sm">
+                            {m.name}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            — {memberBadges.length} badge
+                            {memberBadges.length !== 1 ? "s" : ""}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {memberBadges.map((badge) => {
+                            const tier = (badge.tier ??
+                              "bronze") as keyof typeof TIER_STYLES;
+                            const styles =
+                              TIER_STYLES[tier] ?? TIER_STYLES.bronze;
+                            return (
+                              <div
+                                key={badge.id}
+                                title={badge.description ?? badge.title}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-semibold ${styles.bg} ${styles.text} ${styles.border}`}
+                              >
+                                <span className="text-base leading-none">
+                                  {badge.emoji}
+                                </span>
+                                <div>
+                                  <div>{badge.title}</div>
+                                  <div
+                                    className={`text-[10px] font-normal capitalize ${styles.text} opacity-70`}
+                                  >
+                                    {tier}
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                    );
+                  })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-      <Tabs defaultValue="todo">
-        <TabsList className="rounded-2xl h-14 p-1">
-          <TabsTrigger value="todo" className="rounded-xl h-11 px-5 text-base gap-2">
-            To Do <Badge className="bg-yellow-100 text-yellow-800">{tabCounts.todo}</Badge>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid h-auto w-full grid-cols-4 rounded-2xl p-1 md:flex md:h-14 md:w-auto">
+          <TabsTrigger
+            value="todo"
+            className="h-12 min-w-0 flex-col gap-0.5 rounded-xl px-1 text-xs md:h-11 md:flex-row md:gap-2 md:px-5 md:text-base"
+          >
+            <span>To Do</span>
+            <Badge className="h-5 bg-yellow-100 px-1.5 text-[10px] text-yellow-800">
+              {tabCounts.todo}
+            </Badge>
           </TabsTrigger>
-          <TabsTrigger value="approval" className="rounded-xl h-11 px-5 text-base gap-2">
-            Needs Approval <Badge className="bg-blue-100 text-blue-800">{tabCounts.approval}</Badge>
+          <TabsTrigger
+            value="approval"
+            className="h-12 min-w-0 flex-col gap-0.5 rounded-xl px-1 text-xs md:h-11 md:flex-row md:gap-2 md:px-5 md:text-base"
+          >
+            <span className="md:hidden">Approval</span>
+            <span className="hidden md:inline">Needs Approval</span>
+            <Badge className="h-5 bg-blue-100 px-1.5 text-[10px] text-blue-800">
+              {tabCounts.approval}
+            </Badge>
           </TabsTrigger>
-          <TabsTrigger value="done" className="rounded-xl h-11 px-5 text-base gap-2">
-            Approved <Badge className="bg-green-100 text-green-800">{tabCounts.done}</Badge>
+          <TabsTrigger
+            value="done"
+            className="h-12 min-w-0 flex-col gap-0.5 rounded-xl px-1 text-xs md:h-11 md:flex-row md:gap-2 md:px-5 md:text-base"
+          >
+            <span>Approved</span>
+            <Badge className="h-5 bg-green-100 px-1.5 text-[10px] text-green-800">
+              {tabCounts.done}
+            </Badge>
           </TabsTrigger>
-          <TabsTrigger value="missed" className="rounded-xl h-11 px-5 text-base gap-2">
-            Missed <Badge className="bg-red-100 text-red-800">{tabCounts.missed}</Badge>
+          <TabsTrigger
+            value="missed"
+            className="h-12 min-w-0 flex-col gap-0.5 rounded-xl px-1 text-xs md:h-11 md:flex-row md:gap-2 md:px-5 md:text-base"
+          >
+            <span>Missed</span>
+            <Badge className="h-5 bg-red-100 px-1.5 text-[10px] text-red-800">
+              {tabCounts.missed}
+            </Badge>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="todo" className="space-y-3 mt-4">
-          {todo.length === 0 && <p className="text-center text-muted-foreground py-12">All chores done! 🎉</p>}
-          {todo.map(c => {
-            const member = c.assignedMember ?? members.find(m => m.id === c.assignedTo);
+          {todo.length === 0 && (
+            <p className="text-center text-muted-foreground py-12">
+              All chores done! 🎉
+            </p>
+          )}
+          {todo.map((c) => {
+            const member =
+              c.assignedMember ?? members.find((m) => m.id === c.assignedTo);
             return (
               <Card key={c.id} className="rounded-2xl border-0 shadow-sm">
                 <CardContent className="p-5 flex items-center gap-4">
                   {member && (
-                    <MemberAvatar avatarUrl={member.avatarUrl} name={member.name} className="h-10 w-10" />
+                    <MemberAvatar
+                      avatarUrl={member.avatarUrl}
+                      name={member.name}
+                      className="h-10 w-10"
+                    />
                   )}
                   <div className="flex-1 min-w-0">
-                    {member && <div className="font-bold text-base text-primary">{member.name}</div>}
-                    <div className="font-semibold text-lg leading-tight">{c.title}</div>
+                    {member && (
+                      <div className="font-bold text-base text-primary">
+                        {member.name}
+                      </div>
+                    )}
+                    <div className="font-semibold text-lg leading-tight">
+                      {c.title}
+                    </div>
                     <div className="flex items-center gap-3 mt-0.5 text-sm text-muted-foreground">
-                      {c.dueDate && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{c.dueDate}</span>}
-                      {c.repeatType !== "once" && <Badge variant="outline" className="text-xs">{c.repeatType}</Badge>}
+                      {c.dueDate && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {c.dueDate}
+                        </span>
+                      )}
+                      {c.repeatType !== "once" && (
+                        <Badge variant="outline" className="text-xs">
+                          {c.repeatType}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <div className="bg-primary/10 text-primary font-bold px-4 py-2 rounded-2xl text-lg mr-2">{c.pointsValue} pts</div>
-                    <Button size="icon" variant="ghost" className="h-14 w-14 rounded-xl text-green-600 hover:text-green-700 hover:bg-green-50"
-                      onClick={() => completeChore.mutate({ id: c.id })}>
+                    <div className="bg-primary/10 text-primary font-bold px-4 py-2 rounded-2xl text-lg mr-2">
+                      {c.pointsValue} pts
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-14 w-14 rounded-xl text-green-600 hover:text-green-700 hover:bg-green-50"
+                      onClick={() => completeChore.mutate({ id: c.id })}
+                    >
                       <CheckCircle2 className="w-6 h-6" />
                     </Button>
-                    <PinEditDialog chore={c} children={children as ParentInfo[]} parents={parents} onSuccess={invalidate} />
-                    <PinDeleteDialog choreId={c.id} choreTitle={c.title} parents={parents} onSuccess={invalidate} />
+                    <PinEditDialog
+                      chore={c}
+                      children={children as ParentInfo[]}
+                      parents={parents}
+                      onSuccess={invalidate}
+                    />
+                    <PinDeleteDialog
+                      choreId={c.id}
+                      choreTitle={c.title}
+                      parents={parents}
+                      onSuccess={invalidate}
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -1001,21 +1777,43 @@ export default function Chores() {
         </TabsContent>
 
         <TabsContent value="approval" className="space-y-3 mt-4">
-          {needsApproval.length === 0 && <p className="text-center text-muted-foreground py-12">Nothing awaiting approval</p>}
-          {needsApproval.map(c => {
-            const member = c.assignedMember ?? members.find(m => m.id === c.assignedTo);
+          {needsApproval.length === 0 && (
+            <p className="text-center text-muted-foreground py-12">
+              Nothing awaiting approval
+            </p>
+          )}
+          {needsApproval.map((c) => {
+            const member =
+              c.assignedMember ?? members.find((m) => m.id === c.assignedTo);
             return (
-              <Card key={c.id} className="rounded-2xl border-0 shadow-sm bg-blue-50">
+              <Card
+                key={c.id}
+                className="rounded-2xl border-0 shadow-sm bg-blue-50"
+              >
                 <CardContent className="p-5 flex items-center gap-4">
                   {member && (
-                    <MemberAvatar avatarUrl={member.avatarUrl} name={member.name} className="h-10 w-10" />
+                    <MemberAvatar
+                      avatarUrl={member.avatarUrl}
+                      name={member.name}
+                      className="h-10 w-10"
+                    />
                   )}
                   <div className="flex-1 min-w-0">
-                    {member && <div className="font-bold text-base text-primary">{member.name}</div>}
-                    <div className="font-semibold text-lg leading-tight">{c.title}</div>
-                    <div className="text-sm text-muted-foreground mt-0.5">marked as complete — awaiting approval</div>
+                    {member && (
+                      <div className="font-bold text-base text-primary">
+                        {member.name}
+                      </div>
+                    )}
+                    <div className="font-semibold text-lg leading-tight">
+                      {c.title}
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-0.5">
+                      marked as complete — awaiting approval
+                    </div>
                   </div>
-                  <div className="bg-primary/10 text-primary font-bold px-4 py-2 rounded-2xl shrink-0">{c.pointsValue} pts</div>
+                  <div className="bg-primary/10 text-primary font-bold px-4 py-2 rounded-2xl shrink-0">
+                    {c.pointsValue} pts
+                  </div>
                   {parents.length > 0 ? (
                     <>
                       <PinRejectDialog
@@ -1047,29 +1845,55 @@ export default function Chores() {
         </TabsContent>
 
         <TabsContent value="done" className="space-y-3 mt-4">
-          {done.length === 0 && <p className="text-center text-muted-foreground py-12">No approved chores yet today</p>}
-          {done.map(c => {
-            const member = c.assignedMember ?? members.find(m => m.id === c.assignedTo);
-            const approver = c.approvedByParentId ? members.find(m => m.id === c.approvedByParentId) : null;
+          {done.length === 0 && (
+            <p className="text-center text-muted-foreground py-12">
+              No approved chores yet today
+            </p>
+          )}
+          {done.map((c) => {
+            const member =
+              c.assignedMember ?? members.find((m) => m.id === c.assignedTo);
+            const approver = c.approvedByParentId
+              ? members.find((m) => m.id === c.approvedByParentId)
+              : null;
             return (
-              <Card key={c.id} className="rounded-2xl border-0 shadow-sm bg-green-50">
+              <Card
+                key={c.id}
+                className="rounded-2xl border-0 shadow-sm bg-green-50"
+              >
                 <CardContent className="p-5 flex items-center gap-4">
                   <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0" />
                   {member && (
-                    <MemberAvatar avatarUrl={member.avatarUrl} name={member.name} className="h-10 w-10" />
+                    <MemberAvatar
+                      avatarUrl={member.avatarUrl}
+                      name={member.name}
+                      className="h-10 w-10"
+                    />
                   )}
                   <div className="flex-1 min-w-0">
-                    {member && <div className="font-bold text-base text-green-700">{member.name}</div>}
-                    <div className="font-semibold text-foreground leading-tight">{c.title}</div>
+                    {member && (
+                      <div className="font-bold text-base text-green-700">
+                        {member.name}
+                      </div>
+                    )}
+                    <div className="font-semibold text-foreground leading-tight">
+                      {c.title}
+                    </div>
                     {approver && (
                       <div className="flex items-center gap-1.5 text-sm text-green-700 mt-0.5">
                         <span>Approved by</span>
-                        <MemberAvatar name={approver.name} avatarUrl={approver.avatarUrl} className="h-4 w-4" />
+                        <MemberAvatar
+                          name={approver.name}
+                          avatarUrl={approver.avatarUrl}
+                          className="h-4 w-4"
+                        />
                         <span>{approver.name}</span>
                       </div>
                     )}
                   </div>
-                  <div className="text-green-700 font-bold shrink-0">+{c.pointsValue} pts</div>
+                  <div className="text-green-700 font-bold shrink-0">
+                    +{c.pointsValue} pts
+                  </div>
                   {member && parents.length > 0 && (
                     <RedeemDialog
                       memberId={member.id}
@@ -1086,22 +1910,44 @@ export default function Chores() {
         </TabsContent>
 
         <TabsContent value="missed" className="space-y-3 mt-4">
-          {missed.length === 0 && <p className="text-center text-muted-foreground py-12">No missed chores today 🎉</p>}
-          {missed.map(c => {
-            const member = c.assignedMember ?? members.find(m => m.id === c.assignedTo);
+          {missed.length === 0 && (
+            <p className="text-center text-muted-foreground py-12">
+              No missed chores today 🎉
+            </p>
+          )}
+          {missed.map((c) => {
+            const member =
+              c.assignedMember ?? members.find((m) => m.id === c.assignedTo);
             return (
-              <Card key={c.id} className="rounded-2xl border-0 shadow-sm bg-red-50">
+              <Card
+                key={c.id}
+                className="rounded-2xl border-0 shadow-sm bg-red-50"
+              >
                 <CardContent className="p-5 flex items-center gap-4">
                   <XCircle className="w-6 h-6 text-red-400 flex-shrink-0" />
                   {member && (
-                    <MemberAvatar avatarUrl={member.avatarUrl} name={member.name} className="h-10 w-10" />
+                    <MemberAvatar
+                      avatarUrl={member.avatarUrl}
+                      name={member.name}
+                      className="h-10 w-10"
+                    />
                   )}
                   <div className="flex-1 min-w-0">
-                    {member && <div className="font-bold text-base text-red-600">{member.name}</div>}
-                    <div className="font-semibold text-muted-foreground line-through leading-tight">{c.title}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">Not completed today</div>
+                    {member && (
+                      <div className="font-bold text-base text-red-600">
+                        {member.name}
+                      </div>
+                    )}
+                    <div className="font-semibold text-muted-foreground line-through leading-tight">
+                      {c.title}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      Not completed today
+                    </div>
                   </div>
-                  <div className="text-red-400 font-bold shrink-0">{c.pointsValue} pts</div>
+                  <div className="text-red-400 font-bold shrink-0">
+                    {c.pointsValue} pts
+                  </div>
                   {parents.length > 0 ? (
                     <PinDismissDialog
                       choreId={c.id}
@@ -1114,7 +1960,9 @@ export default function Chores() {
                       size="sm"
                       variant="outline"
                       className="rounded-xl h-14 px-5 shrink-0"
-                      onClick={() => { /* no-op: require parent PIN when parents exist */ }}
+                      onClick={() => {
+                        /* no-op: require parent PIN when parents exist */
+                      }}
                       disabled
                     >
                       Dismiss

@@ -16,7 +16,10 @@ import Routines from "@/pages/Routines";
 import Admin from "@/pages/Admin";
 import Display from "@/pages/Display";
 import GamesNight from "@/pages/GamesNight";
-import { useGetSettings, getGetSettingsQueryKey } from "@workspace/api-client-react";
+import {
+  useGetSettings,
+  getGetSettingsQueryKey,
+} from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const queryClient = new QueryClient({
@@ -25,10 +28,13 @@ const queryClient = new QueryClient({
 
 function InactivityWatcher() {
   const [location, navigate] = useLocation();
-  const { data: settings } = useGetSettings({ query: { queryKey: getGetSettingsQueryKey() } });
+  const { data: settings } = useGetSettings({
+    query: { queryKey: getGetSettingsQueryKey() },
+  });
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (window.matchMedia("(max-width: 767px)").matches) return;
     if (location === "/display") {
       if (timerRef.current) clearTimeout(timerRef.current);
       return;
@@ -41,13 +47,20 @@ function InactivityWatcher() {
       timerRef.current = setTimeout(() => navigate("/display"), timeoutMs);
     };
 
-    const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"] as const;
-    events.forEach(e => window.addEventListener(e, reset, { passive: true }));
+    const events = [
+      "mousemove",
+      "mousedown",
+      "keydown",
+      "touchstart",
+      "scroll",
+      "click",
+    ] as const;
+    events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
     reset();
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
-      events.forEach(e => window.removeEventListener(e, reset));
+      events.forEach((e) => window.removeEventListener(e, reset));
     };
   }, [location, navigate, settings?.screensaverTimeout]);
 

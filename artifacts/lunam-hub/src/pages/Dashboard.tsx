@@ -21,6 +21,8 @@ import {
   ChevronRight,
   CalendarClock,
   Dice5,
+  CheckSquare,
+  List,
 } from "lucide-react";
 import type { Chore, FamilyMember, Event } from "@workspace/api-client-react";
 
@@ -478,285 +480,320 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="h-full p-4 grid grid-cols-3 grid-rows-[auto_1fr] gap-4 animate-in fade-in duration-300">
-      {/* ── Hero strip: clock + date + next event + streaks ── */}
-      <header className="col-span-3 flex items-center justify-between gap-4 px-1">
-        <div className="shrink-0">
-          <div className="text-5xl font-serif font-bold tabular-nums leading-none">
-            {format(now, "h:mm")}
-            <span className="text-3xl text-muted-foreground ml-1.5">
-              {format(now, "a")}
-            </span>
-          </div>
-          <div className="text-lg text-muted-foreground font-semibold mt-1">
+    <>
+      <div className="space-y-4 p-4 pb-24 md:hidden">
+        <div>
+          <p className="text-sm font-semibold text-muted-foreground">
             {format(now, "EEEE, MMMM do")}
-          </div>
+          </p>
+          <h1 className="font-serif text-3xl font-bold">
+            Good{" "}
+            {now.getHours() < 12
+              ? "morning"
+              : now.getHours() < 18
+                ? "afternoon"
+                : "evening"}
+          </h1>
         </div>
-
-        <div className="flex items-center gap-2 flex-1 justify-end flex-wrap">
-          <NextEventPreview
-            todayEvents={summary.todayEvents}
-            upcomingEvents={summary.upcomingEvents}
-            now={now}
-          />
-
-          {/* Streak chips — show all children, dim when streak is 0 */}
-          {summary.streaks.slice(0, 5).map(({ memberId, currentStreak }) => {
-            const member = children.find((m) => m.id === memberId);
-            if (!member) return null;
-            const active = currentStreak > 0;
-            return (
-              <div
-                key={memberId}
-                className={`flex items-center gap-1.5 border rounded-2xl px-3 py-2 shrink-0 transition-colors ${
-                  active
-                    ? "bg-orange-50 border-orange-200"
-                    : "bg-muted/40 border-border"
-                }`}
-              >
-                <MemberAvatar
-                  name={member.name}
-                  avatarUrl={member.avatarUrl}
-                  className="h-6 w-6"
-                />
-                <Flame
-                  className={`w-4 h-4 ${active ? "text-orange-500" : "text-muted-foreground/50"}`}
-                />
-                <span
-                  className={`text-sm font-bold ${active ? "text-orange-600" : "text-muted-foreground/60"}`}
-                >
-                  {currentStreak}
-                </span>
-              </div>
-            );
-          })}
+        {approvalChores.length > 0 && (
+          <Link
+            href="/chores?quick=approval"
+            className="flex items-center gap-3 rounded-3xl bg-amber-100 p-4 text-amber-950 shadow-sm"
+          >
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500 text-white">
+              <CheckCircle2 className="h-6 w-6" />
+            </span>
+            <span className="flex-1">
+              <b className="block text-lg">
+                {approvalChores.length} chore
+                {approvalChores.length === 1 ? "" : "s"} awaiting approval
+              </b>
+              <small>Review and award points</small>
+            </span>
+            <ChevronRight className="h-5 w-5" />
+          </Link>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          <Link href="/chores?quick=add" className="rounded-3xl bg-blue-50 p-4">
+            <CheckSquare className="h-6 w-6 text-blue-600" />
+            <b className="mt-3 block">Add chore</b>
+            <small className="text-muted-foreground">Assign a task</small>
+          </Link>
+          <Link
+            href="/games?quick=record"
+            className="rounded-3xl bg-violet-50 p-4"
+          >
+            <Dice5 className="h-6 w-6 text-violet-600" />
+            <b className="mt-3 block">Record game</b>
+            <small className="text-muted-foreground">Quick result entry</small>
+          </Link>
+          <Link
+            href="/calendar?quick=add"
+            className="rounded-3xl bg-emerald-50 p-4"
+          >
+            <CalendarClock className="h-6 w-6 text-emerald-600" />
+            <b className="mt-3 block">Add event</b>
+            <small className="text-muted-foreground">Family calendar</small>
+          </Link>
+          <Link
+            href="/lists?quick=item"
+            className="rounded-3xl bg-orange-50 p-4"
+          >
+            <List className="h-6 w-6 text-orange-600" />
+            <b className="mt-3 block">Add list item</b>
+            <small className="text-muted-foreground">
+              Shopping or reminders
+            </small>
+          </Link>
         </div>
-      </header>
-
-      {/* ── Col 1: Events ── */}
-      <div className="row-start-2 flex flex-col gap-4 min-h-0 overflow-hidden">
-        <Card
-          className="rounded-3xl shadow-sm border-0 flex flex-col overflow-hidden flex-1 min-h-0"
-          style={{ backgroundColor: "hsl(210 80% 52% / 0.07)" }}
-        >
-          <CardHeader className="pb-2 shrink-0">
-            <CardTitle className="text-base font-bold">
-              Today's Events
-            </CardTitle>
+        <Card className="rounded-3xl border-0 bg-blue-50">
+          <CardHeader>
+            <CardTitle className="text-base">Today</CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto min-h-0 pt-0 space-y-2 pr-2">
-            {summary.todayEvents.length === 0 && tomorrowEvents.length === 0 ? (
-              <p className="text-muted-foreground text-sm py-4">
-                Nothing on today 🌤️
-              </p>
-            ) : (
-              <>
-                {/* Today */}
-                {summary.todayEvents.length === 0 ? (
-                  <p className="text-muted-foreground text-xs py-1 text-center">
-                    Nothing today
-                  </p>
-                ) : (
-                  summary.todayEvents.map((e) => (
-                    <EventRow key={e.id} e={e} memberById={memberById} />
-                  ))
-                )}
-
-                {/* Tomorrow section */}
-                {tomorrowEvents.length > 0 && (
-                  <>
-                    <div className="font-bold text-base pt-1">
-                      Tomorrow's Events
-                    </div>
-                    {tomorrowEvents.slice(0, 5).map((e) => (
-                      <EventRow key={e.id} e={e} memberById={memberById} />
-                    ))}
-                    {tomorrowEvents.length > 5 && (
-                      <div className="text-center py-1">
-                        <span className="text-xs font-semibold text-muted-foreground bg-muted/70 rounded-full px-3 py-1">
-                          +{tomorrowEvents.length - 5} more
-                        </span>
-                      </div>
-                    )}
-                  </>
-                )}
-              </>
-            )}
+          <CardContent className="space-y-2">
+            <div className="flex justify-between">
+              <span>Events</span>
+              <b>{summary.todayEvents.length}</b>
+            </div>
+            <div className="flex justify-between">
+              <span>Chores to do</span>
+              <b>{todoChores.length}</b>
+            </div>
+            <div className="flex justify-between">
+              <span>Completed</span>
+              <b>{doneChores.length}</b>
+            </div>
           </CardContent>
         </Card>
+        <GamesLeaderboardWidget />
       </div>
+      <div className="hidden h-full grid-cols-3 grid-rows-[auto_1fr] gap-4 p-4 animate-in fade-in duration-300 md:grid">
+        {/* ── Hero strip: clock + date + next event + streaks ── */}
+        <header className="col-span-3 flex items-center justify-between gap-4 px-1">
+          <div className="shrink-0">
+            <div className="text-5xl font-serif font-bold tabular-nums leading-none">
+              {format(now, "h:mm")}
+              <span className="text-3xl text-muted-foreground ml-1.5">
+                {format(now, "a")}
+              </span>
+            </div>
+            <div className="text-lg text-muted-foreground font-semibold mt-1">
+              {format(now, "EEEE, MMMM do")}
+            </div>
+          </div>
 
-      {/* ── Col 2: Chores widget ── */}
-      <div className="row-start-2 flex flex-col min-h-0">
-        {children.length > 0 ? (
-          <ChoresWidget chores={allChores} children={children} />
-        ) : (
+          <div className="flex items-center gap-2 flex-1 justify-end flex-wrap">
+            <NextEventPreview
+              todayEvents={summary.todayEvents}
+              upcomingEvents={summary.upcomingEvents}
+              now={now}
+            />
+
+            {/* Streak chips — show all children, dim when streak is 0 */}
+            {summary.streaks.slice(0, 5).map(({ memberId, currentStreak }) => {
+              const member = children.find((m) => m.id === memberId);
+              if (!member) return null;
+              const active = currentStreak > 0;
+              return (
+                <div
+                  key={memberId}
+                  className={`flex items-center gap-1.5 border rounded-2xl px-3 py-2 shrink-0 transition-colors ${
+                    active
+                      ? "bg-orange-50 border-orange-200"
+                      : "bg-muted/40 border-border"
+                  }`}
+                >
+                  <MemberAvatar
+                    name={member.name}
+                    avatarUrl={member.avatarUrl}
+                    className="h-6 w-6"
+                  />
+                  <Flame
+                    className={`w-4 h-4 ${active ? "text-orange-500" : "text-muted-foreground/50"}`}
+                  />
+                  <span
+                    className={`text-sm font-bold ${active ? "text-orange-600" : "text-muted-foreground/60"}`}
+                  >
+                    {currentStreak}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </header>
+
+        {/* ── Col 1: Events ── */}
+        <div className="row-start-2 flex flex-col gap-4 min-h-0 overflow-hidden">
           <Card
-            className="rounded-3xl shadow-sm border-0 flex flex-col overflow-hidden h-full"
+            className="rounded-3xl shadow-sm border-0 flex flex-col overflow-hidden flex-1 min-h-0"
             style={{ backgroundColor: "hsl(210 80% 52% / 0.07)" }}
           >
             <CardHeader className="pb-2 shrink-0">
               <CardTitle className="text-base font-bold">
-                Today's Chores
+                Today's Events
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto min-h-0 pt-0 space-y-2">
-              {allChores.length === 0 ? (
+            <CardContent className="flex-1 overflow-y-auto min-h-0 pt-0 space-y-2 pr-2">
+              {summary.todayEvents.length === 0 &&
+              tomorrowEvents.length === 0 ? (
                 <p className="text-muted-foreground text-sm py-4">
-                  No chores due today 🎉
+                  Nothing on today 🌤️
                 </p>
               ) : (
                 <>
-                  {todoChores.map((c) => (
-                    <div
-                      key={c.id}
-                      className="bg-card rounded-xl px-3 py-2.5 flex items-center gap-2 shadow-sm"
-                    >
-                      <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        {c.assignedMember && (
-                          <div className="text-xs font-semibold text-primary">
-                            {c.assignedMember.name}
-                          </div>
-                        )}
-                        <div className="text-sm font-medium truncate">
-                          {c.title}
-                        </div>
+                  {/* Today */}
+                  {summary.todayEvents.length === 0 ? (
+                    <p className="text-muted-foreground text-xs py-1 text-center">
+                      Nothing today
+                    </p>
+                  ) : (
+                    summary.todayEvents.map((e) => (
+                      <EventRow key={e.id} e={e} memberById={memberById} />
+                    ))
+                  )}
+
+                  {/* Tomorrow section */}
+                  {tomorrowEvents.length > 0 && (
+                    <>
+                      <div className="font-bold text-base pt-1">
+                        Tomorrow's Events
                       </div>
-                      <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full shrink-0">
-                        {c.pointsValue} pts
-                      </span>
-                    </div>
-                  ))}
-                  {approvalChores.map((c) => (
-                    <div
-                      key={c.id}
-                      className="bg-card rounded-xl px-3 py-2.5 flex items-center gap-2 shadow-sm"
-                    >
-                      <Star className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        {c.assignedMember && (
-                          <div className="text-xs font-semibold text-primary">
-                            {c.assignedMember.name}
-                          </div>
-                        )}
-                        <div className="text-sm font-medium truncate">
-                          {c.title}
+                      {tomorrowEvents.slice(0, 5).map((e) => (
+                        <EventRow key={e.id} e={e} memberById={memberById} />
+                      ))}
+                      {tomorrowEvents.length > 5 && (
+                        <div className="text-center py-1">
+                          <span className="text-xs font-semibold text-muted-foreground bg-muted/70 rounded-full px-3 py-1">
+                            +{tomorrowEvents.length - 5} more
+                          </span>
                         </div>
-                      </div>
-                      <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full shrink-0">
-                        waiting
-                      </span>
-                    </div>
-                  ))}
-                  {doneChores.map((c) => (
-                    <div
-                      key={c.id}
-                      className="bg-card/60 rounded-xl px-3 py-2.5 flex items-center gap-2 opacity-60"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm truncate line-through">
-                          {c.title}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                      )}
+                    </>
+                  )}
                 </>
               )}
             </CardContent>
           </Card>
-        )}
-      </div>
+        </div>
 
-      {/* ── Col 3: Leaderboard ── */}
-      <div className="row-start-2 flex min-h-0 flex-col gap-4 overflow-hidden">
-        {children.length > 0 ? (
-          <Card
-            className="min-h-0 flex-1 rounded-3xl shadow-sm border-0 flex flex-col overflow-hidden"
-            style={{ backgroundColor: "hsl(152 60% 45% / 0.07)" }}
-          >
-            <CardHeader className="pb-2 shrink-0">
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-base font-bold flex items-center gap-1.5">
-                  <Trophy className="w-4 h-4 text-amber-500" /> Leaderboard
+        {/* ── Col 2: Chores widget ── */}
+        <div className="row-start-2 flex flex-col min-h-0">
+          {children.length > 0 ? (
+            <ChoresWidget chores={allChores} children={children} />
+          ) : (
+            <Card
+              className="rounded-3xl shadow-sm border-0 flex flex-col overflow-hidden h-full"
+              style={{ backgroundColor: "hsl(210 80% 52% / 0.07)" }}
+            >
+              <CardHeader className="pb-2 shrink-0">
+                <CardTitle className="text-base font-bold">
+                  Today's Chores
                 </CardTitle>
-                {/* Toggle */}
-                <div className="flex rounded-xl overflow-hidden border border-border bg-background text-xs font-semibold shrink-0">
-                  <button
-                    onClick={() => setLeaderboardView("alltime")}
-                    className={`px-3 py-1.5 transition-colors ${leaderboardView === "alltime" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    All Time
-                  </button>
-                  <button
-                    onClick={() => setLeaderboardView("weekly")}
-                    className={`px-3 py-1.5 transition-colors ${leaderboardView === "weekly" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    This Week
-                  </button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto min-h-0 pt-0 space-y-2 pr-2">
-              {leaderboardView === "alltime" ? (
-                <>
-                  {allTimeBoard.map((entry, i) => {
-                    const member = summary.familyMembers.find(
-                      (m) => m.id === entry.memberId,
-                    );
-                    return (
+              </CardHeader>
+              <CardContent className="flex-1 overflow-y-auto min-h-0 pt-0 space-y-2">
+                {allChores.length === 0 ? (
+                  <p className="text-muted-foreground text-sm py-4">
+                    No chores due today 🎉
+                  </p>
+                ) : (
+                  <>
+                    {todoChores.map((c) => (
                       <div
-                        key={entry.memberId}
-                        className="bg-card rounded-xl p-3 shadow-sm flex items-center gap-3"
+                        key={c.id}
+                        className="bg-card rounded-xl px-3 py-2.5 flex items-center gap-2 shadow-sm"
                       >
-                        <div className="text-xl w-7 text-center font-bold shrink-0">
-                          {rankMedal(i)}
-                        </div>
-                        <MemberAvatar
-                          name={entry.name}
-                          avatarUrl={entry.avatarUrl}
-                          className="h-10 w-10"
-                        />
+                        <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <div className="font-bold text-sm flex items-center truncate">
-                            {entry.name}
-                            {member && <ChildBadgeIcons memberId={member.id} />}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            <span className="text-primary font-semibold">
-                              {entry.pointsBalance} pts
-                            </span>
-                            <span className="mx-1 text-border">·</span>available
+                          {c.assignedMember && (
+                            <div className="text-xs font-semibold text-primary">
+                              {c.assignedMember.name}
+                            </div>
+                          )}
+                          <div className="text-sm font-medium truncate">
+                            {c.title}
                           </div>
                         </div>
-                        <div className="text-right shrink-0">
-                          <div className="font-bold text-base leading-tight">
-                            {entry.lifetimePoints}
+                        <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full shrink-0">
+                          {c.pointsValue} pts
+                        </span>
+                      </div>
+                    ))}
+                    {approvalChores.map((c) => (
+                      <div
+                        key={c.id}
+                        className="bg-card rounded-xl px-3 py-2.5 flex items-center gap-2 shadow-sm"
+                      >
+                        <Star className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          {c.assignedMember && (
+                            <div className="text-xs font-semibold text-primary">
+                              {c.assignedMember.name}
+                            </div>
+                          )}
+                          <div className="text-sm font-medium truncate">
+                            {c.title}
                           </div>
-                          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">
-                            score
+                        </div>
+                        <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full shrink-0">
+                          waiting
+                        </span>
+                      </div>
+                    ))}
+                    {doneChores.map((c) => (
+                      <div
+                        key={c.id}
+                        className="bg-card/60 rounded-xl px-3 py-2.5 flex items-center gap-2 opacity-60"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm truncate line-through">
+                            {c.title}
                           </div>
                         </div>
                       </div>
-                    );
-                  })}
-                  {allTimeBoard.length === 0 && (
-                    <p className="text-muted-foreground text-sm text-center py-4">
-                      No children added yet.
-                    </p>
-                  )}
-                </>
-              ) : (
-                <>
-                  {[...weeklyBoard]
-                    .sort((a, b) => b.weeklyPoints - a.weeklyPoints)
-                    .map((entry, i) => {
+                    ))}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* ── Col 3: Leaderboard ── */}
+        <div className="row-start-2 flex min-h-0 flex-col gap-4 overflow-hidden">
+          {children.length > 0 ? (
+            <Card
+              className="min-h-0 flex-1 rounded-3xl shadow-sm border-0 flex flex-col overflow-hidden"
+              style={{ backgroundColor: "hsl(152 60% 45% / 0.07)" }}
+            >
+              <CardHeader className="pb-2 shrink-0">
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="text-base font-bold flex items-center gap-1.5">
+                    <Trophy className="w-4 h-4 text-amber-500" /> Leaderboard
+                  </CardTitle>
+                  {/* Toggle */}
+                  <div className="flex rounded-xl overflow-hidden border border-border bg-background text-xs font-semibold shrink-0">
+                    <button
+                      onClick={() => setLeaderboardView("alltime")}
+                      className={`px-3 py-1.5 transition-colors ${leaderboardView === "alltime" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      All Time
+                    </button>
+                    <button
+                      onClick={() => setLeaderboardView("weekly")}
+                      className={`px-3 py-1.5 transition-colors ${leaderboardView === "weekly" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      This Week
+                    </button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="flex-1 overflow-y-auto min-h-0 pt-0 space-y-2 pr-2">
+                {leaderboardView === "alltime" ? (
+                  <>
+                    {allTimeBoard.map((entry, i) => {
                       const member = summary.familyMembers.find(
                         (m) => m.id === entry.memberId,
-                      );
-                      const allTime = allTimeBoard.find(
-                        (a) => a.memberId === entry.memberId,
                       );
                       return (
                         <div
@@ -780,37 +817,94 @@ export default function Dashboard() {
                             </div>
                             <div className="text-xs text-muted-foreground mt-0.5">
                               <span className="text-primary font-semibold">
-                                {allTime?.pointsBalance ?? 0} pts
+                                {entry.pointsBalance} pts
                               </span>
                               <span className="mx-1 text-border">·</span>
                               available
                             </div>
                           </div>
                           <div className="text-right shrink-0">
-                            <div className="font-bold text-base leading-tight text-green-600">
-                              +{entry.weeklyPoints}
+                            <div className="font-bold text-base leading-tight">
+                              {entry.lifetimePoints}
                             </div>
                             <div className="text-[10px] text-muted-foreground uppercase tracking-wide">
-                              this wk
+                              score
                             </div>
                           </div>
                         </div>
                       );
                     })}
-                  {weeklyBoard.length === 0 && (
-                    <p className="text-muted-foreground text-sm text-center py-4">
-                      No data yet.
-                    </p>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <div />
-        )}
-        <GamesLeaderboardWidget />
+                    {allTimeBoard.length === 0 && (
+                      <p className="text-muted-foreground text-sm text-center py-4">
+                        No children added yet.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {[...weeklyBoard]
+                      .sort((a, b) => b.weeklyPoints - a.weeklyPoints)
+                      .map((entry, i) => {
+                        const member = summary.familyMembers.find(
+                          (m) => m.id === entry.memberId,
+                        );
+                        const allTime = allTimeBoard.find(
+                          (a) => a.memberId === entry.memberId,
+                        );
+                        return (
+                          <div
+                            key={entry.memberId}
+                            className="bg-card rounded-xl p-3 shadow-sm flex items-center gap-3"
+                          >
+                            <div className="text-xl w-7 text-center font-bold shrink-0">
+                              {rankMedal(i)}
+                            </div>
+                            <MemberAvatar
+                              name={entry.name}
+                              avatarUrl={entry.avatarUrl}
+                              className="h-10 w-10"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-sm flex items-center truncate">
+                                {entry.name}
+                                {member && (
+                                  <ChildBadgeIcons memberId={member.id} />
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                <span className="text-primary font-semibold">
+                                  {allTime?.pointsBalance ?? 0} pts
+                                </span>
+                                <span className="mx-1 text-border">·</span>
+                                available
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div className="font-bold text-base leading-tight text-green-600">
+                                +{entry.weeklyPoints}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                                this wk
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    {weeklyBoard.length === 0 && (
+                      <p className="text-muted-foreground text-sm text-center py-4">
+                        No data yet.
+                      </p>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div />
+          )}
+          <GamesLeaderboardWidget />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
