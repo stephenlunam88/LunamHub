@@ -94,13 +94,13 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
       <main
         className={cn(
-          "min-h-0 flex-1 overflow-y-auto",
+          "min-h-0 flex-1 overflow-y-auto pt-[env(safe-area-inset-top)] md:pt-0",
           (isDashboard || isCalendar) && "md:overflow-hidden",
         )}
       >
         <div
           className={cn(
-            "pb-24 md:pb-0",
+            "pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-0",
             !isDashboard &&
               !isCalendar &&
               "mx-auto max-w-5xl px-4 pt-4 md:px-6 md:pt-6 md:pb-24",
@@ -118,7 +118,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="Mobile navigation"
-        className="fixed inset-x-0 bottom-0 z-50 grid h-[76px] grid-cols-5 items-center border-t bg-card px-1 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 grid h-[calc(76px+env(safe-area-inset-bottom))] grid-cols-5 items-start border-t bg-card px-1 pt-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden"
       >
         <MobileLink href="/" label="Home" icon={Home} location={path} />
         <MobileLink

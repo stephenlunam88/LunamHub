@@ -1714,45 +1714,47 @@ export default function Chores() {
               c.assignedMember ?? members.find((m) => m.id === c.assignedTo);
             return (
               <Card key={c.id} className="rounded-2xl border-0 shadow-sm">
-                <CardContent className="p-5 flex items-center gap-4">
-                  {member && (
-                    <MemberAvatar
-                      avatarUrl={member.avatarUrl}
-                      name={member.name}
-                      className="h-10 w-10"
-                    />
-                  )}
-                  <div className="flex-1 min-w-0">
+                <CardContent className="space-y-4 p-4 md:flex md:items-center md:gap-4 md:space-y-0 md:p-5">
+                  <div className="flex min-w-0 items-center gap-3">
                     {member && (
-                      <div className="font-bold text-base text-primary">
-                        {member.name}
-                      </div>
+                      <MemberAvatar
+                        avatarUrl={member.avatarUrl}
+                        name={member.name}
+                        className="h-11 w-11"
+                      />
                     )}
-                    <div className="font-semibold text-lg leading-tight">
-                      {c.title}
-                    </div>
-                    <div className="flex items-center gap-3 mt-0.5 text-sm text-muted-foreground">
-                      {c.dueDate && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {c.dueDate}
-                        </span>
+                    <div className="min-w-0 flex-1">
+                      {member && (
+                        <div className="font-bold text-primary">
+                          {member.name}
+                        </div>
                       )}
-                      {c.repeatType !== "once" && (
-                        <Badge variant="outline" className="text-xs">
-                          {c.repeatType}
-                        </Badge>
-                      )}
+                      <div className="break-words text-lg font-semibold leading-tight">
+                        {c.title}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                        {c.dueDate && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {c.dueDate}
+                          </span>
+                        )}
+                        {c.repeatType !== "once" && (
+                          <Badge variant="outline" className="text-xs">
+                            {c.repeatType}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <div className="bg-primary/10 text-primary font-bold px-4 py-2 rounded-2xl text-lg mr-2">
+                  <div className="flex items-center justify-between gap-1 border-t pt-3 md:shrink-0 md:justify-start md:border-0 md:pt-0">
+                    <div className="mr-auto rounded-2xl bg-primary/10 px-4 py-2 text-lg font-bold text-primary md:mr-2">
                       {c.pointsValue} pts
                     </div>
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="h-14 w-14 rounded-xl text-green-600 hover:text-green-700 hover:bg-green-50"
+                      className="h-12 w-12 rounded-xl text-green-600 hover:bg-green-50 hover:text-green-700 md:h-14 md:w-14"
                       onClick={() => completeChore.mutate({ id: c.id })}
                     >
                       <CheckCircle2 className="w-6 h-6" />
