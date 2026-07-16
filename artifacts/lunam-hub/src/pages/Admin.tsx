@@ -18,7 +18,7 @@ import {
   getListPointMilestonesQueryKey, getListChoreMilestonesQueryKey,
   getListPointTransactionsQueryKey,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -31,7 +31,7 @@ import { MemberOption } from "@/components/MemberAvatar";
 import { PageHeader } from "@/components/PageHeader";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { useToast } from "@/hooks/use-toast";
-import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload, CalendarDays, Flame, ImagePlay, Star, ListChecks, History, TrendingUp, TrendingDown, Minus, LogOut, UserRound, Monitor, Plug } from "lucide-react";
+import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload, CalendarDays, Flame, ImagePlay, Star, ListChecks, History, TrendingUp, TrendingDown, Minus, LogOut, UserRound, Monitor, Plug, Camera } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useGetGoogleCalendarStatus,
@@ -331,6 +331,119 @@ function GoogleCalendarCard() {
                 <li>Add <code className="bg-muted-foreground/10 px-1 rounded">http://&lt;your-nas&gt;:3000/api/auth/google/callback</code> as an Authorised redirect URI.</li>
                 <li>Set <code className="bg-muted-foreground/10 px-1 rounded">GOOGLE_OAUTH_CLIENT_ID</code>, <code className="bg-muted-foreground/10 px-1 rounded">GOOGLE_OAUTH_CLIENT_SECRET</code>, and <code className="bg-muted-foreground/10 px-1 rounded">GOOGLE_OAUTH_REDIRECT_URI</code> in your <code className="bg-muted-foreground/10 px-1 rounded">.env</code> file, then restart the API.</li>
               </ol>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function GoogleNestCard() {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<"connected" | "error" | null>(() => {
+    const value = new URLSearchParams(window.location.search).get("nest");
+    return value === "connected" || value === "error" ? value : null;
+  });
+  const status = useQuery({
+    queryKey: ["google-nest", "status"],
+    queryFn: async () => {
+      const response = await fetch("/api/google-nest/status", { credentials: "include" });
+      if (!response.ok) throw new Error("Could not check Google Nest connection");
+      return response.json() as Promise<{ configured: boolean; connected: boolean }>;
+    },
+  });
+
+  useEffect(() => {
+    if (!message) return;
+    void status.refetch();
+    const url = new URL(window.location.href);
+    url.searchParams.delete("nest");
+    window.history.replaceState({}, "", url.toString());
+    const timer = window.setTimeout(() => setMessage(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [message]);
+
+  const disconnect = async () => {
+    setBusy(true);
+    try {
+      await fetch("/api/google-nest/disconnect", {
+        method: "POST",
+        credentials: "include",
+      });
+      await status.refetch();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card className="rounded-3xl border-0 shadow-sm">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Camera className="h-5 w-5" /> Google Nest cameras
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {message === "connected" && (
+          <div className="rounded-2xl border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+            Google Nest connected successfully.
+          </div>
+        )}
+        {message === "error" && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            Google Nest authorisation failed. Please try again.
+          </div>
+        )}
+        {status.isLoading ? (
+          <p className="text-sm text-muted-foreground">Checking connection…</p>
+        ) : status.data?.connected ? (
+          <>
+            <div className="flex items-center gap-3 rounded-2xl border border-green-200 bg-green-50 p-4">
+              <span className="h-3 w-3 shrink-0 rounded-full bg-green-500" />
+              <div>
+                <div className="font-semibold text-green-800">Connected</div>
+                <p className="mt-0.5 text-sm text-green-700">
+                  Authorised cameras are available from the Cameras screen. Live video is opened only when requested.
+                </p>
+              </div>
+            </div>
+            <Button asChild className="h-11 w-full rounded-xl">
+              <a href="/cameras">View cameras</a>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-11 w-full rounded-xl border-destructive/30 text-destructive"
+              disabled={busy}
+              onClick={() => void disconnect()}
+            >
+              {busy ? "Disconnecting…" : "Disconnect Google Nest"}
+            </Button>
+          </>
+        ) : status.data?.configured ? (
+          <>
+            <div className="rounded-2xl bg-muted p-4">
+              <div className="font-semibold">Ready to connect</div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Sign in with the Google account that owns your Nest home, then choose which cameras LunamHub may access.
+              </p>
+            </div>
+            <Button className="h-12 w-full rounded-xl" onClick={() => { window.location.href = "/api/google-nest/connect"; }}>
+              Connect Google Nest
+            </Button>
+          </>
+        ) : (
+          <>
+            <div className="rounded-2xl bg-muted p-4">
+              <div className="font-semibold">Device Access setup required</div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Create a personal Google Device Access project, then add its details to LunamHub’s environment.
+              </p>
+            </div>
+            <div className="space-y-2 rounded-2xl border p-4 text-sm text-muted-foreground">
+              <p>Set <code className="rounded bg-muted px-1 text-foreground">NEST_DEVICE_ACCESS_PROJECT_ID</code> and <code className="rounded bg-muted px-1 text-foreground">NEST_OAUTH_REDIRECT_URI</code>.</p>
+              <p>The redirect URI should be <code className="rounded bg-muted px-1 text-foreground">http://&lt;your-nas&gt;:3000/api/google-nest/callback</code>.</p>
+              <p>You may reuse the existing Google OAuth client or provide dedicated <code className="rounded bg-muted px-1 text-foreground">NEST_OAUTH_CLIENT_ID</code> and secret values.</p>
             </div>
           </>
         )}
@@ -1426,7 +1539,10 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
         </CardContent>
       </Card>
 
-      <div className={adminSection === "connections" ? "" : "hidden"}><GoogleCalendarCard /></div>
+      <div className={`${adminSection === "connections" ? "" : "hidden"} space-y-5`}>
+        <GoogleCalendarCard />
+        <GoogleNestCard />
+      </div>
 
       <Card className={`${adminSection === "security" ? "" : "hidden"} rounded-3xl border-0 shadow-sm`}>
         <CardHeader><CardTitle className="flex items-center gap-2"><Key className="w-5 h-5" /> Admin access</CardTitle></CardHeader>

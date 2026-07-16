@@ -16,6 +16,7 @@ import Routines from "@/pages/Routines";
 import Admin from "@/pages/Admin";
 import Display from "@/pages/Display";
 import GamesNight from "@/pages/GamesNight";
+import Cameras from "@/pages/Cameras";
 import {
   useGetSettings,
   getGetSettingsQueryKey,
@@ -78,6 +79,7 @@ function Router() {
         <Route path="/rewards" component={Rewards} />
         <Route path="/lists" component={Lists} />
         <Route path="/games" component={GamesNight} />
+        <Route path="/cameras" component={Cameras} />
         <Route path="/meals" component={Meals} />
         <Route path="/routines" component={Routines} />
         <Route path="/admin" component={Admin} />

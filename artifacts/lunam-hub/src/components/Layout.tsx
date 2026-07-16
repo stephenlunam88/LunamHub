@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import {
   Calendar,
   CalendarPlus,
+  Camera,
   CheckCheck,
   CheckSquare,
   Dice5,
@@ -31,6 +32,7 @@ const NAV_ITEMS = [
   { href: "/rewards", label: "Rewards", icon: Gift },
   { href: "/lists", label: "Lists", icon: List },
   { href: "/games", label: "Games", icon: Dice5 },
+  { href: "/cameras", label: "Cameras", icon: Camera },
   { href: "/admin", label: "Parents", icon: Settings },
   { href: "/display", label: "Display", icon: MonitorPlay },
 ];
