@@ -1914,7 +1914,7 @@ export default function Chores() {
         <TabsContent value="missed" className="space-y-3 mt-4">
           {missed.length === 0 && (
             <p className="text-center text-muted-foreground py-12">
-              No missed chores today 🎉
+              No missed chores 🎉
             </p>
           )}
           {missed.map((c) => {
@@ -1944,7 +1944,7 @@ export default function Chores() {
                       {c.title}
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      Not completed today
+                      Not completed by {c.dueDate}
                     </div>
                   </div>
                   <div className="text-red-400 font-bold shrink-0">

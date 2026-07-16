@@ -18,6 +18,36 @@ type NestDevice = {
 
 type NestStatus = { configured: boolean; connected: boolean };
 
+const CAMERA_CACHE_KEY = "lunamhub.nest.cameras";
+const LAST_CAMERA_KEY = "lunamhub.nest.lastCamera";
+
+function readCachedCameras(): NestDevice[] {
+  try {
+    const value = window.localStorage.getItem(CAMERA_CACHE_KEY);
+    if (!value) return [];
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? (parsed as NestDevice[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberCameras(cameras: NestDevice[]) {
+  try {
+    window.localStorage.setItem(CAMERA_CACHE_KEY, JSON.stringify(cameras));
+  } catch {
+    // Camera discovery still works when browser storage is unavailable.
+  }
+}
+
+function rememberLastCamera(id: string) {
+  try {
+    window.localStorage.setItem(LAST_CAMERA_KEY, id);
+  } catch {
+    // Selecting and viewing a camera does not depend on browser storage.
+  }
+}
+
 async function getJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { credentials: "include" });
   if (!response.ok) throw new Error((await response.json().catch(() => null))?.error ?? "Request failed");
@@ -131,7 +161,7 @@ function CameraViewer({
           </DialogTitle>
         </DialogHeader>
         <div className="relative aspect-video overflow-hidden rounded-2xl bg-slate-950">
-          <video ref={videoRef} autoPlay playsInline muted={false} className="h-full w-full object-contain" />
+          <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-contain" />
           {loading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white">
               <Loader2 className="h-9 w-9 animate-spin" />
@@ -157,27 +187,59 @@ function CameraViewer({
 
 export default function Cameras() {
   const [selected, setSelected] = useState<NestDevice | null>(null);
+  const cachedCamerasRef = useRef<NestDevice[]>(readCachedCameras());
+  const autoOpenedRef = useRef(false);
   const status = useQuery({
     queryKey: ["google-nest", "status"],
     queryFn: () => getJson<NestStatus>("/api/google-nest/status"),
   });
   const devices = useQuery({
     queryKey: ["google-nest", "devices"],
-    queryFn: () => getJson<{ devices: NestDevice[] }>("/api/google-nest/devices"),
+    queryFn: async () => {
+      const result = await getJson<{ devices: NestDevice[] }>("/api/google-nest/devices");
+      rememberCameras(result.devices);
+      return result;
+    },
     enabled: status.data?.connected === true,
+    initialData: cachedCamerasRef.current.length
+      ? { devices: cachedCamerasRef.current }
+      : undefined,
+    initialDataUpdatedAt: 0,
     refetchInterval: 60_000,
   });
+  const cameraList = devices.data?.devices ?? cachedCamerasRef.current;
+
+  const openCamera = useCallback((camera: NestDevice) => {
+    rememberLastCamera(camera.id);
+    setSelected(camera);
+  }, []);
+
+  useEffect(() => {
+    if (autoOpenedRef.current || status.data?.connected !== true) return;
+    const available = cameraList.filter(
+      (camera) => camera.online && camera.protocols.includes("WEB_RTC"),
+    );
+    if (!available.length) return;
+    autoOpenedRef.current = true;
+    let lastId: string | null = null;
+    try {
+      lastId = window.localStorage.getItem(LAST_CAMERA_KEY);
+    } catch {
+      // Fall back to the first available camera.
+    }
+    openCamera(available.find((camera) => camera.id === lastId) ?? available[0]!);
+  }, [cameraList, openCamera, status.data?.connected]);
 
   return (
     <div className="space-y-5">
       <div>
         <PageHeader title="Cameras" />
-        <p className="mt-1 text-muted-foreground">Tap a camera to view it live</p>
+        <p className="mt-1 text-muted-foreground">Your last camera opens live automatically</p>
       </div>
 
-      {status.isLoading ? (
+      {status.isLoading && cameraList.length === 0 ? (
         <Card className="rounded-3xl border-0"><CardContent className="flex min-h-48 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></CardContent></Card>
-      ) : !status.data?.connected ? (
+      ) : status.data && !status.data.connected ? (
         <Card className="rounded-3xl border-0 shadow-sm">
           <CardContent className="flex min-h-64 flex-col items-center justify-center gap-4 p-6 text-center">
             <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary"><Camera className="h-8 w-8" /></span>
@@ -190,7 +252,7 @@ export default function Cameras() {
             <Button asChild className="h-12 rounded-xl px-6"><Link href="/admin">Open Parent settings</Link></Button>
           </CardContent>
         </Card>
-      ) : devices.isError ? (
+      ) : devices.isError && cameraList.length === 0 ? (
         <Card className="rounded-3xl border-0"><CardContent className="flex min-h-48 flex-col items-center justify-center gap-3 text-center">
           <p>{devices.error.message}</p>
           <Button onClick={() => devices.refetch()}><RefreshCw className="mr-2 h-4 w-4" /> Reload cameras</Button>
@@ -198,12 +260,15 @@ export default function Cameras() {
       ) : (
         <>
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">{devices.data?.devices.length ?? 0} camera{devices.data?.devices.length === 1 ? "" : "s"} available</p>
+            <p className="text-sm text-muted-foreground">
+              {cameraList.length} camera{cameraList.length === 1 ? "" : "s"} available
+              {devices.isFetching && cameraList.length > 0 ? " · refreshing…" : ""}
+            </p>
             <Button variant="outline" size="sm" onClick={() => devices.refetch()} disabled={devices.isFetching}><RefreshCw className={`mr-2 h-4 w-4 ${devices.isFetching ? "animate-spin" : ""}`} /> Refresh</Button>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {(devices.data?.devices ?? []).map((device) => (
-              <button key={device.id} onClick={() => setSelected(device)} disabled={!device.online || !device.protocols.includes("WEB_RTC")}
+            {cameraList.map((device) => (
+              <button key={device.id} onClick={() => openCamera(device)} disabled={!device.online || !device.protocols.includes("WEB_RTC")}
                 className="group min-h-48 overflow-hidden rounded-3xl bg-slate-900 text-left text-white shadow-sm transition-transform enabled:active:scale-[0.98] disabled:opacity-60">
                 <div className="flex h-full min-h-48 flex-col justify-between bg-gradient-to-br from-slate-800 to-slate-950 p-5">
                   <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10"><Video className="h-6 w-6" /></span>
@@ -222,7 +287,7 @@ export default function Cameras() {
               </button>
             ))}
           </div>
-          {devices.data?.devices.length === 0 && (
+          {cameraList.length === 0 && (
             <Card className="rounded-3xl border-0"><CardContent className="flex min-h-52 flex-col items-center justify-center gap-3 text-center">
               <Camera className="h-10 w-10 text-muted-foreground" />
               <p className="font-bold">No authorised cameras found</p>

@@ -22,7 +22,7 @@ import {
   pointMilestonesTable,
   choreMilestonesTable,
 } from "@workspace/db";
-import { eq, sql, lt, and, count, inArray } from "drizzle-orm";
+import { eq, sql, lt, and, count, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import { calculateChoreStreak } from "../lib/choreStreak";
@@ -328,13 +328,13 @@ router.get("/summary", async (_req, res) => {
       todoPending: todayInstances.filter((i) => i.status === "todo").length,
       pendingApproval: todayInstances.filter((i) => i.status === "pending_approval").length,
       doneToday: todayInstances.filter((i) => i.status === "done").length,
-      missedToday: todayInstances.filter((i) => i.status === "missed").length,
+      missedToday: mine.filter((i) => i.status === "missed").length,
       allTimeDone: mine.filter((i) => i.status === "done").length,
       // Legacy fields for backward compat with existing frontend
       pending: todayInstances.filter((i) => i.status === "todo").length,
       completed: todayInstances.filter((i) => i.status === "pending_approval").length,
       approved: mine.filter((i) => i.status === "done").length,
-      missed: todayInstances.filter((i) => i.status === "missed").length,
+      missed: mine.filter((i) => i.status === "missed").length,
       totalPoints: mine.filter((i) => i.status === "done" && i.pointsAwarded).reduce((s, i) => s + i.pointsValue, 0),
     };
   });
@@ -354,7 +354,12 @@ router.get("/", async (req, res) => {
   let instances = await db
     .select()
     .from(choreInstancesTable)
-    .where(eq(choreInstancesTable.dueDate, today))
+    .where(
+      or(
+        eq(choreInstancesTable.dueDate, today),
+        eq(choreInstancesTable.status, "missed"),
+      ),
+    )
     .orderBy(choreInstancesTable.createdAt);
 
   if (assignedTo != null) instances = instances.filter((i) => i.childId === assignedTo);
@@ -658,22 +663,40 @@ router.post("/:id/reject", async (req, res) => {
   const ok = await verifyParentPin(parentId, pin, res);
   if (!ok) return;
 
-  const newStatus = markAsMissed ? ("missed" as const) : ("todo" as const);
+  const [current] = await db
+    .select()
+    .from(choreInstancesTable)
+    .where(eq(choreInstancesTable.id, id));
+  if (!current) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  // A missed chore is dismissed as a resolved rejection. Sending it back to
+  // todo would cause the daily rollover to mark it missed again immediately.
+  const newStatus =
+    current.status === "missed"
+      ? ("rejected" as const)
+      : markAsMissed
+        ? ("missed" as const)
+        : ("todo" as const);
 
   const [inst] = await db
     .update(choreInstancesTable)
-    .set({ status: newStatus, completedAt: null })
+    .set({
+      status: newStatus,
+      completedAt: null,
+      missedAt: newStatus === "missed" ? new Date() : null,
+    })
     .where(
       and(
         eq(choreInstancesTable.id, id),
-        eq(choreInstancesTable.status, "pending_approval"),
+        inArray(choreInstancesTable.status, ["pending_approval", "missed"]),
       ),
     )
     .returning();
 
   if (!inst) {
-    const [current] = await db.select().from(choreInstancesTable).where(eq(choreInstancesTable.id, id));
-    if (!current) { res.status(404).json({ error: "Not found" }); return; }
     res.json(formatInstance(current, await getMemberById(current.childId)));
     return;
   }
