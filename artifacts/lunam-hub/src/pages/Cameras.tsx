@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Camera, ExternalLink, Loader2, RefreshCw, ShieldCheck, Video, VideoOff, X } from "lucide-react";
+import { Camera, ExternalLink, Loader2, RefreshCw, ShieldCheck, VideoOff } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type NestDevice = {
   id: string;
@@ -19,7 +18,6 @@ type NestDevice = {
 type NestStatus = { configured: boolean; connected: boolean };
 
 const CAMERA_CACHE_KEY = "lunamhub.nest.cameras";
-const LAST_CAMERA_KEY = "lunamhub.nest.lastCamera";
 
 function readCachedCameras(): NestDevice[] {
   try {
@@ -40,29 +38,14 @@ function rememberCameras(cameras: NestDevice[]) {
   }
 }
 
-function rememberLastCamera(id: string) {
-  try {
-    window.localStorage.setItem(LAST_CAMERA_KEY, id);
-  } catch {
-    // Selecting and viewing a camera does not depend on browser storage.
-  }
-}
-
 async function getJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { credentials: "include" });
   if (!response.ok) throw new Error((await response.json().catch(() => null))?.error ?? "Request failed");
   return response.json() as Promise<T>;
 }
 
-function CameraViewer({
-  camera,
-  open,
-  onOpenChange,
-}: {
-  camera: NestDevice | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
+function LiveCamera({ camera }: { camera: NestDevice }) {
+  const cardRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const connectionRef = useRef<RTCPeerConnection | null>(null);
   const sessionRef = useRef<string | null>(null);
@@ -74,7 +57,7 @@ function CameraViewer({
     connectionRef.current = null;
     connection?.close();
     if (videoRef.current) videoRef.current.srcObject = null;
-    if (camera && sessionRef.current) {
+    if (sessionRef.current) {
       const mediaSessionId = sessionRef.current;
       sessionRef.current = null;
       await fetch(`/api/google-nest/devices/${encodeURIComponent(camera.id)}/stop`, {
@@ -87,7 +70,6 @@ function CameraViewer({
   }, [camera]);
 
   const start = useCallback(async () => {
-    if (!camera || !open) return;
     await stop();
     setLoading(true);
     setError(null);
@@ -143,52 +125,75 @@ function CameraViewer({
     } finally {
       setLoading(false);
     }
-  }, [camera, open, stop]);
+  }, [camera, stop]);
 
   useEffect(() => {
-    if (open) void start();
+    void start();
     return () => {
       void stop();
     };
-  }, [open, start, stop]);
+  }, [start, stop]);
+
+  const openFullscreen = useCallback(async () => {
+    const card = cardRef.current;
+    const video = videoRef.current as (HTMLVideoElement & {
+      webkitEnterFullscreen?: () => void;
+    }) | null;
+    try {
+      if (card?.requestFullscreen) {
+        await card.requestFullscreen();
+      } else if (video?.webkitEnterFullscreen) {
+        video.webkitEnterFullscreen();
+      }
+    } catch {
+      // Fullscreen can be denied by browser policy; the inline stream remains available.
+    }
+  }, []);
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) void stop(); onOpenChange(next); }}>
-      <DialogContent className="flex max-h-[92dvh] max-w-4xl flex-col rounded-3xl p-4 sm:p-6">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 font-serif text-2xl">
-            <Video className="h-5 w-5 text-primary" /> {camera?.name}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="relative aspect-video overflow-hidden rounded-2xl bg-slate-950">
-          <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-contain" />
-          {loading && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white">
-              <Loader2 className="h-9 w-9 animate-spin" />
-              <span>Connecting securely…</span>
-            </div>
-          )}
-          {error && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center text-white">
-              <VideoOff className="h-10 w-10 text-red-300" />
-              <p>{error}</p>
-              <Button onClick={() => void start()}><RefreshCw className="mr-2 h-4 w-4" /> Try again</Button>
-            </div>
-          )}
+    <Card
+      ref={cardRef}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${camera.name} full screen`}
+      onClick={() => void openFullscreen()}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") void openFullscreen();
+      }}
+      className="cursor-pointer overflow-hidden rounded-3xl border-0 bg-slate-950 shadow-sm fullscreen:rounded-none"
+    >
+      <div className="relative aspect-video bg-slate-950">
+        <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+        {loading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <span className="text-sm">Starting live stream…</span>
+          </div>
+        )}
+        {error && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-5 text-center text-white">
+            <VideoOff className="h-9 w-9 text-red-300" />
+            <p className="text-sm">{error}</p>
+            <Button size="sm" onClick={(event) => { event.stopPropagation(); void start(); }}>
+              <RefreshCw className="mr-2 h-4 w-4" /> Try again
+            </Button>
+          </div>
+        )}
+        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-black/80 to-transparent px-4 pb-3 pt-10 text-white">
+          <div>
+            <h2 className="font-bold">{camera.name}</h2>
+            <p className="flex items-center gap-1.5 text-xs text-white/75">
+              <span className="h-2 w-2 rounded-full bg-green-400" /> Live · muted · tap for full screen
+            </p>
+          </div>
         </div>
-        <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-          <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-green-600" /> Live video is not stored by LunamHub.</span>
-          <Button variant="outline" onClick={() => onOpenChange(false)}><X className="mr-2 h-4 w-4" /> Close</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </Card>
   );
 }
 
 export default function Cameras() {
-  const [selected, setSelected] = useState<NestDevice | null>(null);
   const cachedCamerasRef = useRef<NestDevice[]>(readCachedCameras());
-  const autoOpenedRef = useRef(false);
   const status = useQuery({
     queryKey: ["google-nest", "status"],
     queryFn: () => getJson<NestStatus>("/api/google-nest/status"),
@@ -209,32 +214,11 @@ export default function Cameras() {
   });
   const cameraList = devices.data?.devices ?? cachedCamerasRef.current;
 
-  const openCamera = useCallback((camera: NestDevice) => {
-    rememberLastCamera(camera.id);
-    setSelected(camera);
-  }, []);
-
-  useEffect(() => {
-    if (autoOpenedRef.current || status.data?.connected !== true) return;
-    const available = cameraList.filter(
-      (camera) => camera.online && camera.protocols.includes("WEB_RTC"),
-    );
-    if (!available.length) return;
-    autoOpenedRef.current = true;
-    let lastId: string | null = null;
-    try {
-      lastId = window.localStorage.getItem(LAST_CAMERA_KEY);
-    } catch {
-      // Fall back to the first available camera.
-    }
-    openCamera(available.find((camera) => camera.id === lastId) ?? available[0]!);
-  }, [cameraList, openCamera, status.data?.connected]);
-
   return (
     <div className="space-y-5">
       <div>
         <PageHeader title="Cameras" />
-        <p className="mt-1 text-muted-foreground">Your last camera opens live automatically</p>
+        <p className="mt-1 text-muted-foreground">All available cameras start live automatically</p>
       </div>
 
       {status.isLoading && cameraList.length === 0 ? (
@@ -267,25 +251,23 @@ export default function Cameras() {
             <Button variant="outline" size="sm" onClick={() => devices.refetch()} disabled={devices.isFetching}><RefreshCw className={`mr-2 h-4 w-4 ${devices.isFetching ? "animate-spin" : ""}`} /> Refresh</Button>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {cameraList.map((device) => (
-              <button key={device.id} onClick={() => openCamera(device)} disabled={!device.online || !device.protocols.includes("WEB_RTC")}
-                className="group min-h-48 overflow-hidden rounded-3xl bg-slate-900 text-left text-white shadow-sm transition-transform enabled:active:scale-[0.98] disabled:opacity-60">
-                <div className="flex h-full min-h-48 flex-col justify-between bg-gradient-to-br from-slate-800 to-slate-950 p-5">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10"><Video className="h-6 w-6" /></span>
-                  <div>
-                    <h2 className="text-xl font-bold">{device.name}</h2>
-                    <p className="mt-1 flex items-center gap-2 text-sm text-slate-300">
-                      <span className={`h-2.5 w-2.5 rounded-full ${device.online ? "bg-green-400" : "bg-slate-500"}`} />
-                      {!device.online
-                        ? "Live video unavailable"
-                        : device.protocols.includes("WEB_RTC")
-                          ? "Tap to view live"
-                          : "This camera requires Google Home migration"}
-                    </p>
-                  </div>
-                </div>
-              </button>
-            ))}
+            {cameraList.map((device) =>
+              device.online && device.protocols.includes("WEB_RTC") ? (
+                <LiveCamera key={device.id} camera={device} />
+              ) : (
+                <Card key={device.id} className="overflow-hidden rounded-3xl border-0 bg-slate-900 text-white shadow-sm opacity-70">
+                  <CardContent className="flex aspect-video flex-col items-center justify-center gap-3 p-5 text-center">
+                    <VideoOff className="h-9 w-9 text-slate-400" />
+                    <div>
+                      <h2 className="font-bold">{device.name}</h2>
+                      <p className="mt-1 text-sm text-slate-300">
+                        {device.online ? "Google Home migration required" : "Live video unavailable"}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ),
+            )}
           </div>
           {cameraList.length === 0 && (
             <Card className="rounded-3xl border-0"><CardContent className="flex min-h-52 flex-col items-center justify-center gap-3 text-center">
@@ -297,7 +279,11 @@ export default function Cameras() {
           )}
         </>
       )}
-      <CameraViewer camera={selected} open={selected !== null} onOpenChange={(open) => { if (!open) setSelected(null); }} />
+      {cameraList.length > 0 && status.data?.connected && (
+        <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
+          <ShieldCheck className="h-4 w-4 text-green-600" /> Live video is not stored by LunamHub. Streams stop when you leave this page.
+        </p>
+      )}
     </div>
   );
 }
