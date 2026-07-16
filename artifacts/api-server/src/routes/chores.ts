@@ -25,6 +25,8 @@ import {
 import { eq, sql, lt, and, count, inArray } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcrypt";
+import { calculateChoreStreak } from "../lib/choreStreak";
+import { dayOfWeek, householdDate } from "../lib/householdDate";
 
 const ChoreApproveBodySchema = z.object({
   parentId: z.number().int().positive().optional(),
@@ -54,7 +56,7 @@ const router = Router();
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function todayStr() {
-  return new Date().toISOString().split("T")[0]!;
+  return householdDate();
 }
 
 async function getMemberById(id: number | null | undefined) {
@@ -204,7 +206,7 @@ async function generateTodayInstances() {
     .from(choreTemplateChildrenTable)
     .where(inArray(choreTemplateChildrenTable.templateId, templateIds));
 
-  const todayDow = new Date().getDay(); // 0=Sun … 6=Sat
+  const todayDow = dayOfWeek(today); // 0=Sun … 6=Sat
 
   for (const template of templates) {
     if (template.repeatType === "once") continue; // seeded at creation, not regenerated
@@ -239,9 +241,9 @@ async function generateTodayInstances() {
       try {
         targetDays = template.daysOfWeek
           ? (JSON.parse(template.daysOfWeek) as number[])
-          : [template.createdAt.getDay()];
+          : [dayOfWeek(householdDate(template.createdAt))];
       } catch {
-        targetDays = [template.createdAt.getDay()];
+        targetDays = [dayOfWeek(householdDate(template.createdAt))];
       }
       if (!targetDays.includes(todayDow)) continue;
 
@@ -375,7 +377,7 @@ router.post("/", async (req, res) => {
   // For weekly: store caller-supplied daysOfWeek or default to today's DOW
   const daysOfWeekJson =
     body.repeatType === "weekly"
-      ? JSON.stringify(body.daysOfWeek ?? [new Date().getDay()])
+      ? JSON.stringify(body.daysOfWeek ?? [dayOfWeek(today)])
       : null;
 
   const [template] = await db
@@ -680,19 +682,6 @@ router.post("/:id/reject", async (req, res) => {
 
 // ── Badge awarding ─────────────────────────────────────────────────────────────
 
-function maxConsecutiveDays(sortedDates: string[]): number {
-  if (sortedDates.length === 0) return 0;
-  let maxStreak = 1, streak = 1;
-  for (let i = 1; i < sortedDates.length; i++) {
-    const prev = new Date(sortedDates[i - 1]! + "T12:00:00Z").getTime();
-    const curr = new Date(sortedDates[i]! + "T12:00:00Z").getTime();
-    const diffDays = Math.round((curr - prev) / 86400000);
-    if (diffDays === 1) { streak++; if (streak > maxStreak) maxStreak = streak; }
-    else if (diffDays > 1) { streak = 1; }
-  }
-  return maxStreak;
-}
-
 const DEFAULT_POINT_MILESTONES = [
   { threshold: 50,   title: "First Steps",     emoji: "⭐",  tier: "bronze" as const, bonusPoints: 5,  description: "Earned 50 lifetime points",   active: true },
   { threshold: 100,  title: "Point Collector", emoji: "🌟",  tier: "bronze" as const, bonusPoints: 10, description: "Earned 100 lifetime points",  active: true },
@@ -745,14 +734,8 @@ async function checkAndAwardBadges(memberId: number, lifetimePoints: number) {
     bonusPoints: m.bonusPoints,
   }));
 
-  const txDates = await db
-    .select({ earnedOn: sql<string>`DATE(${pointTransactionsTable.createdAt})` })
-    .from(pointTransactionsTable)
-    .where(
-      sql`${pointTransactionsTable.memberId} = ${memberId} AND ${pointTransactionsTable.amount} > 0 AND ${pointTransactionsTable.type} = 'chore_earned'`,
-    );
-  const uniqueDates = [...new Set(txDates.map((t) => t.earnedOn))].sort();
-  const longestStreak = maxConsecutiveDays(uniqueDates);
+  const allInstances = await db.select().from(choreInstancesTable);
+  const longestStreak = calculateChoreStreak(allInstances, memberId, todayStr()).longest;
 
   // Load active streak milestones from DB (with fallback defaults if none configured)
   let dbStreakMilestones = await db

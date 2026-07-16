@@ -14,12 +14,14 @@ import {
 } from "@workspace/db";
 import { eq, gte, lte, inArray, and, or, isNull, isNotNull } from "drizzle-orm";
 import { pointTransactionsTable } from "@workspace/db";
+import { calculateChoreStreak } from "../lib/choreStreak";
+import { householdDate } from "../lib/householdDate";
 
 const router = Router();
 
 function today(clientDate?: string) {
   if (clientDate && /^\d{4}-\d{2}-\d{2}$/.test(clientDate)) return clientDate;
-  return new Date().toISOString().split("T")[0]!; // YYYY-MM-DD UTC fallback
+  return householdDate();
 }
 
 function addDays(dateStr: string, days: number) {
@@ -209,37 +211,10 @@ router.get("/summary", async (req, res) => {
   // Per-child chore streaks — computed from all historical chore_instances
   const allInstances = await db.select().from(choreInstancesTable);
 
-  function computeStreak(childId: number): number {
-    const childInstances = allInstances.filter((i) => i.childId === childId);
-    const byDate: Record<string, typeof choreInstancesTable.$inferSelect[]> = {};
-    for (const inst of childInstances) {
-      if (!byDate[inst.dueDate]) byDate[inst.dueDate] = [];
-      byDate[inst.dueDate]!.push(inst);
-    }
-    // Walk backwards from yesterday; skip days with no chores; stop at first incomplete day
-    let streak = 0;
-    let cursor = todayStr;
-    for (let i = 0; i < 365; i++) {
-      // Step back one day
-      const d = new Date(cursor);
-      d.setDate(d.getDate() - 1);
-      cursor = d.toISOString().split("T")[0]!;
-      const dayInstances = byDate[cursor];
-      if (!dayInstances || dayInstances.length === 0) continue; // no chores that day — skip, don't break
-      const allDone = dayInstances.every((inst) => inst.status === "done");
-      if (allDone) {
-        streak++;
-      } else {
-        break; // incomplete day — streak ends
-      }
-    }
-    return streak;
-  }
-
   const children = familyMembers.filter((m) => m.role === "child");
   const streaks = children.map((m) => ({
     memberId: m.id,
-    currentStreak: computeStreak(m.id),
+    currentStreak: calculateChoreStreak(allInstances, m.id, todayStr).current,
   }));
 
   res.json({
