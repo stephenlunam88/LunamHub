@@ -22,16 +22,17 @@ COPY scripts/package.json scripts/package.json
 RUN --mount=type=cache,id=lunamhub-pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 
+# Create the production dependency tree before copying source so this layer is
+# also reused for source-only changes.
+# --legacy bypasses the ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE restriction in
+# pnpm v10 that requires inject-workspace-packages to be enabled.
+RUN pnpm --filter @workspace/api-server deploy --prod --legacy /app/api-deploy
+
 # Application source changes are copied after dependencies are installed.
 COPY . .
 
 # Build the API — produces artifacts/api-server/dist/index.mjs + pino workers
 RUN pnpm --filter @workspace/api-server run build
-
-# Create a self-contained production deployment folder.
-# --legacy bypasses the ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE restriction in
-# pnpm v10 that requires inject-workspace-packages to be enabled.
-RUN pnpm --filter @workspace/api-server deploy --prod --legacy /app/api-deploy
 
 # ── Stage 2: runtime ──────────────────────────────────────────────────────────
 FROM node:24-slim AS runtime
