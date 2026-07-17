@@ -26,7 +26,8 @@ RUN --mount=type=cache,id=lunamhub-pnpm-store,target=/root/.local/share/pnpm/sto
 # also reused for source-only changes.
 # --legacy bypasses the ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE restriction in
 # pnpm v10 that requires inject-workspace-packages to be enabled.
-RUN pnpm --filter @workspace/api-server deploy --prod --legacy /app/api-deploy
+RUN --mount=type=cache,id=lunamhub-pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm --filter @workspace/api-server deploy --prod --legacy /app/api-deploy
 
 # Application source changes are copied after dependencies are installed.
 COPY . .
