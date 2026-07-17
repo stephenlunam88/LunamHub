@@ -11,6 +11,7 @@ import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MemberAvatar } from "@/components/MemberAvatar";
+import { WeatherWidget } from "@/components/WeatherWidget";
 import {
   Trophy,
   CheckCircle2,
@@ -546,6 +547,7 @@ export default function Dashboard() {
             </small>
           </Link>
         </div>
+        <WeatherWidget />
         <Card className="rounded-3xl border-0 bg-blue-50">
           <CardHeader>
             <CardTitle className="text-base">Today</CardTitle>
@@ -624,6 +626,7 @@ export default function Dashboard() {
 
         {/* ── Col 1: Events ── */}
         <div className="row-start-2 flex flex-col gap-4 min-h-0 overflow-hidden">
+          <WeatherWidget compact />
           <Card
             className="rounded-3xl shadow-sm border-0 flex flex-col overflow-hidden flex-1 min-h-0"
             style={{ backgroundColor: "hsl(210 80% 52% / 0.07)" }}

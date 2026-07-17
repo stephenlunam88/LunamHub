@@ -1169,6 +1169,20 @@ export default function Chores() {
     setAddPinError(null);
   };
 
+  useEffect(() => {
+    const handleQuickAction = (event: Event) => {
+      const action = (event as CustomEvent<string>).detail;
+      if (action === "add") {
+        resetAddDialog();
+        setOpen(true);
+      } else if (action === "approval") {
+        setActiveTab("approval");
+      }
+    };
+    window.addEventListener("lunamhub:quick-action", handleQuickAction);
+    return () => window.removeEventListener("lunamhub:quick-action", handleQuickAction);
+  }, []);
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: getListChoresQueryKey() });
     qc.invalidateQueries({ queryKey: getGetChoresSummaryQueryKey() });

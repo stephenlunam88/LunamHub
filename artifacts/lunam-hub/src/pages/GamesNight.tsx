@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
@@ -1807,6 +1807,16 @@ export default function GamesNight() {
   const [pinOpen, setPinOpen] = useState(false);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState(false);
+  useEffect(() => {
+    const handleQuickAction = (event: Event) => {
+      if ((event as CustomEvent<string>).detail === "record") {
+        setEditResult(null);
+        setRecordOpen(true);
+      }
+    };
+    window.addEventListener("lunamhub:quick-action", handleQuickAction);
+    return () => window.removeEventListener("lunamhub:quick-action", handleQuickAction);
+  }, []);
   const { data: games = [] } = useQuery({
     queryKey: ["games-night", "games", "all"],
     queryFn: () => api<Game[]>("/games?includeArchived=true"),

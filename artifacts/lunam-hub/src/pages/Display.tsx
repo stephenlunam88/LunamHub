@@ -2,69 +2,18 @@ import { useEffect, useState, useCallback } from "react";
 import { useGetSettings, useListScreensaverPhotos, getGetSettingsQueryKey, getListScreensaverPhotosQueryKey } from "@workspace/api-client-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
-
-// WMO weather code → emoji + label
-const WMO: Record<number, { emoji: string; label: string }> = {
-  0:  { emoji: "☀️",  label: "Clear" },
-  1:  { emoji: "🌤️", label: "Mainly clear" },
-  2:  { emoji: "⛅",  label: "Partly cloudy" },
-  3:  { emoji: "☁️",  label: "Overcast" },
-  45: { emoji: "🌫️", label: "Foggy" },
-  48: { emoji: "🌫️", label: "Foggy" },
-  51: { emoji: "🌦️", label: "Light drizzle" },
-  53: { emoji: "🌦️", label: "Drizzle" },
-  55: { emoji: "🌧️", label: "Heavy drizzle" },
-  61: { emoji: "🌧️", label: "Light rain" },
-  63: { emoji: "🌧️", label: "Rain" },
-  65: { emoji: "🌧️", label: "Heavy rain" },
-  71: { emoji: "❄️",  label: "Light snow" },
-  73: { emoji: "❄️",  label: "Snow" },
-  75: { emoji: "❄️",  label: "Heavy snow" },
-  77: { emoji: "❄️",  label: "Snow grains" },
-  80: { emoji: "🌦️", label: "Rain showers" },
-  81: { emoji: "🌧️", label: "Showers" },
-  82: { emoji: "🌧️", label: "Heavy showers" },
-  85: { emoji: "❄️",  label: "Snow showers" },
-  86: { emoji: "❄️",  label: "Heavy snow showers" },
-  95: { emoji: "⛈️",  label: "Thunderstorm" },
-  96: { emoji: "⛈️",  label: "Thunderstorm + hail" },
-  99: { emoji: "⛈️",  label: "Thunderstorm + hail" },
-};
-
-function wmoInfo(code: number) {
-  return WMO[code] ?? { emoji: "🌡️", label: "" };
-}
-
-interface Weather {
-  temp: number;
-  code: number;
-  city: string;
-}
-
-async function fetchWeather(city: string): Promise<Weather | null> {
-  try {
-    const geoRes = await fetch(
-      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en`,
-    );
-    const geo = await geoRes.json();
-    if (!geo.results?.length) return null;
-    const { latitude, longitude, name } = geo.results[0];
-    const wxRes = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&temperature_unit=celsius`,
-    );
-    const wx = await wxRes.json();
-    return { temp: Math.round(wx.current.temperature_2m), code: wx.current.weather_code, city: name };
-  } catch {
-    return null;
-  }
-}
+import {
+  bomWeatherIcon,
+  getBomWeather,
+  type BomWeather,
+} from "@/components/WeatherWidget";
 
 export default function Display() {
   const [, navigate]  = useLocation();
   const [now, setNow] = useState(new Date());
   const [photoIdx, setPhotoIdx] = useState(0);
   const [fade, setFade]         = useState(true);
-  const [weather, setWeather]   = useState<Weather | null>(null);
+  const [weather, setWeather]   = useState<BomWeather | null>(null);
 
   const { data: settings } = useGetSettings({ query: { queryKey: getGetSettingsQueryKey() } });
   const { data: photos = [] } = useListScreensaverPhotos({
@@ -93,10 +42,12 @@ export default function Display() {
 
   // Weather: fetch on mount + every 30 min
   useEffect(() => {
-    const city = settings?.weatherCity;
-    if (!city) return;
-    fetchWeather(city).then(w => { if (w) setWeather(w); });
-    const t = setInterval(() => fetchWeather(city).then(w => { if (w) setWeather(w); }), 30 * 60_000);
+    if (!settings?.weatherCity) return;
+    getBomWeather().then(setWeather).catch(() => undefined);
+    const t = setInterval(
+      () => getBomWeather().then(setWeather).catch(() => undefined),
+      30 * 60_000,
+    );
     return () => clearInterval(t);
   }, [settings?.weatherCity]);
 
@@ -122,7 +73,7 @@ export default function Display() {
   const dismiss = useCallback(() => navigate("/"), [navigate]);
 
   const currentPhoto = photos[photoIdx];
-  const wx = weather ? wmoInfo(weather.code) : null;
+  const todayWeather = weather?.forecast?.[0];
 
   return (
     <div
@@ -166,16 +117,23 @@ export default function Display() {
       </div>
 
       {/* ── Weather (bottom-left) ─────────────────────────────────────── */}
-      {weather && wx && (
+      {weather?.configured && todayWeather && (
         <div className="absolute bottom-8 left-8 text-white pointer-events-none">
           <div className="flex items-center gap-4">
-            <span style={{ fontSize: "clamp(2.5rem,5vw,4rem)" }}>{wx.emoji}</span>
+            <span style={{ fontSize: "clamp(2.5rem,5vw,4rem)" }}>
+              {bomWeatherIcon(todayWeather.iconCode)}
+            </span>
             <div>
               <div className="font-bold" style={{ fontSize: "clamp(2rem,4vw,3.5rem)" }}>
-                {weather.temp}°C
+                {todayWeather.min !== null ? `${todayWeather.min}° / ` : ""}
+                {todayWeather.max !== null ? `${todayWeather.max}°` : ""}
               </div>
               <div className="text-white/65" style={{ fontSize: "clamp(0.9rem,1.5vw,1.4rem)" }}>
-                {wx.label}{weather.city ? ` · ${weather.city}` : ""}
+                {todayWeather.summary}
+                {weather.location ? ` · ${weather.location}` : ""}
+                {todayWeather.rainMax !== null
+                  ? ` · Rain ${todayWeather.rainMin ?? 0}–${todayWeather.rainMax} mm`
+                  : ""}
               </div>
             </div>
           </div>

@@ -75,10 +75,28 @@ export default function Lists() {
     new URLSearchParams(window.location.search).get("quick") === "item";
 
   useEffect(() => {
-    if (!quickItem || lists.length === 0) return;
+    if (!quickItem) return;
+    if (lists.length === 0) {
+      setListOpen(true);
+      return;
+    }
     setSelectedListId((current) => current ?? lists[0]!.id);
     window.setTimeout(() => itemInputRef.current?.focus(), 100);
   }, [lists, quickItem]);
+
+  useEffect(() => {
+    const handleQuickAction = (event: Event) => {
+      if ((event as CustomEvent<string>).detail !== "item") return;
+      if (lists.length === 0) {
+        setListOpen(true);
+        return;
+      }
+      setSelectedListId((current) => current ?? lists[0]!.id);
+      window.setTimeout(() => itemInputRef.current?.focus(), 100);
+    };
+    window.addEventListener("lunamhub:quick-action", handleQuickAction);
+    return () => window.removeEventListener("lunamhub:quick-action", handleQuickAction);
+  }, [lists]);
 
   const invalidateLists = () =>
     qc.invalidateQueries({ queryKey: getListListsQueryKey() });

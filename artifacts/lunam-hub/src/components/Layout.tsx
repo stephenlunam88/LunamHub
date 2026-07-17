@@ -15,7 +15,6 @@ import {
   MonitorPlay,
   Plus,
   Settings,
-  UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -68,12 +67,6 @@ const QUICK_ACTIONS = [
     help: "Quickly add to an existing list",
     icon: ListPlus,
   },
-  {
-    href: "/games?quick=record",
-    label: "Add guest",
-    help: "Add a guest during game entry",
-    icon: UserPlus,
-  },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -89,6 +82,15 @@ export function Layout({ children }: { children: ReactNode }) {
   const go = (href: string) => {
     setQuickOpen(false);
     setMoreOpen(false);
+    const target = new URL(href, window.location.origin);
+    if (target.pathname === path) {
+      window.dispatchEvent(
+        new CustomEvent("lunamhub:quick-action", {
+          detail: target.searchParams.get("quick"),
+        }),
+      );
+      return;
+    }
     navigate(href);
   };
 
@@ -96,21 +98,21 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
       <main
         className={cn(
-          "min-h-0 flex-1 overflow-y-auto pt-[env(safe-area-inset-top)] md:pt-0",
+          "min-h-0 flex-1 overflow-y-auto pt-[env(safe-area-inset-top)] md:pb-20 md:pt-0",
           (isDashboard || isCalendar) && "md:overflow-hidden",
         )}
       >
         <div
           className={cn(
             "pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-0",
-            (isDashboard || isCalendar) && "h-full",
+            (isDashboard || isCalendar) && "md:h-full",
             !isDashboard &&
               !isCalendar &&
-              "mx-auto max-w-5xl px-4 pt-4 md:px-6 md:pt-6 md:pb-24",
+              "mx-auto max-w-5xl px-4 pt-4 md:px-6 md:pt-6",
           )}
         >
           {isCalendar ? (
-            <div className="h-full px-4 pt-4 md:px-6 md:pt-6 md:pb-4">
+            <div className="px-4 pt-4 md:h-full md:px-6 md:pt-6 md:pb-4">
               {children}
             </div>
           ) : (

@@ -24,6 +24,7 @@ import storageRouter from "./storage";
 import googleAuthRouter from "./google-auth";
 import { gamesNightRouter } from "./games-night";
 import { googleNestRouter } from "./google-nest";
+import { weatherRouter } from "./weather";
 import { requireAuth } from "../middleware/requireAuth";
 
 const router: IRouter = Router();
@@ -55,6 +56,7 @@ router.use("/point-milestones", pointMilestonesRouter);
 router.use("/chore-milestones", choreMilestonesRouter);
 router.use("/games-night", gamesNightRouter);
 router.use("/google-nest", googleNestRouter);
+router.use("/weather", weatherRouter);
 router.use(storageRouter);
 router.use(googleAuthRouter);
 

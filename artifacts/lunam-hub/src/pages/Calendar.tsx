@@ -328,6 +328,11 @@ export default function Calendar() {
     if (new URLSearchParams(window.location.search).get("quick") === "add") {
       openCreate(new Date());
     }
+    const handleQuickAction = (event: globalThis.Event) => {
+      if ((event as CustomEvent<string>).detail === "add") openCreate(new Date());
+    };
+    window.addEventListener("lunamhub:quick-action", handleQuickAction);
+    return () => window.removeEventListener("lunamhub:quick-action", handleQuickAction);
     // Open once when entering from mobile Quick Add.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -440,8 +445,8 @@ export default function Calendar() {
   }, [days, events]);
 
   return (
-    <div className="flex flex-col h-full gap-4 animate-in fade-in duration-300">
-      <div className="flex items-center justify-between gap-3 flex-wrap shrink-0">
+    <div className="flex flex-col gap-4 animate-in fade-in duration-300 md:h-full">
+      <div className="grid gap-3 shrink-0 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-4xl font-serif font-bold">Calendar</h1>
           {isConnected && (
@@ -454,14 +459,14 @@ export default function Calendar() {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           {/* Member filter toggle */}
           {familyMembers.length > 0 && (
-            <div className="flex items-center gap-1.5 bg-muted/60 rounded-2xl p-1.5 h-14">
+            <div className="flex h-12 min-w-0 flex-1 items-center gap-1.5 overflow-x-auto rounded-2xl bg-muted/60 p-1.5 sm:h-14">
               <button
                 onClick={() => setFilterMemberId(null)}
                 className={cn(
-                  "flex items-center gap-2 px-4 h-full rounded-xl text-base font-medium transition-colors",
+                  "flex shrink-0 items-center gap-2 px-3 h-full rounded-xl text-sm font-medium transition-colors sm:px-4 sm:text-base",
                   filterMemberId === null
                     ? "bg-background shadow-sm text-foreground"
                     : "text-muted-foreground hover:text-foreground",
@@ -477,7 +482,7 @@ export default function Calendar() {
                     setFilterMemberId((prev) => (prev === m.id ? null : m.id))
                   }
                   className={cn(
-                    "flex items-center gap-2 px-4 h-full rounded-xl text-base font-medium transition-colors",
+                    "flex shrink-0 items-center gap-2 px-3 h-full rounded-xl text-sm font-medium transition-colors sm:px-4 sm:text-base",
                     filterMemberId === m.id
                       ? "bg-background shadow-sm text-foreground"
                       : "text-muted-foreground hover:text-foreground",
@@ -504,10 +509,10 @@ export default function Calendar() {
             </div>
           )}
           <Button
-            className="h-14 px-6 rounded-2xl text-lg gap-2"
+            className="h-12 shrink-0 rounded-2xl px-4 text-base gap-2 sm:h-14 sm:px-6 sm:text-lg"
             onClick={() => openCreate(selectedDay)}
           >
-            <Plus className="w-5 h-5" /> Add Event
+            <Plus className="w-5 h-5" /> <span className="hidden min-[390px]:inline">Add Event</span>
           </Button>
         </div>
       </div>
@@ -846,9 +851,9 @@ export default function Calendar() {
         </DialogContent>
       </Dialog>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1 min-h-0">
+      <div className="grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-4">
         {/* ── Month calendar ──────────────────────────────────────────────── */}
-        <Card className="lg:col-span-3 rounded-3xl border-0 shadow-sm flex flex-col overflow-hidden">
+        <Card className="h-[340px] rounded-3xl border-0 shadow-sm flex flex-col overflow-hidden lg:col-span-3 lg:h-auto">
           <CardHeader className="flex-row items-center justify-between pb-3 shrink-0">
             <Button
               variant="ghost"
@@ -967,13 +972,13 @@ export default function Calendar() {
         </Card>
 
         {/* ── Day panel ───────────────────────────────────────────────────── */}
-        <Card className="rounded-3xl border-0 shadow-sm flex flex-col overflow-hidden">
+        <Card className="rounded-3xl border-0 shadow-sm flex flex-col overflow-visible lg:overflow-hidden">
           <CardHeader className="shrink-0">
             <CardTitle className="text-xl font-serif">
               {format(selectedDay, "EEEE, MMM d")}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 overflow-y-auto flex-1 min-h-0">
+          <CardContent className="space-y-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
             {selectedDayEvents.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">
                 No events this day

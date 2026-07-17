@@ -1500,7 +1500,7 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label>Weather City</Label>
-              <p className="text-xs text-muted-foreground mb-1.5">Shown on the screensaver. E.g. "Sydney" or "London"</p>
+              <p className="text-xs text-muted-foreground mb-1.5">BOM forecast location shown on the dashboard and screensaver. E.g. "Sydney"</p>
               <Input
                 value={settingsForm.weatherCity}
                 placeholder="e.g. Sydney"
