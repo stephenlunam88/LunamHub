@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface AuthStatus {
@@ -18,8 +19,19 @@ export function useAuth() {
     queryKey: ["auth-status"],
     queryFn: fetchAuthStatus,
     staleTime: 60_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: "always",
     retry: false,
   });
+
+  useEffect(() => {
+    const refreshAuth = () => {
+      void qc.invalidateQueries({ queryKey: ["auth-status"] });
+    };
+    window.addEventListener("lunamhub:unauthorized", refreshAuth);
+    return () =>
+      window.removeEventListener("lunamhub:unauthorized", refreshAuth);
+  }, [qc]);
 
   const authenticated = data?.authenticated ?? false;
   const passwordRequired = data?.passwordRequired ?? false;
