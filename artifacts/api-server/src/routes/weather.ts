@@ -27,6 +27,10 @@ const CAPITAL_PRODUCTS: Record<string, (typeof BOM_PRODUCTS)[number]> = {
   sydney: "IDN11060",
 };
 
+const LOCATION_ALIASES: Record<string, string> = {
+  cranebrook: "Penrith",
+};
+
 type BomNode = Record<string, unknown>;
 type ForecastDay = {
   date: string;
@@ -174,22 +178,27 @@ async function fetchProduct(product: string, city: string) {
 }
 
 async function loadForecast(city: string): Promise<WeatherResponse | null> {
-  const capitalProduct = CAPITAL_PRODUCTS[city.trim().toLowerCase()];
+  const lookupCity =
+    LOCATION_ALIASES[city.trim().toLowerCase()] ?? city;
+  const capitalProduct = CAPITAL_PRODUCTS[lookupCity.trim().toLowerCase()];
   const products = capitalProduct
     ? [capitalProduct]
     : [...BOM_PRODUCTS];
   const results = await Promise.allSettled(
-    products.map((product) => fetchProduct(product, city)),
+    products.map((product) => fetchProduct(product, lookupCity)),
   );
   if (results.every((result) => result.status === "rejected")) {
     throw new Error("Every BOM forecast feed request failed");
   }
-  return (
+  const value =
     results.find(
       (result): result is PromiseFulfilledResult<WeatherResponse> =>
         result.status === "fulfilled" && result.value !== null,
-    )?.value ?? null
-  );
+    )?.value ?? null;
+  if (value && lookupCity !== city) {
+    value.location = `${city} (${value.location} forecast)`;
+  }
+  return value;
 }
 
 router.get("/", async (_req, res) => {
