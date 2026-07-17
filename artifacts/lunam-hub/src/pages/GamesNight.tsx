@@ -1865,13 +1865,13 @@ export default function GamesNight() {
   const activeGames = games.filter((g) => g.active);
   const leaders = dashboard?.leaderboard ?? [];
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-4 animate-in fade-in duration-300 sm:space-y-6">
       <PageHeader
         title="Games Night"
         icon={<Dice5 className="h-8 w-8 text-primary" />}
         actions={
           <Button
-            className="h-14 rounded-2xl px-7 text-lg gap-2"
+            className="h-12 w-full rounded-2xl px-5 text-base gap-2 sm:h-14 sm:w-auto sm:px-7 sm:text-lg"
             onClick={() => {
               setEditResult(null);
               setRecordOpen(true);
@@ -1882,24 +1882,24 @@ export default function GamesNight() {
         }
       />
       <Tabs defaultValue="leaderboard">
-        <TabsList className="h-14 rounded-2xl p-1">
-          <TabsTrigger value="leaderboard" className="h-11 rounded-xl px-6">
+        <TabsList className="grid h-14 w-full grid-cols-3 rounded-2xl p-1">
+          <TabsTrigger value="leaderboard" className="h-11 min-w-0 rounded-xl px-2 sm:px-6">
             <Trophy className="mr-2 h-4 w-4" /> Leaderboard
           </TabsTrigger>
-          <TabsTrigger value="history" className="h-11 rounded-xl px-6">
+          <TabsTrigger value="history" className="h-11 min-w-0 rounded-xl px-2 sm:px-6">
             <History className="mr-2 h-4 w-4" /> History
           </TabsTrigger>
           <TabsTrigger
             value="manage"
-            className="h-11 rounded-xl px-6"
+            className="h-11 min-w-0 rounded-xl px-2 sm:px-6"
             onClick={() => !adminUnlocked && setPinOpen(true)}
           >
             <Settings className="mr-2 h-4 w-4" /> Manage
           </TabsTrigger>
         </TabsList>
         <TabsContent value="leaderboard" className="space-y-5">
-          <div className="flex flex-wrap gap-3">
-            <div className="flex rounded-2xl bg-muted p-1">
+          <div className="grid gap-3 sm:flex sm:flex-wrap">
+            <div className="grid grid-cols-2 rounded-2xl bg-muted p-1 sm:flex">
               <Button
                 variant={period === "overall" ? "default" : "ghost"}
                 className="rounded-xl"
@@ -1916,7 +1916,7 @@ export default function GamesNight() {
               </Button>
             </div>
             <Select value={gameFilter} onValueChange={setGameFilter}>
-              <SelectTrigger className="h-12 w-60 rounded-xl">
+              <SelectTrigger className="h-12 w-full rounded-xl sm:w-60">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

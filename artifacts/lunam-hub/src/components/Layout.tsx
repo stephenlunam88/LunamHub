@@ -103,6 +103,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div
           className={cn(
             "pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-0",
+            (isDashboard || isCalendar) && "h-full",
             !isDashboard &&
               !isCalendar &&
               "mx-auto max-w-5xl px-4 pt-4 md:px-6 md:pt-6 md:pb-24",
@@ -120,7 +121,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="Mobile navigation"
-        className="fixed inset-x-0 bottom-0 z-50 grid h-[calc(76px+env(safe-area-inset-bottom))] grid-cols-5 items-start border-t bg-card px-1 pt-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 grid h-[calc(76px+env(safe-area-inset-bottom))] grid-cols-5 items-start border-t bg-card px-1 pt-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(0,0,0,0.08)] [transform:translateZ(0)] md:hidden"
       >
         <MobileLink href="/" label="Home" icon={Home} location={path} />
         <MobileLink

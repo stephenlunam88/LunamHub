@@ -13,9 +13,9 @@ export function PageHeader({ title, icon, actions, className }: PageHeaderProps)
     <header className={cn("flex shrink-0 flex-wrap items-center justify-between gap-3", className)}>
       <div className="flex min-w-0 items-center gap-3">
         {icon}
-        <h1 className="truncate font-serif text-4xl font-bold">{title}</h1>
+        <h1 className="truncate font-serif text-3xl font-bold sm:text-4xl">{title}</h1>
       </div>
-      {actions && <div className="flex flex-wrap items-center justify-end gap-3">{actions}</div>}
+      {actions && <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto sm:justify-end">{actions}</div>}
     </header>
   );
 }

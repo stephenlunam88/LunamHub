@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Camera, ExternalLink, Loader2, RefreshCw, ShieldCheck, VideoOff } from "lucide-react";
+import { Camera, ExternalLink, Loader2, Minimize2, RefreshCw, ShieldCheck, VideoOff } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -45,12 +45,12 @@ async function getJson<T>(url: string): Promise<T> {
 }
 
 function LiveCamera({ camera }: { camera: NestDevice }) {
-  const cardRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const connectionRef = useRef<RTCPeerConnection | null>(null);
   const sessionRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   const stop = useCallback(async () => {
     const connection = connectionRef.current;
@@ -134,36 +134,32 @@ function LiveCamera({ camera }: { camera: NestDevice }) {
     };
   }, [start, stop]);
 
-  const openFullscreen = useCallback(async () => {
-    const card = cardRef.current;
-    const video = videoRef.current as (HTMLVideoElement & {
-      webkitEnterFullscreen?: () => void;
-    }) | null;
-    try {
-      if (card?.requestFullscreen) {
-        await card.requestFullscreen();
-      } else if (video?.webkitEnterFullscreen) {
-        video.webkitEnterFullscreen();
-      }
-    } catch {
-      // Fullscreen can be denied by browser policy; the inline stream remains available.
-    }
-  }, []);
-
   return (
     <Card
-      ref={cardRef}
       role="button"
       tabIndex={0}
       aria-label={`Open ${camera.name} full screen`}
-      onClick={() => void openFullscreen()}
+      onClick={() => setExpanded(true)}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") void openFullscreen();
+        if (event.key === "Enter" || event.key === " ") setExpanded(true);
       }}
-      className="cursor-pointer overflow-hidden rounded-3xl border-0 bg-slate-950 shadow-sm fullscreen:rounded-none"
+      className={expanded
+        ? "fixed inset-0 z-[70] m-0 cursor-pointer overflow-hidden rounded-none border-0 bg-black shadow-none"
+        : "cursor-pointer overflow-hidden rounded-3xl border-0 bg-slate-950 shadow-sm"}
     >
-      <div className="relative aspect-video bg-slate-950">
-        <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+      <div className={expanded ? "relative h-full w-full bg-black" : "relative aspect-video bg-slate-950"}>
+        <video ref={videoRef} autoPlay playsInline muted className={expanded ? "h-full w-full object-contain" : "h-full w-full object-cover"} />
+        {expanded && (
+          <Button
+            size="icon"
+            variant="secondary"
+            aria-label="Exit full screen"
+            className="absolute right-4 top-[calc(1rem+env(safe-area-inset-top))] z-20 h-12 w-12 rounded-full"
+            onClick={(event) => { event.stopPropagation(); setExpanded(false); }}
+          >
+            <Minimize2 className="h-6 w-6" />
+          </Button>
+        )}
         {loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white">
             <Loader2 className="h-8 w-8 animate-spin" />
