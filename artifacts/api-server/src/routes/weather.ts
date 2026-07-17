@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { XMLParser } from "fast-xml-parser";
+import { Client } from "basic-ftp";
+import { Writable } from "node:stream";
 import { db, settingsTable } from "@workspace/db";
 
 const router = Router();
@@ -149,15 +151,26 @@ function findLocation(xml: string, requestedCity: string): WeatherResponse | nul
 }
 
 async function fetchProduct(product: string, city: string) {
-  const response = await fetch(
-    `https://ftp.bom.gov.au/anon/gen/fwo/${product}.xml`,
-    {
-      headers: { "User-Agent": "LunamHub household display" },
-      signal: AbortSignal.timeout(15_000),
+  const client = new Client(15_000);
+  const chunks: Buffer[] = [];
+  const output = new Writable({
+    write(chunk: Buffer | string, _encoding, callback) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      callback();
     },
-  );
-  if (!response.ok) throw new Error(`BOM feed returned ${response.status}`);
-  return findLocation(await response.text(), city);
+  });
+  try {
+    await client.access({
+      host: "ftp.bom.gov.au",
+      user: "anonymous",
+      password: "lunamhub@localhost",
+      secure: false,
+    });
+    await client.downloadTo(output, `/anon/gen/fwo/${product}.xml`);
+    return findLocation(Buffer.concat(chunks).toString("utf8"), city);
+  } finally {
+    client.close();
+  }
 }
 
 async function loadForecast(city: string): Promise<WeatherResponse | null> {
