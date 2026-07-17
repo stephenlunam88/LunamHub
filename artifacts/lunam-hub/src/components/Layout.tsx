@@ -98,7 +98,7 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-background text-foreground">
       <main
         className={cn(
-          "min-h-0 flex-1 overflow-y-auto pt-[env(safe-area-inset-top)] md:pb-[calc(5rem+env(safe-area-inset-bottom))] md:pt-0",
+          "min-h-0 flex-1 overflow-y-auto pt-[env(safe-area-inset-top)] md:pb-20 md:pt-0",
           (isDashboard || isCalendar) && "md:overflow-hidden",
         )}
       >
@@ -154,7 +154,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="Main navigation"
-        className="absolute inset-x-0 bottom-0 z-50 hidden h-[calc(5rem+env(safe-area-inset-bottom))] items-center justify-around border-t border-border bg-card px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(0,0,0,0.06)] md:flex"
+        className="absolute inset-x-0 bottom-0 z-50 hidden h-20 items-center justify-around border-t border-border bg-card px-2 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] md:flex"
       >
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
