@@ -8,6 +8,7 @@ const router = Router();
 
 const BOM_PRODUCTS = [
   "IDD10207",
+  "IDN10064",
   "IDN11060",
   "IDQ11295",
   "IDS10044",
@@ -24,7 +25,7 @@ const CAPITAL_PRODUCTS: Record<string, (typeof BOM_PRODUCTS)[number]> = {
   hobart: "IDT16710",
   melbourne: "IDV10753",
   perth: "IDW14199",
-  sydney: "IDN11060",
+  sydney: "IDN10064",
 };
 
 const LOCATION_ALIASES: Record<string, string> = {
@@ -38,9 +39,6 @@ type ForecastDay = {
   max: number | null;
   summary: string;
   iconCode: number | null;
-  rainChance: number | null;
-  rainMin: number | null;
-  rainMax: number | null;
 };
 
 type WeatherResponse = {
@@ -85,16 +83,6 @@ function numberValue(value: string | null): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function rainRange(value: string | null) {
-  if (!value) return { rainMin: null, rainMax: null };
-  const values = value.match(/\d+(?:\.\d+)?/g)?.map(Number) ?? [];
-  if (values.length === 0) return { rainMin: null, rainMax: null };
-  return {
-    rainMin: values[0] ?? null,
-    rainMax: values[1] ?? values[0] ?? null,
-  };
-}
-
 function findLocation(xml: string, requestedCity: string): WeatherResponse | null {
   const parsed = parser.parse(xml) as BomNode;
   const product = child(parsed, "product") as BomNode | undefined;
@@ -125,21 +113,12 @@ function findLocation(xml: string, requestedCity: string): WeatherResponse | nul
       if (!date) return null;
       const elements = child(period, "element");
       const texts = child(period, "text");
-      const rain = rainRange(
-        valueFor(elements, "precipitation_range") ??
-          valueFor(texts, "precipitation_range"),
-      );
       return {
         date,
         min: numberValue(valueFor(elements, "air_temperature_minimum")),
         max: numberValue(valueFor(elements, "air_temperature_maximum")),
         summary: valueFor(texts, "precis") ?? "Forecast available",
         iconCode: numberValue(valueFor(elements, "forecast_icon_code")),
-        rainChance: numberValue(
-          valueFor(elements, "probability_of_precipitation") ??
-            valueFor(texts, "probability_of_precipitation"),
-        ),
-        ...rain,
       };
     })
     .filter((day): day is ForecastDay => day !== null)

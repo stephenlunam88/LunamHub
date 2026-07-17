@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { CloudRain, MapPin } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -9,9 +9,6 @@ export type WeatherDay = {
   max: number | null;
   summary: string;
   iconCode: number | null;
-  rainChance: number | null;
-  rainMin: number | null;
-  rainMax: number | null;
 };
 
 export type BomWeather = {
@@ -42,12 +39,6 @@ export async function getBomWeather(): Promise<BomWeather> {
   const data = (await response.json().catch(() => ({}))) as BomWeather;
   if (!response.ok) throw new Error(data.message ?? "Weather unavailable");
   return data;
-}
-
-function rainLabel(day: WeatherDay) {
-  if (day.rainMin === null && day.rainMax === null) return "0 mm";
-  if (day.rainMin === day.rainMax) return `${day.rainMin ?? day.rainMax} mm`;
-  return `${day.rainMin ?? 0}–${day.rainMax ?? 0} mm`;
 }
 
 export function WeatherWidget({ compact = false }: { compact?: boolean }) {
@@ -107,13 +98,6 @@ export function WeatherWidget({ compact = false }: { compact?: boolean }) {
               {today.max !== null ? `${today.max}°` : ""}
             </span>
           </div>
-          <div className="rounded-2xl bg-blue-100 px-3 py-2 text-right text-blue-900">
-            <span className="flex items-center justify-end gap-1 text-xs font-bold">
-              <CloudRain className="h-3.5 w-3.5" />
-              {today.rainChance ?? 0}%
-            </span>
-            <b className="whitespace-nowrap text-sm">{rainLabel(today)}</b>
-          </div>
         </div>
         {!compact && followingDays.length > 0 && (
           <div className="mt-3 grid grid-cols-3 gap-2 border-t border-sky-100 pt-3">
@@ -126,7 +110,7 @@ export function WeatherWidget({ compact = false }: { compact?: boolean }) {
                 </b>
                 <span className="text-lg">{bomWeatherIcon(day.iconCode)}</span>
                 <span className="block text-muted-foreground">
-                  {day.max !== null ? `${day.max}°` : "—"} · {rainLabel(day)}
+                  {day.max !== null ? `${day.max}°` : "—"}
                 </span>
               </div>
             ))}

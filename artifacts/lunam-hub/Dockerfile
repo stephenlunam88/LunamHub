@@ -7,10 +7,22 @@ RUN npm install -g pnpm@10.32.1
 
 WORKDIR /app
 
-# Copy the full monorepo (required for pnpm workspaces)
-COPY . .
+# Install dependencies in a layer that is invalidated only when a workspace
+# manifest or the lockfile changes. Source-only changes can reuse this layer.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY artifacts/api-server/package.json artifacts/api-server/package.json
+COPY artifacts/lunam-hub/package.json artifacts/lunam-hub/package.json
+COPY lib/api-client-react/package.json lib/api-client-react/package.json
+COPY lib/api-spec/package.json lib/api-spec/package.json
+COPY lib/api-zod/package.json lib/api-zod/package.json
+COPY lib/db/package.json lib/db/package.json
+COPY scripts/package.json scripts/package.json
 
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=lunamhub-pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
+
+# Application source changes are copied after dependencies are installed.
+COPY . .
 
 # vite.config.ts reads PORT and BASE_PATH at build time.
 # PORT is a dummy value (only used by the dev server, not the static build).

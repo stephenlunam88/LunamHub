@@ -131,9 +131,6 @@ export default function Display() {
               <div className="text-white/65" style={{ fontSize: "clamp(0.9rem,1.5vw,1.4rem)" }}>
                 {todayWeather.summary}
                 {weather.location ? ` · ${weather.location}` : ""}
-                {todayWeather.rainMax !== null
-                  ? ` · Rain ${todayWeather.rainMin ?? 0}–${todayWeather.rainMax} mm`
-                  : ""}
               </div>
             </div>
           </div>
