@@ -125,7 +125,10 @@ function findLocation(xml: string, requestedCity: string): WeatherResponse | nul
       if (!date) return null;
       const elements = child(period, "element");
       const texts = child(period, "text");
-      const rain = rainRange(valueFor(elements, "precipitation_range"));
+      const rain = rainRange(
+        valueFor(elements, "precipitation_range") ??
+          valueFor(texts, "precipitation_range"),
+      );
       return {
         date,
         min: numberValue(valueFor(elements, "air_temperature_minimum")),
@@ -133,7 +136,8 @@ function findLocation(xml: string, requestedCity: string): WeatherResponse | nul
         summary: valueFor(texts, "precis") ?? "Forecast available",
         iconCode: numberValue(valueFor(elements, "forecast_icon_code")),
         rainChance: numberValue(
-          valueFor(elements, "probability_of_precipitation"),
+          valueFor(elements, "probability_of_precipitation") ??
+            valueFor(texts, "probability_of_precipitation"),
         ),
         ...rain,
       };
@@ -145,11 +149,17 @@ function findLocation(xml: string, requestedCity: string): WeatherResponse | nul
   const amoc = child(product, "amoc") as BomNode | undefined;
   const issueTime =
     child(amoc, "issue-time-local") ?? child(amoc, "issue-time-utc") ?? null;
+  const issuedAt =
+    typeof issueTime === "object" && issueTime !== null
+      ? String((issueTime as BomNode)["#text"] ?? "")
+      : issueTime === null
+        ? null
+        : String(issueTime);
   return {
     configured: true,
     source: "Bureau of Meteorology",
     location: String(area["@_description"] ?? requestedCity),
-    issuedAt: issueTime === null ? null : String(issueTime),
+    issuedAt: issuedAt || null,
     forecast: days,
   };
 }
@@ -178,8 +188,8 @@ async function fetchProduct(product: string, city: string) {
 }
 
 async function loadForecast(city: string): Promise<WeatherResponse | null> {
-  const lookupCity =
-    LOCATION_ALIASES[city.trim().toLowerCase()] ?? city;
+  const alias = LOCATION_ALIASES[city.trim().toLowerCase()];
+  const lookupCity = alias ?? city;
   const capitalProduct = CAPITAL_PRODUCTS[lookupCity.trim().toLowerCase()];
   const products = capitalProduct
     ? [capitalProduct]
@@ -195,7 +205,7 @@ async function loadForecast(city: string): Promise<WeatherResponse | null> {
       (result): result is PromiseFulfilledResult<WeatherResponse> =>
         result.status === "fulfilled" && result.value !== null,
     )?.value ?? null;
-  if (value && lookupCity !== city) {
+  if (value && alias) {
     value.location = `${city} (${value.location} forecast)`;
   }
   return value;
