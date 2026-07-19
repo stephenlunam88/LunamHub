@@ -95,16 +95,16 @@ export function Layout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-background text-foreground">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground">
       <main
         className={cn(
-          "min-h-0 flex-1 overflow-y-auto pt-[env(safe-area-inset-top)] md:pb-20 md:pt-0",
+          "min-h-0 flex-1 overflow-y-auto pt-[env(safe-area-inset-top)] md:pt-0",
           (isDashboard || isCalendar) && "md:overflow-hidden",
         )}
       >
         <div
           className={cn(
-            "pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-0",
+            "pb-6 md:pb-0",
             (isDashboard || isCalendar) && "md:h-full",
             !isDashboard &&
               !isCalendar &&
@@ -123,7 +123,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="Mobile navigation"
-        className="absolute inset-x-0 bottom-0 z-50 grid h-[calc(76px+env(safe-area-inset-bottom))] grid-cols-5 items-start border-t bg-card px-1 pt-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden"
+        className="relative z-50 grid h-[calc(76px+env(safe-area-inset-bottom))] shrink-0 grid-cols-5 items-start border-t bg-card px-1 pt-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden"
       >
         <MobileLink href="/" label="Home" icon={Home} location={path} />
         <MobileLink
@@ -154,7 +154,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="Main navigation"
-        className="absolute inset-x-0 bottom-0 z-50 hidden h-20 items-center justify-around border-t border-border bg-card px-2 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] md:flex"
+        className="relative z-50 hidden h-20 shrink-0 items-center justify-around border-t border-border bg-card px-2 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] md:flex"
       >
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
