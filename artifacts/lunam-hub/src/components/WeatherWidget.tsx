@@ -16,6 +16,8 @@ export type BomWeather = {
   source?: "Bureau of Meteorology";
   location?: string;
   issuedAt?: string | null;
+  currentTemp?: number | null;
+  observedAt?: string | null;
   forecast?: WeatherDay[];
   message?: string;
 };
@@ -83,6 +85,21 @@ export function WeatherWidget({ compact = false }: { compact?: boolean }) {
   }
 
   const followingDays = weather.data.forecast?.slice(1, compact ? 3 : 4) ?? [];
+  const currentTemperature =
+    weather.data.currentTemp !== null &&
+    weather.data.currentTemp !== undefined
+      ? `${weather.data.currentTemp.toFixed(1)}° now`
+      : null;
+  const forecastTemperature = currentTemperature
+    ? today.max !== null
+      ? `${today.max}° max`
+      : null
+    : [
+        today.min !== null ? `${today.min}°` : null,
+        today.max !== null ? `${today.max}°` : null,
+      ]
+        .filter(Boolean)
+        .join(" / ") || null;
   return (
     <Card className="shrink-0 overflow-hidden rounded-3xl border-0 bg-sky-50 shadow-sm">
       <CardContent className="p-4">
@@ -94,8 +111,9 @@ export function WeatherWidget({ compact = false }: { compact?: boolean }) {
             </div>
             <b className="block truncate">{today.summary}</b>
             <span className="text-sm">
-              {today.min !== null ? `${today.min}° / ` : ""}
-              {today.max !== null ? `${today.max}°` : ""}
+              {[currentTemperature, forecastTemperature]
+                .filter(Boolean)
+                .join(" · ")}
             </span>
           </div>
         </div>

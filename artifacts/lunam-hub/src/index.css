@@ -141,3 +141,13 @@
     background-color: #ffffff !important;
   }
 }
+
+/* iPadOS reports the standalone document height above its bottom inset.
+   Extend the tablet app shell through that inset so the real navigation row,
+   including its controls, reaches the display edge. */
+@media (min-width: 768px) and (display-mode: standalone),
+  (min-width: 768px) and (display-mode: fullscreen) {
+  body {
+    height: calc(100% + env(safe-area-inset-bottom));
+  }
+}

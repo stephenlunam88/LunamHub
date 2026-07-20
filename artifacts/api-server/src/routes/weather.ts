@@ -32,6 +32,10 @@ const LOCATION_ALIASES: Record<string, string> = {
   cranebrook: "Penrith",
 };
 
+const OBSERVATION_FEEDS: Record<string, string> = {
+  penrith: "https://www.bom.gov.au/fwo/IDN60801/IDN60801.94763.json",
+};
+
 type BomNode = Record<string, unknown>;
 type ForecastDay = {
   date: string;
@@ -46,6 +50,8 @@ type WeatherResponse = {
   source: "Bureau of Meteorology";
   location: string;
   issuedAt: string | null;
+  currentTemp: number | null;
+  observedAt: string | null;
   forecast: ForecastDay[];
 };
 
@@ -139,8 +145,36 @@ function findLocation(xml: string, requestedCity: string): WeatherResponse | nul
     source: "Bureau of Meteorology",
     location: String(area["@_description"] ?? requestedCity),
     issuedAt: issuedAt || null,
+    currentTemp: null,
+    observedAt: null,
     forecast: days,
   };
+}
+
+async function loadCurrentObservation(city: string) {
+  const url = OBSERVATION_FEEDS[city.trim().toLowerCase()];
+  if (!url) return null;
+  const response = await fetch(url, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; LunamHub/1.0)" },
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) return null;
+  const payload = (await response.json()) as {
+    observations?: {
+      data?: Array<{
+        air_temp?: number | null;
+        local_date_time_full?: string | null;
+      }>;
+    };
+  };
+  const latest = payload.observations?.data?.[0];
+  return typeof latest?.air_temp === "number" &&
+    Number.isFinite(latest.air_temp)
+    ? {
+        currentTemp: latest.air_temp,
+        observedAt: latest.local_date_time_full ?? null,
+      }
+    : null;
 }
 
 async function fetchProduct(product: string, city: string) {
@@ -186,6 +220,12 @@ async function loadForecast(city: string): Promise<WeatherResponse | null> {
     )?.value ?? null;
   if (value && alias) {
     value.location = `${city} (${value.location} forecast)`;
+  }
+  if (value) {
+    const observation = await loadCurrentObservation(lookupCity).catch(
+      () => null,
+    );
+    if (observation) Object.assign(value, observation);
   }
   return value;
 }

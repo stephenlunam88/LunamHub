@@ -125,8 +125,12 @@ export default function Display() {
             </span>
             <div>
               <div className="font-bold" style={{ fontSize: "clamp(2rem,4vw,3.5rem)" }}>
-                {todayWeather.min !== null ? `${todayWeather.min}° / ` : ""}
-                {todayWeather.max !== null ? `${todayWeather.max}°` : ""}
+                {weather.currentTemp !== null &&
+                weather.currentTemp !== undefined
+                  ? `${weather.currentTemp.toFixed(1)}°`
+                  : `${todayWeather.min !== null ? `${todayWeather.min}° / ` : ""}${
+                      todayWeather.max !== null ? `${todayWeather.max}°` : ""
+                    }`}
               </div>
               <div className="text-white/65" style={{ fontSize: "clamp(0.9rem,1.5vw,1.4rem)" }}>
                 {todayWeather.summary}
