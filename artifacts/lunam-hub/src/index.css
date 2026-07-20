@@ -132,3 +132,12 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+/* iPadOS paints the Home Screen app's bottom safe-area from the document
+   surface. Match it to the navigation without moving the navigation controls. */
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  html,
+  body {
+    background-color: #ffffff !important;
+  }
+}
