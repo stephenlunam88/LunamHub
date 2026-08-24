@@ -24,6 +24,7 @@ import {
   Dice5,
   CheckSquare,
   List,
+  AlertCircle,
 } from "lucide-react";
 import type { Chore, FamilyMember, Event } from "@workspace/api-client-react";
 
@@ -460,7 +461,29 @@ export default function Dashboard() {
     );
   }
 
-  if (!summary) return <div className="p-8">Failed to load dashboard</div>;
+  if (!summary) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center p-6">
+        <Card className="w-full max-w-md rounded-3xl border-0 bg-amber-50 shadow-sm">
+          <CardContent className="flex flex-col items-center gap-3 p-6 text-center">
+            <AlertCircle className="h-8 w-8 text-amber-600" />
+            <div>
+              <h1 className="font-serif text-2xl font-bold">Dashboard unavailable</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                LunamHub could not load the latest family information.
+              </p>
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="min-h-12 rounded-2xl bg-primary px-5 font-bold text-primary-foreground"
+            >
+              Try again
+            </button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const children = summary.familyMembers.filter((m) => m.role === "child");
   const memberById = Object.fromEntries(
@@ -514,60 +537,43 @@ export default function Dashboard() {
             <ChevronRight className="h-5 w-5" />
           </Link>
         )}
-        <div className="grid grid-cols-2 gap-3">
-          <Link href="/chores?quick=add" className="rounded-3xl bg-blue-50 p-4">
-            <CheckSquare className="h-6 w-6 text-blue-600" />
-            <b className="mt-3 block">Add chore</b>
-            <small className="text-muted-foreground">Assign a task</small>
-          </Link>
-          <Link
-            href="/games?quick=record"
-            className="rounded-3xl bg-violet-50 p-4"
-          >
-            <Dice5 className="h-6 w-6 text-violet-600" />
-            <b className="mt-3 block">Record game</b>
-            <small className="text-muted-foreground">Quick result entry</small>
-          </Link>
-          <Link
-            href="/calendar?quick=add"
-            className="rounded-3xl bg-emerald-50 p-4"
-          >
-            <CalendarClock className="h-6 w-6 text-emerald-600" />
-            <b className="mt-3 block">Add event</b>
-            <small className="text-muted-foreground">Family calendar</small>
-          </Link>
-          <Link
-            href="/lists?quick=item"
-            className="rounded-3xl bg-orange-50 p-4"
-          >
-            <List className="h-6 w-6 text-orange-600" />
-            <b className="mt-3 block">Add list item</b>
-            <small className="text-muted-foreground">
-              Shopping or reminders
-            </small>
-          </Link>
-        </div>
-        <WeatherWidget />
-        <Card className="rounded-3xl border-0 bg-blue-50">
-          <CardHeader>
-            <CardTitle className="text-base">Today</CardTitle>
+        <Card className="rounded-3xl border-0 bg-emerald-50 shadow-sm">
+          <CardHeader className="flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base">Today's schedule</CardTitle>
+            <Link href="/calendar" className="text-xs font-bold text-primary">View calendar</Link>
           </CardHeader>
           <CardContent className="space-y-2">
-            <div className="flex justify-between">
-              <span>Events</span>
-              <b>{summary.todayEvents.length}</b>
-            </div>
-            <div className="flex justify-between">
-              <span>Chores to do</span>
-              <b>{todoChores.length}</b>
-            </div>
-            <div className="flex justify-between">
-              <span>Completed</span>
-              <b>{doneChores.length}</b>
-            </div>
+            {summary.todayEvents.length ? (
+              summary.todayEvents.slice(0, 4).map((event) => (
+                <EventRow key={event.id} e={event} memberById={memberById} />
+              ))
+            ) : (
+              <p className="py-2 text-sm text-muted-foreground">Nothing scheduled today.</p>
+            )}
           </CardContent>
         </Card>
-        <GamesLeaderboardWidget />
+        <Card className="rounded-3xl border-0 bg-blue-50 shadow-sm">
+          <CardHeader className="flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base">Chores still to do</CardTitle>
+            <Link href="/chores" className="text-xs font-bold text-primary">View chores</Link>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {todoChores.length ? (
+              todoChores.slice(0, 4).map((chore) => (
+                <div key={chore.id} className="flex items-center gap-3 rounded-2xl bg-card p-3 shadow-sm">
+                  <Clock className="h-4 w-4 shrink-0 text-amber-500" />
+                  <div className="min-w-0 flex-1">
+                    <b className="block truncate text-sm">{chore.title}</b>
+                    <small className="text-muted-foreground">{chore.assignedMember?.name ?? "Unassigned"}</small>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="py-2 text-sm text-muted-foreground">Everyone is caught up 🎉</p>
+            )}
+          </CardContent>
+        </Card>
+        <WeatherWidget />
       </div>
       <div className="hidden h-full grid-cols-3 grid-rows-[auto_1fr] gap-4 p-4 animate-in fade-in duration-300 md:grid">
         {/* ── Hero strip: clock + date + next event + streaks ── */}
@@ -774,7 +780,6 @@ export default function Dashboard() {
                   <CardTitle className="text-base font-bold flex items-center gap-1.5">
                     <Trophy className="w-4 h-4 text-amber-500" /> Leaderboard
                   </CardTitle>
-                  {/* Toggle */}
                   <div className="flex rounded-xl overflow-hidden border border-border bg-background text-xs font-semibold shrink-0">
                     <button
                       onClick={() => setLeaderboardView("alltime")}
@@ -792,113 +797,71 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent className="flex-1 overflow-y-auto min-h-0 pt-0 space-y-2 pr-2">
-                {leaderboardView === "alltime" ? (
-                  <>
-                    {allTimeBoard.map((entry, i) => {
-                      const member = summary.familyMembers.find(
-                        (m) => m.id === entry.memberId,
-                      );
-                      return (
-                        <div
-                          key={entry.memberId}
-                          className="bg-card rounded-xl p-3 shadow-sm flex items-center gap-3"
-                        >
-                          <div className="text-xl w-7 text-center font-bold shrink-0">
-                            {rankMedal(i)}
+                {(leaderboardView === "alltime"
+                  ? allTimeBoard.map((entry) => ({
+                      memberId: entry.memberId,
+                      name: entry.name,
+                      avatarUrl: entry.avatarUrl,
+                      points: entry.pointsBalance,
+                      score: entry.lifetimePoints,
+                    }))
+                  : [...weeklyBoard]
+                      .sort((a, b) => b.weeklyPoints - a.weeklyPoints)
+                      .map((entry) => ({
+                        memberId: entry.memberId,
+                        name: entry.name,
+                        avatarUrl: entry.avatarUrl,
+                        points:
+                          allTimeBoard.find((item) => item.memberId === entry.memberId)
+                            ?.pointsBalance ?? 0,
+                        score: entry.weeklyPoints,
+                      })))
+                  .map((entry, index) => {
+                    const member = summary.familyMembers.find(
+                      (item) => item.id === entry.memberId,
+                    );
+                    return (
+                      <div
+                        key={entry.memberId}
+                        className="bg-card rounded-xl p-3 shadow-sm flex items-center gap-3"
+                      >
+                        <div className="text-xl w-7 text-center font-bold shrink-0">
+                          {rankMedal(index)}
+                        </div>
+                        <MemberAvatar
+                          name={entry.name}
+                          avatarUrl={entry.avatarUrl}
+                          className="h-10 w-10"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-sm flex items-center truncate">
+                            {entry.name}
+                            {member && <ChildBadgeIcons memberId={member.id} />}
                           </div>
-                          <MemberAvatar
-                            name={entry.name}
-                            avatarUrl={entry.avatarUrl}
-                            className="h-10 w-10"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="font-bold text-sm flex items-center truncate">
-                              {entry.name}
-                              {member && (
-                                <ChildBadgeIcons memberId={member.id} />
-                              )}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-0.5">
-                              <span className="text-primary font-semibold">
-                                {entry.pointsBalance} pts
-                              </span>
-                              <span className="mx-1 text-border">·</span>
-                              available
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <div className="font-bold text-base leading-tight">
-                              {entry.lifetimePoints}
-                            </div>
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wide">
-                              score
-                            </div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            <span className="text-primary font-semibold">
+                              {entry.points} pts
+                            </span>
+                            <span className="mx-1 text-border">·</span>
+                            available
                           </div>
                         </div>
-                      );
-                    })}
-                    {allTimeBoard.length === 0 && (
-                      <p className="text-muted-foreground text-sm text-center py-4">
-                        No children added yet.
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {[...weeklyBoard]
-                      .sort((a, b) => b.weeklyPoints - a.weeklyPoints)
-                      .map((entry, i) => {
-                        const member = summary.familyMembers.find(
-                          (m) => m.id === entry.memberId,
-                        );
-                        const allTime = allTimeBoard.find(
-                          (a) => a.memberId === entry.memberId,
-                        );
-                        return (
-                          <div
-                            key={entry.memberId}
-                            className="bg-card rounded-xl p-3 shadow-sm flex items-center gap-3"
-                          >
-                            <div className="text-xl w-7 text-center font-bold shrink-0">
-                              {rankMedal(i)}
-                            </div>
-                            <MemberAvatar
-                              name={entry.name}
-                              avatarUrl={entry.avatarUrl}
-                              className="h-10 w-10"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="font-bold text-sm flex items-center truncate">
-                                {entry.name}
-                                {member && (
-                                  <ChildBadgeIcons memberId={member.id} />
-                                )}
-                              </div>
-                              <div className="text-xs text-muted-foreground mt-0.5">
-                                <span className="text-primary font-semibold">
-                                  {allTime?.pointsBalance ?? 0} pts
-                                </span>
-                                <span className="mx-1 text-border">·</span>
-                                available
-                              </div>
-                            </div>
-                            <div className="text-right shrink-0">
-                              <div className="font-bold text-base leading-tight text-green-600">
-                                +{entry.weeklyPoints}
-                              </div>
-                              <div className="text-[10px] text-muted-foreground uppercase tracking-wide">
-                                this wk
-                              </div>
-                            </div>
+                        <div className="text-right shrink-0">
+                          <div className="font-bold text-base leading-tight">
+                            {leaderboardView === "weekly" ? "+" : ""}
+                            {entry.score}
                           </div>
-                        );
-                      })}
-                    {weeklyBoard.length === 0 && (
-                      <p className="text-muted-foreground text-sm text-center py-4">
-                        No data yet.
-                      </p>
-                    )}
-                  </>
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                            {leaderboardView === "weekly" ? "this wk" : "score"}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                {(leaderboardView === "alltime" ? allTimeBoard : weeklyBoard).length === 0 && (
+                  <p className="text-muted-foreground text-sm text-center py-4">
+                    No data yet.
+                  </p>
                 )}
               </CardContent>
             </Card>

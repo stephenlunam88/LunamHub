@@ -14,6 +14,7 @@ import {
   Menu,
   MonitorPlay,
   Plus,
+  Repeat2,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -25,9 +26,10 @@ import {
 } from "@/components/ui/dialog";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: Home },
+  { href: "/", label: "Today", icon: Home },
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/chores", label: "Chores", icon: CheckSquare },
+  { href: "/routines", label: "Routines", icon: Repeat2 },
   { href: "/rewards", label: "Rewards", icon: Gift },
   { href: "/lists", label: "Lists", icon: List },
   { href: "/games", label: "Games", icon: Dice5 },
@@ -125,13 +127,8 @@ export function Layout({ children }: { children: ReactNode }) {
         aria-label="Mobile navigation"
         className="relative z-50 grid h-[calc(76px+env(safe-area-inset-bottom))] shrink-0 grid-cols-5 items-start border-t bg-card px-1 pt-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden"
       >
-        <MobileLink href="/" label="Home" icon={Home} location={path} />
-        <MobileLink
-          href="/chores"
-          label="Chores"
-          icon={CheckSquare}
-          location={path}
-        />
+        <MobileLink href="/" label="Today" icon={Home} location={path} />
+        <MobileLink href="/calendar" label="Calendar" icon={Calendar} location={path} />
         <button
           onClick={() => setQuickOpen(true)}
           className="-mt-6 flex flex-col items-center gap-1 text-primary"
@@ -142,7 +139,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </span>
           <span className="text-[10px] font-bold">Quick Add</span>
         </button>
-        <MobileLink href="/games" label="Games" icon={Dice5} location={path} />
+        <MobileLink href="/lists" label="Lists" icon={List} location={path} />
         <button
           onClick={() => setMoreOpen(true)}
           className="flex h-14 flex-col items-center justify-center gap-1 rounded-xl text-muted-foreground"
@@ -214,7 +211,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3">
             {NAV_ITEMS.filter(
-              (item) => !["/", "/chores", "/games"].includes(item.href),
+              (item) => !["/", "/calendar", "/lists"].includes(item.href),
             ).map((item) => {
               const Icon = item.icon;
               return (
