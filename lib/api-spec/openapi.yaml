@@ -2043,9 +2043,9 @@ components:
         date:
           type: string
         startTime:
-          type: string
+          type: [string, "null"]
         endTime:
-          type: string
+          type: [string, "null"]
         allDay:
           type: boolean
         category:

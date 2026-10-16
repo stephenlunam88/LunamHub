@@ -8,6 +8,7 @@ import { db } from "@workspace/db";
 import { settingsTable } from "@workspace/db";
 import { logger } from "./logger";
 import {
+  calendarEndDate,
   calendarLocalTime,
   collectCalendarPages,
   localTimeToUTC,
@@ -305,7 +306,11 @@ export async function createGCalEvent(event: {
   const endDt = allDay
     ? undefined
     : event.endTime
-      ? localTimeToUTC(event.date, event.endTime, tz)
+      ? localTimeToUTC(
+          calendarEndDate(event.date, event.startTime!, event.endTime),
+          event.endTime,
+          tz,
+        )
       : new Date(new Date(startDt!).getTime() + 60 * 60_000)
           .toISOString()
           .replace(/\.\d{3}Z$/, "Z");
@@ -386,7 +391,11 @@ export async function updateGCalEvent(
   const endDt = allDay
     ? undefined
     : event.endTime
-      ? localTimeToUTC(event.date, event.endTime, tz)
+      ? localTimeToUTC(
+          calendarEndDate(event.date, event.startTime!, event.endTime),
+          event.endTime,
+          tz,
+        )
       : new Date(new Date(startDt!).getTime() + 60 * 60_000)
           .toISOString()
           .replace(/\.\d{3}Z$/, "Z");

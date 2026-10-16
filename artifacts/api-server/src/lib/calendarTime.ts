@@ -27,6 +27,15 @@ export function nextCalendarDay(date: string): string {
   return value.toISOString().slice(0, 10);
 }
 
+/** Treat an end wall-clock time at or before the start as following midnight. */
+export function calendarEndDate(
+  date: string,
+  startTime: string,
+  endTime: string,
+): string {
+  return endTime <= startTime ? nextCalendarDay(date) : date;
+}
+
 /** Resolve the offset at the actual event time, including DST transition days. */
 export function localTimeToUTC(
   date: string,

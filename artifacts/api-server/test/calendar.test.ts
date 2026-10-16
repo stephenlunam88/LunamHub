@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { UpdateEventBody } from "@workspace/api-zod";
 import {
+  calendarEndDate,
   calendarLocalTime,
   collectCalendarPages,
   localTimeToUTC,
@@ -34,6 +36,27 @@ test("query boundaries use household midnight and an exclusive next day", () => 
   assert.equal(
     localTimeToUTC(nextCalendarDay("2026-10-31"), "00:00", "Australia/Sydney"),
     "2026-10-31T13:00:00.000Z",
+  );
+});
+
+test("timed events ending at or after midnight use the following calendar day", () => {
+  assert.equal(calendarEndDate("2026-10-17", "19:00", "00:00"), "2026-10-18");
+  assert.equal(calendarEndDate("2026-10-17", "19:00", "23:59"), "2026-10-17");
+  assert.equal(calendarEndDate("2026-10-17", "09:00", "09:00"), "2026-10-18");
+  assert.equal(
+    localTimeToUTC(
+      calendarEndDate("2026-10-17", "19:00", "00:00"),
+      "00:00",
+      "Australia/Sydney",
+    ),
+    "2026-10-17T13:00:00.000Z",
+  );
+});
+
+test("event updates accept clearing timed event fields", () => {
+  assert.deepEqual(
+    UpdateEventBody.parse({ startTime: null, endTime: null }),
+    { startTime: null, endTime: null },
   );
 });
 

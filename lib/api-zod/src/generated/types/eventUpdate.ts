@@ -15,8 +15,10 @@ export interface EventUpdate {
   /** @nullable */
   location?: string | null;
   date?: string;
-  startTime?: string;
-  endTime?: string;
+  /** @nullable */
+  startTime?: string | null;
+  /** @nullable */
+  endTime?: string | null;
   allDay?: boolean;
   category?: EventUpdateCategory;
   /**
