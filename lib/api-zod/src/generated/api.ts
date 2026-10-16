@@ -237,8 +237,8 @@ export const UpdateEventParams = zod.object({
 
 export const UpdateEventBody = zod.object({
   "title": zod.string().optional(),
-  "description": zod.string().optional(),
-  "location": zod.string().optional(),
+  "description": zod.string().nullish(),
+  "location": zod.string().nullish(),
   "date": zod.string().optional(),
   "startTime": zod.string().optional(),
   "endTime": zod.string().optional(),

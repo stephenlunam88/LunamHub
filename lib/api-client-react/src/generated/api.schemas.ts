@@ -252,8 +252,10 @@ export const EventUpdateRecurrence = {
 
 export interface EventUpdate {
   title?: string;
-  description?: string;
-  location?: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  location?: string | null;
   date?: string;
   startTime?: string;
   endTime?: string;

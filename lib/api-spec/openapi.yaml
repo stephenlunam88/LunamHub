@@ -2037,9 +2037,9 @@ components:
         title:
           type: string
         description:
-          type: string
+          type: [string, "null"]
         location:
-          type: string
+          type: [string, "null"]
         date:
           type: string
         startTime:
