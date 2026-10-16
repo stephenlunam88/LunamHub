@@ -6,6 +6,9 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { settingsTable } from "@workspace/db";
 import { logger } from "../lib/logger";
+import { randomBytes, timingSafeEqual } from "node:crypto";
+import { resetCalendarCaches } from "../lib/google-calendar";
+import { requireParentVerification } from "../middleware/requireParentVerification";
 
 const router = Router();
 
@@ -25,7 +28,7 @@ function getOAuthConfig(): {
 }
 
 // Redirect the browser to Google's consent screen
-router.get("/auth/google/init", (req, res): void => {
+router.get("/auth/google/init", requireParentVerification, (req, res): void => {
   const config = getOAuthConfig();
   if (!config) {
     res.status(503).json({
@@ -41,11 +44,42 @@ router.get("/auth/google/init", (req, res): void => {
   url.searchParams.set("scope", SCOPES);
   url.searchParams.set("access_type", "offline");
   url.searchParams.set("prompt", "consent"); // always return a refresh_token
-  res.redirect(url.toString());
+  const state = randomBytes(32).toString("hex");
+  req.session.googleCalendarOAuth = {
+    state,
+    expiresAt: Date.now() + 10 * 60_000,
+  };
+  url.searchParams.set("state", state);
+  req.session.save((error) => {
+    if (error) {
+      res.status(500).send("Unable to start Google authorization.");
+      return;
+    }
+    res.redirect(url.toString());
+  });
 });
 
 // Exchange the authorisation code for tokens and persist the refresh token
 router.get("/auth/google/callback", async (req, res): Promise<void> => {
+  const pending = req.session.googleCalendarOAuth;
+  delete req.session.googleCalendarOAuth;
+  await new Promise<void>((resolve, reject) =>
+    req.session.save((error) => (error ? reject(error) : resolve())),
+  );
+  const state = typeof req.query.state === "string" ? req.query.state : "";
+  if (
+    !pending ||
+    pending.expiresAt < Date.now() ||
+    !/^[a-f0-9]{64}$/.test(state) ||
+    !timingSafeEqual(Buffer.from(state), Buffer.from(pending.state))
+  ) {
+    res
+      .status(400)
+      .send(
+        "Google authorization expired or invalid. Please reconnect from Admin.",
+      );
+    return;
+  }
   const config = getOAuthConfig();
   if (!config) {
     res.status(503).send("Google OAuth not configured.");
@@ -57,7 +91,7 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
 
   if (error || !code) {
     logger.warn({ error }, "gcal: OAuth callback received error");
-    res.redirect("/?gcal=error");
+    res.redirect("/admin?gcal=error");
     return;
   }
 
@@ -82,10 +116,14 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
 
     if (!tokenRes.ok || !tokenData.refresh_token) {
       logger.warn(
-        { status: tokenRes.status, error: tokenData.error, desc: tokenData.error_description },
+        {
+          status: tokenRes.status,
+          error: tokenData.error,
+          desc: tokenData.error_description,
+        },
         "gcal: token exchange failed — no refresh_token returned",
       );
-      res.redirect("/?gcal=error");
+      res.redirect("/admin?gcal=error");
       return;
     }
 
@@ -100,11 +138,12 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
         set: { googleRefreshToken: tokenData.refresh_token },
       });
 
+    resetCalendarCaches();
     logger.info("gcal: OAuth refresh token stored successfully");
-    res.redirect("/?gcal=connected");
+    res.redirect("/admin?gcal=connected");
   } catch (err) {
     logger.error({ err }, "gcal: token exchange threw an error");
-    res.redirect("/?gcal=error");
+    res.redirect("/admin?gcal=error");
   }
 });
 

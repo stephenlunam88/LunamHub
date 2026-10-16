@@ -8,7 +8,7 @@
 
 export interface Settings {
   id: number;
-  parentPin: string;
+  hasParentPin: boolean;
   appName: string;
   timezone: string;
   displayMode: boolean;

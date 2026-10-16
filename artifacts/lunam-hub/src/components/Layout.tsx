@@ -101,7 +101,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <main
         className={cn(
           "min-h-0 flex-1 overflow-y-auto pt-[env(safe-area-inset-top)] md:pt-0",
-          (isDashboard || isCalendar) && "md:overflow-hidden",
+          isDashboard && "md:overflow-hidden",
         )}
       >
         <div

@@ -27,6 +27,11 @@ import { z } from "zod";
 import bcrypt from "bcrypt";
 import { calculateChoreStreak } from "../lib/choreStreak";
 import { dayOfWeek, householdDate } from "../lib/householdDate";
+import {
+  clearLoginFailures,
+  isLoginBlocked,
+  recordLoginFailure,
+} from "../lib/loginThrottle";
 
 const ChoreApproveBodySchema = z.object({
   parentId: z.number().int().positive().optional(),
@@ -61,16 +66,25 @@ function todayStr() {
 
 async function getMemberById(id: number | null | undefined) {
   if (!id) return undefined;
-  const [m] = await db.select().from(familyMembersTable).where(eq(familyMembersTable.id, id));
+  const [m] = await db
+    .select()
+    .from(familyMembersTable)
+    .where(eq(familyMembersTable.id, id));
   if (!m) return undefined;
   return formatMember(m);
 }
 
 function formatMember(m: typeof familyMembersTable.$inferSelect) {
   return {
-    id: m.id, name: m.name, emoji: m.emoji, color: m.color, role: m.role,
-    pointsBalance: m.pointsBalance, lifetimePoints: m.lifetimePoints,
-    avatarUrl: m.avatarUrl ?? null, hasPin: !!m.pinHash,
+    id: m.id,
+    name: m.name,
+    emoji: m.emoji,
+    color: m.color,
+    role: m.role,
+    pointsBalance: m.pointsBalance,
+    lifetimePoints: m.lifetimePoints,
+    avatarUrl: m.avatarUrl ?? null,
+    hasPin: !!m.pinHash,
     createdAt: m.createdAt.toISOString(),
   };
 }
@@ -115,7 +129,9 @@ async function runMigrationIfNeeded() {
     .select({ legacyChoreId: choreTemplatesTable.legacyChoreId })
     .from(choreTemplatesTable)
     .where(sql`${choreTemplatesTable.legacyChoreId} IS NOT NULL`);
-  const migratedIds = new Set(existingMigrated.map((r) => r.legacyChoreId).filter(Boolean) as number[]);
+  const migratedIds = new Set(
+    existingMigrated.map((r) => r.legacyChoreId).filter(Boolean) as number[],
+  );
 
   const toMigrate = oldChores.filter((c) => !migratedIds.has(c.id));
   if (toMigrate.length === 0) return;
@@ -140,19 +156,29 @@ async function runMigrationIfNeeded() {
     if (!template) continue;
 
     if (c.assignedTo) {
-      await db.insert(choreTemplateChildrenTable).values({
-        templateId: template.id,
-        childId: c.assignedTo,
-      }).onConflictDoNothing();
+      await db
+        .insert(choreTemplateChildrenTable)
+        .values({
+          templateId: template.id,
+          childId: c.assignedTo,
+        })
+        .onConflictDoNothing();
 
       const instanceStatus =
-        c.status === "approved" ? "done" :
-        c.status === "completed" ? "pending_approval" :
-        c.status === "missed" ? "missed" : "todo";
+        c.status === "approved"
+          ? "done"
+          : c.status === "completed"
+            ? "pending_approval"
+            : c.status === "missed"
+              ? "missed"
+              : "todo";
 
       // For resolved chores, preserve their original date. For pending/missed,
       // use today so they surface in the current day's flow.
-      const isResolved = c.status === "approved" || c.status === "completed" || c.status === "missed";
+      const isResolved =
+        c.status === "approved" ||
+        c.status === "completed" ||
+        c.status === "missed";
       const dueDate = isResolved ? (c.dueDate ?? today) : today;
       await db
         .insert(choreInstancesTable)
@@ -163,7 +189,8 @@ async function runMigrationIfNeeded() {
           pointsValue: c.pointsValue,
           repeatType: c.repeatType,
           dueDate,
-          status: instanceStatus as typeof choreInstancesTable.$inferSelect["status"],
+          status:
+            instanceStatus as (typeof choreInstancesTable.$inferSelect)["status"],
           pointsAwarded: c.status === "approved",
           completedAt: c.completedAt ?? undefined,
           approvedAt: c.approvedAt ?? undefined,
@@ -272,6 +299,7 @@ async function verifyParentPin(
   parentId: number | null,
   pin: string | null,
   res: import("express").Response,
+  clientKey = "unknown",
 ): Promise<boolean> {
   const allParents = await db
     .select()
@@ -290,18 +318,30 @@ async function verifyParentPin(
     return false;
   }
   if (!parent.pinHash) {
-    res.status(403).json({ error: "This parent has no PIN configured. Set a PIN in Admin before approving." });
+    res
+      .status(403)
+      .json({
+        error:
+          "This parent has no PIN configured. Set a PIN in Admin before approving.",
+      });
     return false;
   }
   if (!pin) {
     res.status(403).json({ error: "PIN required for this parent" });
     return false;
   }
+  const throttleKey = `member:${parentId}:${clientKey}`;
+  if (isLoginBlocked(throttleKey)) {
+    res.status(429).json({ error: "Too many PIN attempts. Try again later." });
+    return false;
+  }
   const valid = await bcrypt.compare(pin, parent.pinHash);
   if (!valid) {
+    recordLoginFailure(throttleKey);
     res.status(403).json({ error: "Invalid PIN" });
     return false;
   }
+  clearLoginFailures(throttleKey);
   return true;
 }
 
@@ -326,16 +366,21 @@ router.get("/summary", async (_req, res) => {
       pointsBalance: m.pointsBalance,
       lifetimePoints: m.lifetimePoints,
       todoPending: todayInstances.filter((i) => i.status === "todo").length,
-      pendingApproval: todayInstances.filter((i) => i.status === "pending_approval").length,
+      pendingApproval: todayInstances.filter(
+        (i) => i.status === "pending_approval",
+      ).length,
       doneToday: todayInstances.filter((i) => i.status === "done").length,
       missedToday: mine.filter((i) => i.status === "missed").length,
       allTimeDone: mine.filter((i) => i.status === "done").length,
       // Legacy fields for backward compat with existing frontend
       pending: todayInstances.filter((i) => i.status === "todo").length,
-      completed: todayInstances.filter((i) => i.status === "pending_approval").length,
+      completed: todayInstances.filter((i) => i.status === "pending_approval")
+        .length,
       approved: mine.filter((i) => i.status === "done").length,
       missed: mine.filter((i) => i.status === "missed").length,
-      totalPoints: mine.filter((i) => i.status === "done" && i.pointsAwarded).reduce((s, i) => s + i.pointsValue, 0),
+      totalPoints: mine
+        .filter((i) => i.status === "done" && i.pointsAwarded)
+        .reduce((s, i) => s + i.pointsValue, 0),
     };
   });
 
@@ -348,7 +393,9 @@ router.get("/", async (req, res) => {
   await generateTodayInstances();
 
   const today = todayStr();
-  const assignedTo = req.query.assignedTo ? Number(req.query.assignedTo) : undefined;
+  const assignedTo = req.query.assignedTo
+    ? Number(req.query.assignedTo)
+    : undefined;
   const statusFilter = req.query.status as string | undefined;
 
   let instances = await db
@@ -362,11 +409,15 @@ router.get("/", async (req, res) => {
     )
     .orderBy(choreInstancesTable.createdAt);
 
-  if (assignedTo != null) instances = instances.filter((i) => i.childId === assignedTo);
-  if (statusFilter) instances = instances.filter((i) => i.status === statusFilter);
+  if (assignedTo != null)
+    instances = instances.filter((i) => i.childId === assignedTo);
+  if (statusFilter)
+    instances = instances.filter((i) => i.status === statusFilter);
 
   const result = await Promise.all(
-    instances.map(async (i) => formatInstance(i, await getMemberById(i.childId))),
+    instances.map(async (i) =>
+      formatInstance(i, await getMemberById(i.childId)),
+    ),
   );
   res.json(result);
 });
@@ -412,19 +463,18 @@ router.post("/", async (req, res) => {
   }
 
   if (childIds.length > 0) {
-    await db.insert(choreTemplateChildrenTable).values(
-      childIds.map((childId) => ({ templateId: template.id, childId })),
-    );
+    await db
+      .insert(choreTemplateChildrenTable)
+      .values(
+        childIds.map((childId) => ({ templateId: template.id, childId })),
+      );
   }
 
   // Seed initial instance(s):
   //   once: use specified dueDate or today
   //   daily: always today
   //   weekly: only if today is one of the target days; otherwise no instance yet
-  const dueDate =
-    body.repeatType === "once"
-      ? (body.dueDate ?? today)
-      : today;
+  const dueDate = body.repeatType === "once" ? (body.dueDate ?? today) : today;
 
   const todayDow = new Date().getDay();
   let shouldSeedToday = true;
@@ -457,7 +507,9 @@ router.post("/", async (req, res) => {
     .where(eq(choreInstancesTable.templateId, template.id));
 
   const formatted = await Promise.all(
-    instances.map(async (i) => formatInstance(i, await getMemberById(i.childId))),
+    instances.map(async (i) =>
+      formatInstance(i, await getMemberById(i.childId)),
+    ),
   );
 
   res.status(201).json(formatted);
@@ -471,7 +523,9 @@ const UpdateChoreSchema = z.object({
   dueDate: z.string().nullable().optional(),
   repeatType: z.enum(["once", "daily", "weekly"]).optional(),
   pointsValue: z.number().int().optional(),
-  status: z.enum(["todo", "pending_approval", "done", "missed", "rejected"]).optional(),
+  status: z
+    .enum(["todo", "pending_approval", "done", "missed", "rejected"])
+    .optional(),
 });
 
 router.patch("/:id", async (req, res) => {
@@ -482,14 +536,20 @@ router.patch("/:id", async (req, res) => {
     .select()
     .from(choreInstancesTable)
     .where(eq(choreInstancesTable.id, id));
-  if (!inst) { res.status(404).json({ error: "Not found" }); return; }
+  if (!inst) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
 
   // Fields that apply to the instance snapshot
   const instanceUpdates: Partial<typeof choreInstancesTable.$inferInsert> = {};
   if (body.title !== undefined) instanceUpdates.title = body.title;
-  if (body.pointsValue !== undefined) instanceUpdates.pointsValue = body.pointsValue;
-  if (body.dueDate !== undefined) instanceUpdates.dueDate = body.dueDate ?? inst.dueDate;
-  if (body.repeatType !== undefined) instanceUpdates.repeatType = body.repeatType;
+  if (body.pointsValue !== undefined)
+    instanceUpdates.pointsValue = body.pointsValue;
+  if (body.dueDate !== undefined)
+    instanceUpdates.dueDate = body.dueDate ?? inst.dueDate;
+  if (body.repeatType !== undefined)
+    instanceUpdates.repeatType = body.repeatType;
   if (body.status !== undefined) instanceUpdates.status = body.status;
 
   const [updated] = await db
@@ -500,12 +560,22 @@ router.patch("/:id", async (req, res) => {
 
   // Propagate title, description, pointsValue, repeatType to the template so
   // future generated instances pick up the changes
-  if (inst.templateId && (body.title !== undefined || body.description !== undefined || body.pointsValue !== undefined || body.repeatType !== undefined)) {
-    const templateUpdates: Partial<typeof choreTemplatesTable.$inferInsert> = {};
+  if (
+    inst.templateId &&
+    (body.title !== undefined ||
+      body.description !== undefined ||
+      body.pointsValue !== undefined ||
+      body.repeatType !== undefined)
+  ) {
+    const templateUpdates: Partial<typeof choreTemplatesTable.$inferInsert> =
+      {};
     if (body.title !== undefined) templateUpdates.title = body.title;
-    if (body.description !== undefined) templateUpdates.description = body.description;
-    if (body.pointsValue !== undefined) templateUpdates.pointsValue = body.pointsValue;
-    if (body.repeatType !== undefined) templateUpdates.repeatType = body.repeatType;
+    if (body.description !== undefined)
+      templateUpdates.description = body.description;
+    if (body.pointsValue !== undefined)
+      templateUpdates.pointsValue = body.pointsValue;
+    if (body.repeatType !== undefined)
+      templateUpdates.repeatType = body.repeatType;
     await db
       .update(choreTemplatesTable)
       .set(templateUpdates)
@@ -523,7 +593,10 @@ router.get("/:id", async (req, res) => {
     .select()
     .from(choreInstancesTable)
     .where(eq(choreInstancesTable.id, id));
-  if (!inst) { res.status(404).json({ error: "Not found" }); return; }
+  if (!inst) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
   res.json(formatInstance(inst, await getMemberById(inst.childId)));
 });
 
@@ -573,8 +646,14 @@ router.post("/:id/complete", async (req, res) => {
 
   if (!inst) {
     // Either not found or wrong state — return current
-    const [current] = await db.select().from(choreInstancesTable).where(eq(choreInstancesTable.id, id));
-    if (!current) { res.status(404).json({ error: "Not found" }); return; }
+    const [current] = await db
+      .select()
+      .from(choreInstancesTable)
+      .where(eq(choreInstancesTable.id, id));
+    if (!current) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
     res.json(formatInstance(current, await getMemberById(current.childId)));
     return;
   }
@@ -589,56 +668,65 @@ router.post("/:id/approve", async (req, res) => {
   const parentId = bodyParse.success ? (bodyParse.data.parentId ?? null) : null;
   const pin = bodyParse.success ? (bodyParse.data.pin ?? null) : null;
 
-  const ok = await verifyParentPin(parentId, pin, res);
+  const ok = await verifyParentPin(parentId, pin, res, req.ip);
   if (!ok) return;
 
   const now = new Date();
 
   // Atomic state gate: only update when status='pending_approval' AND pointsAwarded=false
-  const [updated] = await db
-    .update(choreInstancesTable)
-    .set({
-      status: "done",
-      approvedAt: now,
+  const updated = await db.transaction(async (tx) => {
+    const [instance] = await tx
+      .update(choreInstancesTable)
+      .set({
+        status: "done",
+        approvedAt: now,
+        approvedByParentId: parentId,
+        pointsAwarded: true,
+      })
+      .where(
+        and(
+          eq(choreInstancesTable.id, id),
+          eq(choreInstancesTable.status, "pending_approval"),
+          eq(choreInstancesTable.pointsAwarded, false),
+        ),
+      )
+      .returning();
+    if (!instance || !instance.childId) return instance;
+
+    await tx
+      .update(familyMembersTable)
+      .set({
+        pointsBalance: sql`${familyMembersTable.pointsBalance} + ${instance.pointsValue}`,
+        lifetimePoints: sql`${familyMembersTable.lifetimePoints} + ${instance.pointsValue}`,
+      })
+      .where(eq(familyMembersTable.id, instance.childId));
+    await tx.insert(pointTransactionsTable).values({
+      memberId: instance.childId,
+      amount: instance.pointsValue,
+      type: "chore_earned",
+      description: `Earned for: ${instance.title}`,
+      choreInstanceId: instance.id,
       approvedByParentId: parentId,
-      pointsAwarded: true,
-    })
-    .where(
-      and(
-        eq(choreInstancesTable.id, id),
-        eq(choreInstancesTable.status, "pending_approval"),
-        eq(choreInstancesTable.pointsAwarded, false),
-      ),
-    )
-    .returning();
+    });
+    return instance;
+  });
 
   if (!updated) {
     // Wrong state or already approved — return current state as a no-op (idempotent)
-    const [current] = await db.select().from(choreInstancesTable).where(eq(choreInstancesTable.id, id));
-    if (!current) { res.status(404).json({ error: "Not found" }); return; }
+    const [current] = await db
+      .select()
+      .from(choreInstancesTable)
+      .where(eq(choreInstancesTable.id, id));
+    if (!current) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
     res.json(formatInstance(current, await getMemberById(current.childId)));
     return;
   }
 
-  // Award points — we know this is the first (and only) time because the atomic update succeeded
+  // Core accounting is committed atomically above; badge evaluation can follow.
   if (updated.childId) {
-    await db
-      .update(familyMembersTable)
-      .set({
-        pointsBalance: sql`${familyMembersTable.pointsBalance} + ${updated.pointsValue}`,
-        lifetimePoints: sql`${familyMembersTable.lifetimePoints} + ${updated.pointsValue}`,
-      })
-      .where(eq(familyMembersTable.id, updated.childId));
-
-    await db.insert(pointTransactionsTable).values({
-      memberId: updated.childId,
-      amount: updated.pointsValue,
-      type: "chore_earned",
-      description: `Earned for: ${updated.title}`,
-      choreInstanceId: updated.id,
-      approvedByParentId: parentId,
-    });
-
     const [member] = await db
       .select()
       .from(familyMembersTable)
@@ -658,9 +746,11 @@ router.post("/:id/reject", async (req, res) => {
   const bodyParse = ChoreRejectBodySchema.safeParse(req.body);
   const parentId = bodyParse.success ? (bodyParse.data.parentId ?? null) : null;
   const pin = bodyParse.success ? (bodyParse.data.pin ?? null) : null;
-  const markAsMissed = bodyParse.success ? (bodyParse.data.markAsMissed ?? false) : false;
+  const markAsMissed = bodyParse.success
+    ? (bodyParse.data.markAsMissed ?? false)
+    : false;
 
-  const ok = await verifyParentPin(parentId, pin, res);
+  const ok = await verifyParentPin(parentId, pin, res, req.ip);
   if (!ok) return;
 
   const [current] = await db
@@ -706,25 +796,103 @@ router.post("/:id/reject", async (req, res) => {
 // ── Badge awarding ─────────────────────────────────────────────────────────────
 
 const DEFAULT_POINT_MILESTONES = [
-  { threshold: 50,   title: "First Steps",     emoji: "⭐",  tier: "bronze" as const, bonusPoints: 5,  description: "Earned 50 lifetime points",   active: true },
-  { threshold: 100,  title: "Point Collector", emoji: "🌟",  tier: "bronze" as const, bonusPoints: 10, description: "Earned 100 lifetime points",  active: true },
-  { threshold: 500,  title: "Silver Earner",   emoji: "🥈",  tier: "silver" as const, bonusPoints: 25, description: "Earned 500 lifetime points",  active: true },
-  { threshold: 1000, title: "Gold Champion",   emoji: "🥇",  tier: "gold"   as const, bonusPoints: 50, description: "Earned 1000 lifetime points", active: true },
+  {
+    threshold: 50,
+    title: "First Steps",
+    emoji: "⭐",
+    tier: "bronze" as const,
+    bonusPoints: 5,
+    description: "Earned 50 lifetime points",
+    active: true,
+  },
+  {
+    threshold: 100,
+    title: "Point Collector",
+    emoji: "🌟",
+    tier: "bronze" as const,
+    bonusPoints: 10,
+    description: "Earned 100 lifetime points",
+    active: true,
+  },
+  {
+    threshold: 500,
+    title: "Silver Earner",
+    emoji: "🥈",
+    tier: "silver" as const,
+    bonusPoints: 25,
+    description: "Earned 500 lifetime points",
+    active: true,
+  },
+  {
+    threshold: 1000,
+    title: "Gold Champion",
+    emoji: "🥇",
+    tier: "gold" as const,
+    bonusPoints: 50,
+    description: "Earned 1000 lifetime points",
+    active: true,
+  },
 ];
 
 const DEFAULT_CHORE_MILESTONES = [
-  { threshold: 1,   title: "First Chore",    emoji: "🎯",  tier: "bronze" as const, bonusPoints: 5,   description: "Completed first chore",  active: true },
-  { threshold: 10,  title: "Hard Worker",    emoji: "💪",  tier: "silver" as const, bonusPoints: 15,  description: "Completed 10 chores",   active: true },
-  { threshold: 25,  title: "Chore Champion", emoji: "🏆",  tier: "gold"   as const, bonusPoints: 30,  description: "Completed 25 chores",   active: true },
-  { threshold: 50,  title: "Chore Legend",   emoji: "👑",  tier: "gold"   as const, bonusPoints: 50,  description: "Completed 50 chores",   active: true },
-  { threshold: 100, title: "Century Hero",   emoji: "🌠",  tier: "gold"   as const, bonusPoints: 100, description: "Completed 100 chores",  active: true },
+  {
+    threshold: 1,
+    title: "First Chore",
+    emoji: "🎯",
+    tier: "bronze" as const,
+    bonusPoints: 5,
+    description: "Completed first chore",
+    active: true,
+  },
+  {
+    threshold: 10,
+    title: "Hard Worker",
+    emoji: "💪",
+    tier: "silver" as const,
+    bonusPoints: 15,
+    description: "Completed 10 chores",
+    active: true,
+  },
+  {
+    threshold: 25,
+    title: "Chore Champion",
+    emoji: "🏆",
+    tier: "gold" as const,
+    bonusPoints: 30,
+    description: "Completed 25 chores",
+    active: true,
+  },
+  {
+    threshold: 50,
+    title: "Chore Legend",
+    emoji: "👑",
+    tier: "gold" as const,
+    bonusPoints: 50,
+    description: "Completed 50 chores",
+    active: true,
+  },
+  {
+    threshold: 100,
+    title: "Century Hero",
+    emoji: "🌠",
+    tier: "gold" as const,
+    bonusPoints: 100,
+    description: "Completed 100 chores",
+    active: true,
+  },
 ];
 
 async function checkAndAwardBadges(memberId: number, lifetimePoints: number) {
   // Load active point milestones from DB (seed defaults if empty)
-  let dbPointMilestones = await db.select().from(pointMilestonesTable).where(eq(pointMilestonesTable.active, true));
+  let dbPointMilestones = await db
+    .select()
+    .from(pointMilestonesTable)
+    .where(eq(pointMilestonesTable.active, true));
   if (dbPointMilestones.length === 0) {
-    dbPointMilestones = await db.insert(pointMilestonesTable).values(DEFAULT_POINT_MILESTONES).returning();
+    dbPointMilestones = await db
+      .insert(pointMilestonesTable)
+      .values(DEFAULT_POINT_MILESTONES)
+      .returning();
   }
   const pointMilestones = dbPointMilestones.map((m) => ({
     threshold: m.threshold,
@@ -744,9 +912,15 @@ async function checkAndAwardBadges(memberId: number, lifetimePoints: number) {
   const approvedCount = Number(choreCount ?? 0);
 
   // Load active chore milestones from DB (seed defaults if empty)
-  let dbChoreMilestones = await db.select().from(choreMilestonesTable).where(eq(choreMilestonesTable.active, true));
+  let dbChoreMilestones = await db
+    .select()
+    .from(choreMilestonesTable)
+    .where(eq(choreMilestonesTable.active, true));
   if (dbChoreMilestones.length === 0) {
-    dbChoreMilestones = await db.insert(choreMilestonesTable).values(DEFAULT_CHORE_MILESTONES).returning();
+    dbChoreMilestones = await db
+      .insert(choreMilestonesTable)
+      .values(DEFAULT_CHORE_MILESTONES)
+      .returning();
   }
   const choreMilestones = dbChoreMilestones.map((m) => ({
     threshold: m.threshold,
@@ -758,7 +932,11 @@ async function checkAndAwardBadges(memberId: number, lifetimePoints: number) {
   }));
 
   const allInstances = await db.select().from(choreInstancesTable);
-  const longestStreak = calculateChoreStreak(allInstances, memberId, todayStr()).longest;
+  const longestStreak = calculateChoreStreak(
+    allInstances,
+    memberId,
+    todayStr(),
+  ).longest;
 
   // Load active streak milestones from DB (with fallback defaults if none configured)
   let dbStreakMilestones = await db
@@ -768,12 +946,47 @@ async function checkAndAwardBadges(memberId: number, lifetimePoints: number) {
 
   if (dbStreakMilestones.length === 0) {
     // Seed defaults on first use
-    dbStreakMilestones = await db.insert(streakMilestonesTable).values([
-      { days: 3,  title: "3-Day Streak",  emoji: "🔥", tier: "bronze", bonusPoints: 5,  description: "3 days of chores in a row",  active: true },
-      { days: 7,  title: "7-Day Streak",  emoji: "🔥", tier: "silver", bonusPoints: 15, description: "7 days of chores in a row",  active: true },
-      { days: 14, title: "2-Week Streak", emoji: "⚡", tier: "silver", bonusPoints: 30, description: "14 days of chores in a row", active: true },
-      { days: 30, title: "30-Day Streak", emoji: "🌋", tier: "gold",   bonusPoints: 75, description: "30 days of chores in a row", active: true },
-    ]).returning();
+    dbStreakMilestones = await db
+      .insert(streakMilestonesTable)
+      .values([
+        {
+          days: 3,
+          title: "3-Day Streak",
+          emoji: "🔥",
+          tier: "bronze",
+          bonusPoints: 5,
+          description: "3 days of chores in a row",
+          active: true,
+        },
+        {
+          days: 7,
+          title: "7-Day Streak",
+          emoji: "🔥",
+          tier: "silver",
+          bonusPoints: 15,
+          description: "7 days of chores in a row",
+          active: true,
+        },
+        {
+          days: 14,
+          title: "2-Week Streak",
+          emoji: "⚡",
+          tier: "silver",
+          bonusPoints: 30,
+          description: "14 days of chores in a row",
+          active: true,
+        },
+        {
+          days: 30,
+          title: "30-Day Streak",
+          emoji: "🌋",
+          tier: "gold",
+          bonusPoints: 75,
+          description: "30 days of chores in a row",
+          active: true,
+        },
+      ])
+      .returning();
   }
 
   const streakMilestones = dbStreakMilestones.map((m) => ({
@@ -785,7 +998,10 @@ async function checkAndAwardBadges(memberId: number, lifetimePoints: number) {
     bonusPoints: m.bonusPoints,
   }));
 
-  const existing = await db.select().from(badgesTable).where(eq(badgesTable.memberId, memberId));
+  const existing = await db
+    .select()
+    .from(badgesTable)
+    .where(eq(badgesTable.memberId, memberId));
   const existingTitles = new Set(existing.map((b) => b.title));
 
   for (const m of pointMilestones) {

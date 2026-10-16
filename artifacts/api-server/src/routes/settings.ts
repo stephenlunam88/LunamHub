@@ -5,6 +5,16 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { settingsTable } from "@workspace/db";
 import { UpdateSettingsBody, VerifyPinBody } from "@workspace/api-zod";
+import bcrypt from "bcrypt";
+import {
+  requireParentVerification,
+  PARENT_VERIFICATION_TTL_MS,
+} from "../middleware/requireParentVerification";
+import {
+  clearLoginFailures,
+  isLoginBlocked,
+  recordLoginFailure,
+} from "../lib/loginThrottle";
 
 const router = Router();
 
@@ -18,7 +28,7 @@ async function getOrCreateSettings() {
 function formatSettings(s: typeof settingsTable.$inferSelect) {
   return {
     id: s.id,
-    parentPin: s.parentPin,
+    hasParentPin: !!s.parentPin,
     appName: s.appName,
     timezone: s.timezone,
     displayMode: s.displayMode,
@@ -35,18 +45,47 @@ router.get("/", async (_req, res) => {
 });
 
 // PATCH /api/settings
-router.patch("/", async (req, res) => {
+router.patch("/", requireParentVerification, async (req, res) => {
   const body = UpdateSettingsBody.parse(req.body);
   const settings = await getOrCreateSettings();
-  const [updated] = await db.update(settingsTable).set(body).where(eq(settingsTable.id, settings.id)).returning();
+  const { parentPin, ...fields } = body;
+  const update = {
+    ...fields,
+    ...(parentPin ? { parentPin: await bcrypt.hash(parentPin, 12) } : {}),
+  };
+  const [updated] = await db
+    .update(settingsTable)
+    .set(update)
+    .where(eq(settingsTable.id, settings.id))
+    .returning();
   res.json(formatSettings(updated));
 });
 
 // POST /api/settings/verify-pin
 router.post("/verify-pin", async (req, res) => {
+  const throttleKey = `parent:${req.ip}`;
+  if (isLoginBlocked(throttleKey)) {
+    res.status(429).json({ error: "Too many PIN attempts. Try again later." });
+    return;
+  }
   const { pin } = VerifyPinBody.parse(req.body);
   const settings = await getOrCreateSettings();
-  res.json({ valid: settings.parentPin === pin });
+  const hashed = settings.parentPin.startsWith("$2");
+  const valid = hashed
+    ? await bcrypt.compare(pin, settings.parentPin)
+    : settings.parentPin === pin;
+  if (valid) {
+    clearLoginFailures(throttleKey);
+    req.session.parentVerifiedUntil = Date.now() + PARENT_VERIFICATION_TTL_MS;
+    if (!hashed) {
+      await db
+        .update(settingsTable)
+        .set({ parentPin: await bcrypt.hash(pin, 12) })
+        .where(eq(settingsTable.id, settings.id));
+    }
+  }
+  if (!valid) recordLoginFailure(throttleKey);
+  res.json({ valid });
 });
 
 import { eq } from "drizzle-orm";

@@ -7,6 +7,13 @@
 import { db } from "@workspace/db";
 import { settingsTable } from "@workspace/db";
 import { logger } from "./logger";
+import {
+  calendarLocalTime,
+  collectCalendarPages,
+  localTimeToUTC,
+  nextCalendarDay,
+} from "./calendarTime";
+import { householdTimeZone } from "./householdDate";
 
 const GCAL_BASE = "https://www.googleapis.com/calendar/v3";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -16,7 +23,10 @@ let _accessToken: string | null = null;
 let _tokenExpiresAt = 0;
 const TOKEN_BUFFER_MS = 5 * 60_000; // refresh 5 min before expiry
 
-function getOAuthCredentials(): { clientId: string; clientSecret: string } | null {
+function getOAuthCredentials(): {
+  clientId: string;
+  clientSecret: string;
+} | null {
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
   if (!clientId || !clientSecret) return null;
@@ -46,6 +56,7 @@ async function getAccessToken(): Promise<string | null> {
   if (!refreshToken) return null;
   try {
     const res = await fetch(TOKEN_URL, {
+      signal: AbortSignal.timeout(15_000),
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
@@ -83,6 +94,7 @@ async function directGCal(
   if (!token) return null;
   try {
     const res = await fetch(`${GCAL_BASE}${path}`, {
+      signal: AbortSignal.timeout(15_000),
       method: options?.method ?? "GET",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -117,8 +129,7 @@ export async function clearConnectionId(): Promise<void> {
         target: settingsTable.id,
         set: { googleCalendarConnectionId: null, googleRefreshToken: null },
       });
-    _accessToken = null;
-    _tokenExpiresAt = 0;
+    resetCalendarCaches();
   } catch (err) {
     logger.warn({ err }, "gcal: clearConnectionId error");
   }
@@ -142,6 +153,13 @@ let _cachedTz: string | null = null;
 let _cachedTzAt = 0;
 const TZ_CACHE_MS = 60 * 60_000; // 1 hour
 
+export function resetCalendarCaches() {
+  _accessToken = null;
+  _tokenExpiresAt = 0;
+  _cachedTz = null;
+  _cachedTzAt = 0;
+}
+
 export async function getCalendarTimezone(): Promise<string> {
   const now = Date.now();
   if (_cachedTz && now - _cachedTzAt < TZ_CACHE_MS) return _cachedTz;
@@ -152,7 +170,10 @@ export async function getCalendarTimezone(): Promise<string> {
       if (data.timeZone) {
         _cachedTz = data.timeZone;
         _cachedTzAt = now;
-        logger.info({ timeZone: data.timeZone }, "gcal: calendar timezone fetched");
+        logger.info(
+          { timeZone: data.timeZone },
+          "gcal: calendar timezone fetched",
+        );
         return _cachedTz;
       }
     }
@@ -170,6 +191,9 @@ export interface GCalEvent {
   start: { date?: string; dateTime?: string; timeZone?: string };
   end: { date?: string; dateTime?: string; timeZone?: string };
   recurringEventId?: string;
+  status?: string;
+  originalStartTime?: { date?: string; dateTime?: string };
+  recurrence?: string[];
 }
 
 export async function listGCalEvents(
@@ -177,46 +201,28 @@ export async function listGCalEvents(
   endDate: string,
 ): Promise<GCalEvent[] | null> {
   const params = new URLSearchParams({
-    timeMin: `${startDate}T00:00:00Z`,
-    timeMax: `${endDate}T23:59:59Z`,
+    timeMin: localTimeToUTC(startDate, "00:00", householdTimeZone()),
+    timeMax: localTimeToUTC(
+      nextCalendarDay(endDate),
+      "00:00",
+      householdTimeZone(),
+    ),
+    timeZone: householdTimeZone(),
     singleEvents: "true",
     maxResults: "250",
   });
-  const resp = await directGCal(`/calendars/primary/events?${params}`);
-  if (!resp || resp.status < 200 || resp.status >= 300) {
-    logger.warn({ status: resp?.status }, "gcal: listEvents failed");
-    return null;
-  }
-  const data = (await resp.json()) as { items?: GCalEvent[] };
-  return data.items ?? [];
-}
-
-// Convert a local date+time to a UTC RFC3339 string (Z suffix).
-function localTimeToUTC(dateStr: string, timeStr: string, timezone: string): string {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  const [hours, minutes] = timeStr.split(":").map(Number);
-  const probeDate = new Date(`${dateStr}T12:00:00Z`);
-  const parts = new Intl.DateTimeFormat("en", {
-    timeZone: timezone,
-    timeZoneName: "longOffset",
-  }).formatToParts(probeDate);
-  const offsetStr = parts.find((p) => p.type === "timeZoneName")?.value ?? "GMT+00:00";
-  const match = offsetStr.match(/GMT([+-])(\d{2}):(\d{2})/);
-  let offsetMinutes = 0;
-  if (match) {
-    const sign = match[1] === "+" ? 1 : -1;
-    offsetMinutes = sign * (parseInt(match[2]) * 60 + parseInt(match[3]));
-  }
-  const utcMs = Date.UTC(year, month - 1, day, hours, minutes, 0) - offsetMinutes * 60_000;
-  const u = new Date(utcMs);
-  const pad = (n: number) => n.toString().padStart(2, "0");
-  return `${u.getUTCFullYear()}-${pad(u.getUTCMonth() + 1)}-${pad(u.getUTCDate())}T${pad(u.getUTCHours())}:${pad(u.getUTCMinutes())}:00Z`;
-}
-
-function nextCalendarDay(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const next = new Date(Date.UTC(y, m - 1, d + 1));
-  return next.toISOString().slice(0, 10);
+  return collectCalendarPages<GCalEvent>(async (pageToken) => {
+    if (pageToken) params.set("pageToken", pageToken);
+    const resp = await directGCal(`/calendars/primary/events?${params}`);
+    if (!resp?.ok)
+      throw new Error(
+        "Google Calendar could not be read. Please retry or reconnect in Admin.",
+      );
+    return resp.json() as Promise<{
+      items?: GCalEvent[];
+      nextPageToken?: string;
+    }>;
+  });
 }
 
 // Map LunamHub recurrence strings → Google Calendar RRULE FREQ values
@@ -229,13 +235,21 @@ const RECURRENCE_MAP: Record<string, string> = {
 
 // Map JS day-of-week numbers (0=Sun..6=Sat) → RRULE BYDAY abbreviations
 const DOW_MAP: Record<number, string> = {
-  0: "SU", 1: "MO", 2: "TU", 3: "WE", 4: "TH", 5: "FR", 6: "SA",
+  0: "SU",
+  1: "MO",
+  2: "TU",
+  3: "WE",
+  4: "TH",
+  5: "FR",
+  6: "SA",
 };
 
 function buildRRule(
   recurrence: string | null | undefined,
   recurrenceEndDate: string | null | undefined,
   recurrenceDays?: string | null,
+  allDay = true,
+  timezone = householdTimeZone(),
 ): string[] {
   if (!recurrence) return [];
   const upperRec = recurrence.toUpperCase();
@@ -250,12 +264,17 @@ function buildRRule(
   }
   let rule = `RRULE:FREQ=${freq}${interval}`;
   if (recurrenceEndDate) {
-    rule += `;UNTIL=${recurrenceEndDate.replace(/-/g, "")}`;
+    const until = allDay
+      ? recurrenceEndDate.replace(/-/g, "")
+      : localTimeToUTC(recurrenceEndDate, "23:59", timezone)
+          .replace(/[-:]/g, "")
+          .replace(/\.\d{3}Z$/, "Z");
+    rule += `;UNTIL=${until}`;
   }
   if (recurrenceDays && (upperRec === "WEEKLY" || upperRec === "FORTNIGHTLY")) {
     const byday = recurrenceDays
       .split(",")
-      .map(d => DOW_MAP[parseInt(d)])
+      .map((d) => DOW_MAP[parseInt(d)])
       .filter(Boolean)
       .join(",");
     if (byday) rule += `;BYDAY=${byday}`;
@@ -276,35 +295,60 @@ export async function createGCalEvent(event: {
   recurrenceEndDate?: string | null;
   recurrenceDays?: string | null;
 }): Promise<string | null> {
+  if (!(await getStoredRefreshToken())) return null;
   const allDay = event.allDay || !event.startTime;
-  const tz = event.timezone || (await getCalendarTimezone());
-  const startDt = allDay ? undefined : localTimeToUTC(event.date, event.startTime!, tz);
+  const tz = householdTimeZone();
+  const startDt = allDay
+    ? undefined
+    : localTimeToUTC(event.date, event.startTime!, tz);
   // When no end time is set, default to start + 1 hour (Google rejects zero-duration timed events)
   const endDt = allDay
     ? undefined
     : event.endTime
       ? localTimeToUTC(event.date, event.endTime, tz)
-      : new Date(new Date(startDt!).getTime() + 60 * 60_000).toISOString().replace(/\.\d{3}Z$/, "Z");
+      : new Date(new Date(startDt!).getTime() + 60 * 60_000)
+          .toISOString()
+          .replace(/\.\d{3}Z$/, "Z");
 
   logger.info(
-    { tz, inputDate: event.date, inputStart: event.startTime, startDt, endDt, recurrence: event.recurrence },
+    {
+      tz,
+      inputDate: event.date,
+      inputStart: event.startTime,
+      startDt,
+      endDt,
+      recurrence: event.recurrence,
+    },
     "gcal: createEvent datetime",
   );
 
-  const rrule = buildRRule(event.recurrence, event.recurrenceEndDate, event.recurrenceDays);
+  const rrule = buildRRule(
+    event.recurrence,
+    event.recurrenceEndDate,
+    event.recurrenceDays,
+    allDay,
+    tz,
+  );
   const body: Record<string, unknown> = {
     summary: event.title,
     ...(event.description ? { description: event.description } : {}),
     ...(event.location ? { location: event.location } : {}),
     // timeZone is required by Google for recurring timed events and harmless for single events
     start: allDay ? { date: event.date } : { dateTime: startDt, timeZone: tz },
-    end: allDay ? { date: nextCalendarDay(event.date) } : { dateTime: endDt, timeZone: tz },
+    end: allDay
+      ? { date: nextCalendarDay(event.date) }
+      : { dateTime: endDt, timeZone: tz },
     ...(rrule.length > 0 ? { recurrence: rrule } : {}),
   };
-  const resp = await directGCal("/calendars/primary/events", { method: "POST", body });
+  const resp = await directGCal("/calendars/primary/events", {
+    method: "POST",
+    body,
+  });
   if (!resp || resp.status < 200 || resp.status >= 300) {
     logger.warn({ status: resp?.status }, "gcal: createEvent failed");
-    return null;
+    throw new Error(
+      "Google Calendar could not save this event. Please retry or reconnect in Admin.",
+    );
   }
   const data = (await resp.json()) as { id?: string };
   return data.id ?? null;
@@ -325,16 +369,27 @@ export async function updateGCalEvent(
     recurrenceEndDate?: string | null;
     recurrenceDays?: string | null;
   },
+  includeRecurrence = true,
 ): Promise<void> {
   const allDay = event.allDay || !event.startTime;
-  const tz = event.timezone || (await getCalendarTimezone());
-  const rrule = buildRRule(event.recurrence, event.recurrenceEndDate, event.recurrenceDays);
-  const startDt = allDay ? undefined : localTimeToUTC(event.date, event.startTime!, tz);
+  const tz = householdTimeZone();
+  const rrule = buildRRule(
+    event.recurrence,
+    event.recurrenceEndDate,
+    event.recurrenceDays,
+    allDay,
+    tz,
+  );
+  const startDt = allDay
+    ? undefined
+    : localTimeToUTC(event.date, event.startTime!, tz);
   const endDt = allDay
     ? undefined
     : event.endTime
       ? localTimeToUTC(event.date, event.endTime, tz)
-      : new Date(new Date(startDt!).getTime() + 60 * 60_000).toISOString().replace(/\.\d{3}Z$/, "Z");
+      : new Date(new Date(startDt!).getTime() + 60 * 60_000)
+          .toISOString()
+          .replace(/\.\d{3}Z$/, "Z");
 
   const body: Record<string, unknown> = {
     summary: event.title,
@@ -342,16 +397,19 @@ export async function updateGCalEvent(
     location: event.location ?? "",
     // timeZone is required by Google for recurring timed events and harmless for single events
     start: allDay ? { date: event.date } : { dateTime: startDt, timeZone: tz },
-    end: allDay ? { date: nextCalendarDay(event.date) } : { dateTime: endDt, timeZone: tz },
-    recurrence: rrule,
+    end: allDay
+      ? { date: nextCalendarDay(event.date) }
+      : { dateTime: endDt, timeZone: tz },
+    ...(includeRecurrence ? { recurrence: rrule } : {}),
   };
   const resp = await directGCal(
     `/calendars/primary/events/${encodeURIComponent(googleEventId)}`,
-    { method: "PUT", body },
+    { method: "PATCH", body },
   );
-  if (resp && resp.status >= 300) {
-    logger.warn({ status: resp.status, googleEventId }, "gcal: updateEvent failed");
-  }
+  if (!resp?.ok)
+    throw new Error(
+      "Google Calendar could not update this event. Your changes have not been saved.",
+    );
 }
 
 /**
@@ -359,16 +417,48 @@ export async function updateGCalEvent(
  * Works reliably for all-day events (instance ID = baseId_YYYYMMDD).
  * For timed events the instance ID format is more complex; we skip silently.
  */
-export async function deleteGCalEventInstance(googleSeriesId: string, date: string, allDay: boolean): Promise<void> {
-  if (!allDay) return; // timed instance IDs require querying instances endpoint — skip
-  const instanceId = `${googleSeriesId}_${date.replace(/-/g, "")}`;
-  const resp = await directGCal(
-    `/calendars/primary/events/${encodeURIComponent(instanceId)}`,
-    { method: "DELETE" },
-  );
-  if (resp && resp.status >= 300 && resp.status !== 404 && resp.status !== 410) {
-    logger.warn({ status: resp.status, instanceId }, "gcal: deleteEventInstance failed");
-  }
+export async function deleteGCalEventInstance(
+  googleSeriesId: string,
+  date: string,
+  allDay: boolean,
+): Promise<void> {
+  const params = new URLSearchParams({
+    timeMin: localTimeToUTC(date, "00:00", householdTimeZone()),
+    timeMax: localTimeToUTC(
+      nextCalendarDay(date),
+      "00:00",
+      householdTimeZone(),
+    ),
+    timeZone: householdTimeZone(),
+  });
+  const instances = await collectCalendarPages<GCalEvent>(async (token) => {
+    if (token) params.set("pageToken", token);
+    const response = await directGCal(
+      `/calendars/primary/events/${encodeURIComponent(googleSeriesId)}/instances?${params}`,
+    );
+    if (!response?.ok)
+      throw new Error(
+        "Unable to find this recurring occurrence in Google Calendar.",
+      );
+    return response.json() as Promise<{
+      items?: GCalEvent[];
+      nextPageToken?: string;
+    }>;
+  });
+  const occurrence = instances.find((instance) => {
+    const start = instance.originalStartTime ?? instance.start;
+    return (
+      (start.date ??
+        (start.dateTime
+          ? calendarLocalTime(start.dateTime, householdTimeZone()).date
+          : "")) === date
+    );
+  });
+  if (!occurrence)
+    throw new Error(
+      "This occurrence has moved or changed in Google Calendar. Sync and try again.",
+    );
+  await deleteGCalEvent(occurrence.id);
 }
 
 /** Returns true if the event/series still exists in GCal, false if 404/410 (deleted). */
@@ -381,12 +471,30 @@ export async function gcalEventExists(googleEventId: string): Promise<boolean> {
   return resp.status !== 404 && resp.status !== 410;
 }
 
+/** Absence from a date window may mean a move, not deletion. Confirm by ID. */
+export async function getGCalEvent(
+  googleEventId: string,
+): Promise<GCalEvent | null> {
+  const response = await directGCal(
+    `/calendars/primary/events/${encodeURIComponent(googleEventId)}`,
+  );
+  if (response?.status === 404 || response?.status === 410) return null;
+  if (!response?.ok)
+    throw new Error(
+      "Google Calendar lookup failed. Existing events have been preserved.",
+    );
+  const event = (await response.json()) as GCalEvent;
+  return event.status === "cancelled" ? null : event;
+}
+
 export async function deleteGCalEvent(googleEventId: string): Promise<void> {
   const resp = await directGCal(
     `/calendars/primary/events/${encodeURIComponent(googleEventId)}`,
     { method: "DELETE" },
   );
-  if (resp && resp.status >= 300 && resp.status !== 404) {
-    logger.warn({ status: resp.status, googleEventId }, "gcal: deleteEvent failed");
+  if (!resp || (!resp.ok && resp.status !== 404 && resp.status !== 410)) {
+    throw new Error(
+      "Google Calendar could not delete this event. Please retry; it has been kept locally.",
+    );
   }
 }

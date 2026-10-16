@@ -15,12 +15,20 @@ import {
 } from "@workspace/api-zod";
 import { badgesTable } from "@workspace/db";
 import { z } from "zod";
+import { requireParentVerification } from "../middleware/requireParentVerification";
+import {
+  clearLoginFailures,
+  isLoginBlocked,
+  recordLoginFailure,
+} from "../lib/loginThrottle";
 
 const router = Router();
 
 const BCRYPT_ROUNDS = 10;
 const IdParams = z.object({ id: z.number().int().positive() });
-const SetPinSchema = z.object({ pin: z.string().min(4).regex(/^\d+$/, "PIN must be digits only") });
+const SetPinSchema = z.object({
+  pin: z.string().min(4).regex(/^\d+$/, "PIN must be digits only"),
+});
 const VerifyPinSchema = z.object({ pin: z.string().min(1) });
 
 export function formatMember(m: typeof familyMembersTable.$inferSelect) {
@@ -40,27 +48,37 @@ export function formatMember(m: typeof familyMembersTable.$inferSelect) {
 
 // GET /api/family — list all family members
 router.get("/", async (_req, res) => {
-  const members = await db.select().from(familyMembersTable).orderBy(familyMembersTable.id);
+  const members = await db
+    .select()
+    .from(familyMembersTable)
+    .orderBy(familyMembersTable.id);
   res.json(members.map(formatMember));
 });
 
-const CreateMemberWithPinSchema = z.object({
-  name: z.string(),
-  emoji: z.string(),
-  color: z.string(),
-  role: z.enum(["parent", "child"]),
-  avatarUrl: z.string().optional(),
-  pin: z.string().min(4).regex(/^\d+$/, "PIN must be digits only").optional(),
-}).refine(
-  data => data.role !== "parent" || (!!data.pin && data.pin.length >= 4),
-  { message: "A PIN (4+ digits) is required when adding a parent", path: ["pin"] }
-);
+const CreateMemberWithPinSchema = z
+  .object({
+    name: z.string(),
+    emoji: z.string(),
+    color: z.string(),
+    role: z.enum(["parent", "child"]),
+    avatarUrl: z.string().optional(),
+    pin: z.string().min(4).regex(/^\d+$/, "PIN must be digits only").optional(),
+  })
+  .refine(
+    (data) => data.role !== "parent" || (!!data.pin && data.pin.length >= 4),
+    {
+      message: "A PIN (4+ digits) is required when adding a parent",
+      path: ["pin"],
+    },
+  );
 
 // POST /api/family — create a new family member
 router.post("/", async (req, res) => {
   const parsed = CreateMemberWithPinSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.errors[0]?.message ?? "Validation error" });
+    res
+      .status(400)
+      .json({ error: parsed.error.errors[0]?.message ?? "Validation error" });
     return;
   }
   const { pin, ...memberData } = parsed.data;
@@ -68,15 +86,24 @@ router.post("/", async (req, res) => {
   if (pin && memberData.role === "parent") {
     pinHash = await bcrypt.hash(pin, BCRYPT_ROUNDS);
   }
-  const [member] = await db.insert(familyMembersTable).values({ ...memberData, ...(pinHash ? { pinHash } : {}) }).returning();
+  const [member] = await db
+    .insert(familyMembersTable)
+    .values({ ...memberData, ...(pinHash ? { pinHash } : {}) })
+    .returning();
   res.status(201).json(formatMember(member));
 });
 
 // GET /api/family/:id — get a single family member (must be before /:id/* routes)
 router.get("/:id", async (req, res) => {
   const { id } = GetFamilyMemberParams.parse({ id: Number(req.params.id) });
-  const [member] = await db.select().from(familyMembersTable).where(eq(familyMembersTable.id, id));
-  if (!member) { res.status(404).json({ error: "Not found" }); return; }
+  const [member] = await db
+    .select()
+    .from(familyMembersTable)
+    .where(eq(familyMembersTable.id, id));
+  if (!member) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
   res.json(formatMember(member));
 });
 
@@ -84,14 +111,23 @@ router.get("/:id", async (req, res) => {
 router.patch("/:id", async (req, res) => {
   const { id } = UpdateFamilyMemberParams.parse({ id: Number(req.params.id) });
   const body = UpdateFamilyMemberBody.parse(req.body);
-  const pinParse = z.object({ pin: z.string().min(4).regex(/^\d+$/).optional() }).safeParse(req.body);
+  const pinParse = z
+    .object({ pin: z.string().min(4).regex(/^\d+$/).optional() })
+    .safeParse(req.body);
   const pin = pinParse.success ? pinParse.data.pin : undefined;
   const updateFields: Record<string, unknown> = { ...body };
   if (pin) {
     updateFields.pinHash = await bcrypt.hash(pin, BCRYPT_ROUNDS);
   }
-  const [member] = await db.update(familyMembersTable).set(updateFields).where(eq(familyMembersTable.id, id)).returning();
-  if (!member) { res.status(404).json({ error: "Not found" }); return; }
+  const [member] = await db
+    .update(familyMembersTable)
+    .set(updateFields)
+    .where(eq(familyMembersTable.id, id))
+    .returning();
+  if (!member) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
   res.json(formatMember(member));
 });
 
@@ -105,33 +141,43 @@ router.delete("/:id", async (req, res) => {
 // POST /api/family/:id/avatar — persist avatar URL after object-storage upload
 router.post("/:id/avatar", async (req, res) => {
   const { id } = IdParams.parse({ id: Number(req.params.id) });
-  const { avatarUrl } = z.object({ avatarUrl: z.string().min(1) }).parse(req.body);
+  const { avatarUrl } = z
+    .object({ avatarUrl: z.string().min(1) })
+    .parse(req.body);
   const [member] = await db
     .update(familyMembersTable)
     .set({ avatarUrl })
     .where(eq(familyMembersTable.id, id))
     .returning();
-  if (!member) { res.status(404).json({ error: "Not found" }); return; }
+  if (!member) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
   res.json(formatMember(member));
 });
 
 // GET /api/family/:id/badges — list badges earned by a family member
 router.get("/:id/badges", async (req, res) => {
   const { id } = IdParams.parse({ id: Number(req.params.id) });
-  const badges = await db.select().from(badgesTable).where(eq(badgesTable.memberId, id));
-  res.json(badges.map(b => ({
-    id: b.id,
-    memberId: b.memberId,
-    title: b.title,
-    description: b.description ?? null,
-    emoji: b.emoji,
-    tier: b.tier,
-    awardedAt: b.awardedAt.toISOString(),
-  })));
+  const badges = await db
+    .select()
+    .from(badgesTable)
+    .where(eq(badgesTable.memberId, id));
+  res.json(
+    badges.map((b) => ({
+      id: b.id,
+      memberId: b.memberId,
+      title: b.title,
+      description: b.description ?? null,
+      emoji: b.emoji,
+      tier: b.tier,
+      awardedAt: b.awardedAt.toISOString(),
+    })),
+  );
 });
 
 // POST /api/family/:id/set-pin — set or update per-parent PIN (bcrypt hashed)
-router.post("/:id/set-pin", async (req, res) => {
+router.post("/:id/set-pin", requireParentVerification, async (req, res) => {
   const { id } = IdParams.parse({ id: Number(req.params.id) });
   const { pin } = SetPinSchema.parse(req.body);
   const pinHash = await bcrypt.hash(pin, BCRYPT_ROUNDS);
@@ -140,7 +186,10 @@ router.post("/:id/set-pin", async (req, res) => {
     .set({ pinHash })
     .where(eq(familyMembersTable.id, id))
     .returning();
-  if (!member) { res.status(404).json({ error: "Not found" }); return; }
+  if (!member) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
   res.json(formatMember(member));
 });
 
@@ -148,14 +197,26 @@ router.post("/:id/set-pin", async (req, res) => {
 router.post("/:id/verify-pin", async (req, res) => {
   const { id } = IdParams.parse({ id: Number(req.params.id) });
   const { pin } = VerifyPinSchema.parse(req.body);
-  const [member] = await db.select().from(familyMembersTable).where(eq(familyMembersTable.id, id));
-  if (!member) { res.json({ valid: false }); return; }
+  const [member] = await db
+    .select()
+    .from(familyMembersTable)
+    .where(eq(familyMembersTable.id, id));
+  if (!member) {
+    res.json({ valid: false });
+    return;
+  }
   if (!member.pinHash) {
-    // No PIN set — fallback to global settings PIN check or just allow
-    res.json({ valid: true });
+    res.json({ valid: false });
+    return;
+  }
+  const throttleKey = `member:${id}:${req.ip}`;
+  if (isLoginBlocked(throttleKey)) {
+    res.status(429).json({ error: "Too many PIN attempts. Try again later." });
     return;
   }
   const valid = await bcrypt.compare(pin, member.pinHash);
+  if (valid) clearLoginFailures(throttleKey);
+  else recordLoginFailure(throttleKey);
   res.json({ valid });
 });
 
