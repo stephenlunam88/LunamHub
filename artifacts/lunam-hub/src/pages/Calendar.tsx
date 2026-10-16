@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useListEvents,
   useCreateEvent,
@@ -260,6 +260,7 @@ export default function Calendar() {
   const [form, setForm] = useState<EventForm>(
     DEFAULT_FORM(format(new Date(), "yyyy-MM-dd")),
   );
+  const nextOptimisticEventId = useRef(0);
   const [filterMemberIds, setFilterMemberIds] = useState<number[]>([]);
   const [showUnassigned, setShowUnassigned] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -337,11 +338,25 @@ export default function Calendar() {
   function invalidate() {
     qc.invalidateQueries({ queryKey: getListEventsQueryKey() });
     qc.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
-    if (isConnected) {
-      sync.mutate({ data: { startDate, endDate } });
-    } else {
-      qc.invalidateQueries({ queryKey: getListEventsQueryKey() });
+  }
+
+  function updateVisibleEvents(updater: (events: Event[]) => Event[]) {
+    const queryKey = getListEventsQueryKey({ startDate, endDate });
+    qc.setQueryData<Event[]>(queryKey, (cachedEvents) =>
+      updater(cachedEvents ?? []),
+    );
+  }
+
+  function occursInVisibleRange(event: Event): boolean {
+    if (event.date > endDate) return false;
+    const firstDay = parseLocalDate(
+      event.date > startDate ? event.date : startDate,
+    );
+    const lastDay = parseLocalDate(endDate);
+    for (let day = firstDay; day <= lastDay; day = addDays(day, 1)) {
+      if (doesEventOccurOnDay(event, day)) return true;
     }
+    return false;
   }
 
   function showError(error: Error) {
@@ -354,30 +369,112 @@ export default function Calendar() {
 
   const createEvent = useCreateEvent({
     mutation: {
-      onError: showError,
-      onSuccess: () => {
+      onMutate: async ({ data }) => {
+        await qc.cancelQueries({
+          queryKey: getListEventsQueryKey({ startDate, endDate }),
+        });
+        const optimisticId = --nextOptimisticEventId.current;
+        const optimisticEvent: Event = {
+          id: optimisticId,
+          title: data.title,
+          description: data.description ?? null,
+          location: data.location ?? null,
+          date: data.date,
+          startTime: data.startTime ?? null,
+          endTime: data.endTime ?? null,
+          allDay: data.allDay ?? !data.startTime,
+          category: data.category,
+          recurrence: data.recurrence,
+          recurrenceEndDate: data.recurrenceEndDate ?? null,
+          recurrenceDays: data.recurrenceDays ?? null,
+          recurrenceExceptions: data.recurrenceExceptions ?? null,
+          googleEventId: null,
+          assignedMembers: data.assignedMembers ?? [],
+          createdAt: new Date().toISOString(),
+        };
+        if (occursInVisibleRange(optimisticEvent)) {
+          updateVisibleEvents((events) => [...events, optimisticEvent]);
+        }
+        return optimisticId;
+      },
+      onError: (error, _variables, optimisticId) => {
+        if (optimisticId !== undefined) {
+          updateVisibleEvents((events) =>
+            events.filter((event) => event.id !== optimisticId),
+          );
+        }
+        showError(error);
+        setOpen(true);
+      },
+      onSuccess: (createdEvent, _variables, optimisticId) => {
+        updateVisibleEvents((events) => {
+          const remaining = events.filter(
+            (event) => event.id !== optimisticId && event.id !== createdEvent.id,
+          );
+          return occursInVisibleRange(createdEvent)
+            ? [...remaining, createdEvent]
+            : remaining;
+        });
         setOpen(false);
         setForm(DEFAULT_FORM(format(selectedDay, "yyyy-MM-dd")));
-        invalidate();
       },
+      onSettled: invalidate,
     },
   });
 
   const updateEvent = useUpdateEvent({
     mutation: {
-      onError: showError,
+      onMutate: async ({ id, data }) => {
+        await qc.cancelQueries({
+          queryKey: getListEventsQueryKey({ startDate, endDate }),
+        });
+        let previousEvent: Event | undefined;
+        updateVisibleEvents((events) =>
+          events.flatMap((event) => {
+            if (event.id !== id) return [event];
+            previousEvent = event;
+            const updatedEvent = { ...event, ...data } as Event;
+            return occursInVisibleRange(updatedEvent) ? [updatedEvent] : [];
+          }),
+        );
+        return previousEvent;
+      },
+      onError: (error, _variables, previousEvent) => {
+        if (previousEvent) {
+          updateVisibleEvents((events) => [
+            ...events.filter((event) => event.id !== previousEvent.id),
+            previousEvent,
+          ]);
+        }
+        showError(error);
+      },
       onSuccess: () => {
         setOpen(false);
         setEditingEventId(null);
-        invalidate();
       },
+      onSettled: invalidate,
     },
   });
 
   const deleteEvent = useDeleteEvent({
     mutation: {
-      onError: showError,
-      onSettled: () => invalidate(),
+      onMutate: async ({ id }) => {
+        await qc.cancelQueries({
+          queryKey: getListEventsQueryKey({ startDate, endDate }),
+        });
+        const previousEvent = qc
+          .getQueryData<Event[]>(getListEventsQueryKey({ startDate, endDate }))
+          ?.find((event) => event.id === id);
+        updateVisibleEvents((events) => events.filter((event) => event.id !== id));
+        return previousEvent;
+      },
+      onError: (error, _variables, previousEvent) => {
+        if (previousEvent) {
+          updateVisibleEvents((events) => [...events, previousEvent]);
+        }
+        showError(error);
+      },
+      onSettled: invalidate,
     },
   });
 
@@ -404,6 +501,7 @@ export default function Calendar() {
   }, []);
 
   function openEdit(e: Event) {
+    if (e.id < 0) return;
     setMode("edit");
     setEditingEventId(e.id);
     setForm({
@@ -468,6 +566,7 @@ export default function Calendar() {
         assignedMembers: form.assignedMembers,
       } as EventInput;
       createEvent.mutate({ data });
+      setOpen(false);
     } else if (editingEventId !== null) {
       const data = {
         title: form.title,
@@ -485,6 +584,7 @@ export default function Calendar() {
         assignedMembers: form.assignedMembers,
       } as EventUpdate;
       updateEvent.mutate({ id: editingEventId, data });
+      setOpen(false);
     }
   }
 
@@ -1168,7 +1268,7 @@ export default function Calendar() {
                             />
                             <span className="truncate text-foreground/80">
                               {ev.startTime
-                                ? formatEventTime(ev.startTime) + " "
+                                ? `${formatEventTime(ev.startTime)}${ev.endTime ? `–${formatEventTime(ev.endTime)}` : ""} `
                                 : ""}
                               {ev.title}
                             </span>
@@ -1324,6 +1424,11 @@ export default function Calendar() {
                               e.recurrence}
                           </span>
                         )}
+                        {e.id < 0 && (
+                          <span className="text-[10px] text-muted-foreground">
+                            Saving…
+                          </span>
+                        )}
                       </div>
                       {e.startTime && (
                         <div className="flex items-center gap-1 text-muted-foreground text-sm mt-1">
@@ -1381,12 +1486,14 @@ export default function Calendar() {
                     <div className="flex flex-col gap-1 shrink-0">
                       <button
                         onClick={() => openEdit(e)}
+                        disabled={e.id < 0}
                         className="text-muted-foreground hover:text-foreground transition-colors p-1"
                         aria-label="Edit event"
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
+                        disabled={e.id < 0}
                         onClick={() => {
                           if (e.recurrence) {
                             setDeleteDialog({ event: e, day: selectedDay });
