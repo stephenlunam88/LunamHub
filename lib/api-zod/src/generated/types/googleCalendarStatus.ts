@@ -8,7 +8,9 @@
 
 export interface GoogleCalendarStatus {
   connected: boolean;
-  /** True when a Google Calendar OAuth connection exists in the Replit integrations panel but has not yet been activated in this app. Used to distinguish "needs first-time OAuth" from "OAuth done, just needs activating".
+  /** Household timezone used to display and save calendar events. */
+  timeZone?: string;
+  /** True when Google OAuth client credentials are configured.
    */
   oauthAvailable?: boolean;
 }

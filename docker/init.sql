@@ -280,6 +280,15 @@ CREATE TABLE settings (
 -- Seed the single settings row
 INSERT INTO settings DEFAULT VALUES;
 
+-- ── HTTP Sessions ────────────────────────────────────────────────────────────
+
+CREATE TABLE http_sessions (
+    sid TEXT PRIMARY KEY,
+    sess JSONB NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX http_sessions_expires_at_idx ON http_sessions(expires_at);
+
 -- ── Screensaver Photos ────────────────────────────────────────────────────────
 
 CREATE TABLE screensaver_photos (

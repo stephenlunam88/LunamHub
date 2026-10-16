@@ -16,6 +16,7 @@ import { eq, gte, lte, inArray, and, or, isNull, isNotNull } from "drizzle-orm";
 import { pointTransactionsTable } from "@workspace/db";
 import { calculateChoreStreak } from "../lib/choreStreak";
 import { householdDate } from "../lib/householdDate";
+import { occursOn as doesOccurOn } from "../lib/calendarRecurrence";
 
 const router = Router();
 
@@ -28,23 +29,6 @@ function addDays(dateStr: string, days: number) {
   const d = new Date(dateStr);
   d.setDate(d.getDate() + days);
   return d.toISOString().split("T")[0]!;
-}
-
-// Returns true if a recurring (or one-off) event occurs on the given YYYY-MM-DD date.
-// Mirrors doesEventOccurOnDay() in Calendar.tsx.
-function doesOccurOn(e: typeof eventsTable.$inferSelect, dateStr: string): boolean {
-  if (e.date > dateStr) return false;
-  if (!e.recurrence) return e.date === dateStr;
-  if (e.recurrenceEndDate && e.recurrenceEndDate < dateStr) return false;
-  const start = new Date(e.date + "T00:00:00");
-  const check = new Date(dateStr + "T00:00:00");
-  switch (e.recurrence) {
-    case "DAILY": return true;
-    case "WEEKLY": return start.getDay() === check.getDay();
-    case "MONTHLY": return start.getDate() === check.getDate();
-    case "YEARLY": return start.getMonth() === check.getMonth() && start.getDate() === check.getDate();
-    default: return e.date === dateStr;
-  }
 }
 
 // GET /api/dashboard/summary

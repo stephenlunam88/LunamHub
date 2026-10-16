@@ -162,7 +162,8 @@ export const CreateEventBody = zod.object({
  */
 export const GetGoogleCalendarStatusResponse = zod.object({
   "connected": zod.boolean(),
-  "oauthAvailable": zod.boolean().optional().describe('True when a Google Calendar OAuth connection exists in the Replit integrations panel but has not yet been activated in this app. Used to distinguish \"needs first-time OAuth\" from \"OAuth done, just needs activating\".\n')
+  "timeZone": zod.string().optional().describe('Household timezone used to display and save calendar events.'),
+  "oauthAvailable": zod.boolean().optional().describe('True when Google OAuth client credentials are configured.\n')
 })
 
 
@@ -185,7 +186,8 @@ export const SyncGoogleCalendarResponse = zod.object({
  */
 export const ConnectGoogleCalendarResponse = zod.object({
   "connected": zod.boolean(),
-  "oauthAvailable": zod.boolean().optional().describe('True when a Google Calendar OAuth connection exists in the Replit integrations panel but has not yet been activated in this app. Used to distinguish \"needs first-time OAuth\" from \"OAuth done, just needs activating\".\n')
+  "timeZone": zod.string().optional().describe('Household timezone used to display and save calendar events.'),
+  "oauthAvailable": zod.boolean().optional().describe('True when Google OAuth client credentials are configured.\n')
 })
 
 
@@ -194,7 +196,8 @@ export const ConnectGoogleCalendarResponse = zod.object({
  */
 export const DisconnectGoogleCalendarResponse = zod.object({
   "connected": zod.boolean(),
-  "oauthAvailable": zod.boolean().optional().describe('True when a Google Calendar OAuth connection exists in the Replit integrations panel but has not yet been activated in this app. Used to distinguish \"needs first-time OAuth\" from \"OAuth done, just needs activating\".\n')
+  "timeZone": zod.string().optional().describe('Household timezone used to display and save calendar events.'),
+  "oauthAvailable": zod.boolean().optional().describe('True when Google OAuth client credentials are configured.\n')
 })
 
 
@@ -1329,7 +1332,7 @@ export const GetDashboardSummaryResponse = zod.object({
  */
 export const GetSettingsResponse = zod.object({
   "id": zod.number(),
-  "parentPin": zod.string(),
+  "hasParentPin": zod.boolean(),
   "appName": zod.string(),
   "timezone": zod.string(),
   "displayMode": zod.boolean(),
@@ -1354,7 +1357,7 @@ export const UpdateSettingsBody = zod.object({
 
 export const UpdateSettingsResponse = zod.object({
   "id": zod.number(),
-  "parentPin": zod.string(),
+  "hasParentPin": zod.boolean(),
   "appName": zod.string(),
   "timezone": zod.string(),
   "displayMode": zod.boolean(),

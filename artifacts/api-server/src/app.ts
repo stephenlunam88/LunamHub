@@ -4,6 +4,7 @@ import session from "express-session";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { PostgresSessionStore } from "./lib/postgresSessionStore";
 
 const app: Express = express();
 
@@ -26,15 +27,31 @@ app.use(
     },
   }),
 );
-app.use(cors({ origin: true, credentials: true }));
+const allowedOrigins = process.env["CORS_ORIGIN"]
+  ?.split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+app.use(
+  cors({
+    origin: allowedOrigins?.length ? allowedOrigins : false,
+    credentials: true,
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const secret = process.env["SESSION_SECRET"] ?? "dev-secret-change-me";
+if (
+  process.env["NODE_ENV"] === "production" &&
+  !process.env["SESSION_SECRET"]
+) {
+  throw new Error("SESSION_SECRET is required in production");
+}
 app.use(
   session({
     name: "lunam.sid",
     secret,
+    store: new PostgresSessionStore(),
     resave: false,
     saveUninitialized: false,
     cookie: {

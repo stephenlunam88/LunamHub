@@ -279,7 +279,7 @@ function GoogleCalendarCard() {
               <div className="flex-1">
                 <div className="font-semibold text-green-800">Connected</div>
                 <p className="text-sm text-green-700 mt-0.5">
-                  Events sync automatically when you open the Calendar page. Events added in LunamHub are also pushed to Google Calendar.
+                  Upcoming events refresh in the background every five minutes. Calendar also syncs when you change the displayed period. New events are saved to your connected account’s primary Google Calendar.
                 </p>
               </div>
             </div>
