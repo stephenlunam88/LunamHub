@@ -12,6 +12,21 @@ import {
   occursOn,
   parseGoogleRecurrence,
 } from "../src/lib/calendarRecurrence.ts";
+import { compareEventsByTime } from "../src/lib/eventOrdering.ts";
+
+test("events sort by clock time when hours are or are not zero-padded", () => {
+  const events = [
+    { title: "Afternoon", startTime: "15:45", allDay: false },
+    { title: "Breakfast", startTime: "8:30", allDay: false },
+    { title: "Morning", startTime: "08:00", allDay: false },
+    { title: "All day", startTime: null, allDay: true },
+  ];
+
+  assert.deepEqual(
+    events.sort(compareEventsByTime).map((event) => event.title),
+    ["All day", "Morning", "Breakfast", "Afternoon"],
+  );
+});
 
 test("UTC and explicit offsets identify the same household date and time", () => {
   assert.deepEqual(

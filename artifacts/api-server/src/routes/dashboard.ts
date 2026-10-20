@@ -17,6 +17,7 @@ import { pointTransactionsTable } from "@workspace/db";
 import { calculateChoreStreak } from "../lib/choreStreak";
 import { householdDate } from "../lib/householdDate";
 import { occursOn as doesOccurOn } from "../lib/calendarRecurrence";
+import { compareEventsByTime } from "../lib/eventOrdering";
 
 const router = Router();
 
@@ -86,7 +87,10 @@ router.get("/summary", async (req, res) => {
   });
 
   // Apply recurrence logic to determine actual occurrences
-  const todayEvents = allEvents.filter((e) => doesOccurOn(e, todayStr)).map(formatEvent);
+  const todayEvents = allEvents
+    .filter((e) => doesOccurOn(e, todayStr))
+    .map(formatEvent)
+    .sort(compareEventsByTime);
 
   // For upcoming, expand each event into its actual occurrence dates within the window
   const upcomingDates: string[] = [];
@@ -95,7 +99,10 @@ router.get("/summary", async (req, res) => {
     allEvents
       .filter((e) => doesOccurOn(e, dateStr))
       .map((e) => ({ ...formatEvent(e), date: dateStr })),
-  ).sort((a, b) => a.date.localeCompare(b.date));
+  ).sort(
+    (a, b) =>
+      a.date.localeCompare(b.date) || compareEventsByTime(a, b),
+  );
 
   // Family members
   const familyMembers = await db.select().from(familyMembersTable).orderBy(familyMembersTable.id);

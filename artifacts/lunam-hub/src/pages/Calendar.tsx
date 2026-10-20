@@ -29,6 +29,7 @@ import {
   endOfWeek,
 } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { eventTimeInMinutes } from "@/lib/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -303,7 +304,7 @@ export default function Calendar() {
     .sort(
       (a, b) =>
         Number(b.allDay) - Number(a.allDay) ||
-        (a.startTime ?? "").localeCompare(b.startTime ?? "") ||
+        eventTimeInMinutes(a.startTime) - eventTimeInMinutes(b.startTime) ||
         a.title.localeCompare(b.title),
     );
   const { data: gcalStatus } = useGetGoogleCalendarStatus();

@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MemberAvatar } from "@/components/MemberAvatar";
 import { WeatherWidget } from "@/components/WeatherWidget";
+import { eventTimeInMinutes } from "@/lib/calendar";
 import {
   Trophy,
   CheckCircle2,
@@ -358,9 +359,10 @@ function NextEventPreview({
   upcomingEvents: Event[];
   now: Date;
 }) {
-  const nowStr = format(now, "HH:mm");
+  const nowMinutes = eventTimeInMinutes(format(now, "HH:mm"));
   const nextToday = todayEvents.find(
-    (e) => e.startTime && e.startTime > nowStr,
+    (e) =>
+      e.startTime && eventTimeInMinutes(e.startTime) > nowMinutes,
   );
   const next = nextToday ?? upcomingEvents[0] ?? null;
   if (!next) return null;
