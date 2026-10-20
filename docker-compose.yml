@@ -36,6 +36,8 @@ services:
       LOCAL_PHOTO_DIR: /data/photos
       APP_PASSWORD: ${APP_PASSWORD:-}
       MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-https://lunamhub.swimforge.com.au}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
       CORS_ORIGIN: ${CORS_ORIGIN:-}
       HOUSEHOLD_TIME_ZONE: ${HOUSEHOLD_TIME_ZONE:-Australia/Sydney}
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}

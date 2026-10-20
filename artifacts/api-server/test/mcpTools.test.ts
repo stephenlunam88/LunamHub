@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 
 test("MCP exposes the household calendar and chore tools with scoped OAuth metadata", async () => {
@@ -67,5 +69,19 @@ test("MCP exposes the household calendar and chore tools with scoped OAuth metad
     )?.["readOnlyHint"],
     false,
   );
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
+  const client = new Client({
+    name: "test-lunamhub-assistant",
+    version: "1.0.0",
+  });
+  await server.connect(serverTransport);
+  await client.connect(clientTransport);
+  const wireTools = await client.listTools();
+  assert.deepEqual(
+    wireTools.tools.map((tool) => tool.name).sort(),
+    [...byName.keys()].sort(),
+  );
+  await client.close();
   await server.close();
 });

@@ -4,6 +4,7 @@ import { ensureGamesNightSchema } from "./lib/gamesNightMigration";
 import { ensureSessionSchema } from "./lib/postgresSessionStore";
 import { startCalendarPolling } from "./lib/calendarPolling";
 import { ensureMcpOAuthSchema } from "./lib/mcpOAuth";
+import { ensureAssistantConfigSchema } from "./lib/assistantConfig";
 
 const rawPort = process.env["PORT"];
 
@@ -23,6 +24,7 @@ Promise.all([
   ensureGamesNightSchema(),
   ensureSessionSchema(),
   ensureMcpOAuthSchema(),
+  ensureAssistantConfigSchema(),
 ])
   .then(() => {
     app.listen(port, (err) => {

@@ -89,6 +89,101 @@ export default function Admin() {
   return <AdminPanel onLock={() => setUnlocked(false)} />;
 }
 
+type AssistantSettingsStatus = {
+  configured: boolean;
+  keySource: "app" | "environment" | "none";
+  model: string;
+  modelSource: "app" | "environment" | "none";
+};
+
+function AssistantSettingsCard() {
+  const [status, setStatus] = useState<AssistantSettingsStatus | null>(null);
+  const [apiKey, setApiKey] = useState("");
+  const [model, setModel] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const { toast } = useToast();
+
+  async function refresh() {
+    const response = await fetch("/api/settings/assistant", { credentials: "include" });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error ?? "Could not load assistant settings.");
+    const next = body as AssistantSettingsStatus;
+    setStatus(next);
+    setModel(next.model);
+  }
+
+  useEffect(() => {
+    refresh().catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load assistant settings."));
+  }, []);
+
+  async function save() {
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/settings/assistant", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: apiKey || undefined, model }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error ?? "Could not save assistant settings.");
+      setStatus(body as AssistantSettingsStatus);
+      setApiKey("");
+      toast({ title: "Assistant settings saved" });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not save assistant settings.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function clearKey() {
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/settings/assistant/key", { method: "DELETE", credentials: "include" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error ?? "Could not remove the saved key.");
+      setStatus(body as AssistantSettingsStatus);
+      setApiKey("");
+      toast({ title: "Saved API key removed" });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not remove the saved key.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="rounded-3xl border-0 shadow-sm">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Key className="w-5 h-5" /> LunamHub Assistant</CardTitle>
+        <p className="text-sm text-muted-foreground">Add your OpenAI API key here. It is encrypted on the server and never shown back in this page.</p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <Label htmlFor="assistant-api-key">OpenAI API key</Label>
+          <Input id="assistant-api-key" type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={status?.configured ? "Key saved — leave blank to keep it" : "Paste your OpenAI API key here"} className="mt-1 h-12 rounded-xl" />
+          <p className="mt-1 text-xs text-muted-foreground">The key stays in this secure form and is sent only to your LunamHub server.</p>
+        </div>
+        <div>
+          <Label htmlFor="assistant-model">OpenAI model</Label>
+          <Input id="assistant-model" value={model} onChange={(event) => setModel(event.target.value)} placeholder="Enter a model enabled for your API account" className="mt-1 h-12 rounded-xl" />
+          <p className="mt-1 text-xs text-muted-foreground">Use the exact model name enabled for your OpenAI API account. This is separate from your ChatGPT subscription.</p>
+        </div>
+        {status && <p className="text-sm text-muted-foreground">{status.configured ? `API key configured (${status.keySource === "app" ? "saved in LunamHub" : "provided by server environment"}).` : "No API key configured yet."}{status.modelSource === "environment" ? " Model is managed by the server environment." : ""}</p>}
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button className="h-12 flex-1 rounded-xl" onClick={save} disabled={busy || !model.trim()}>{busy ? "Saving…" : "Save assistant settings"}</Button>
+          {status?.keySource === "app" && <Button variant="outline" className="h-12 rounded-xl" onClick={clearKey} disabled={busy}>Remove saved key</Button>}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function ProfileAvatar({ name, avatarUrl, className = "h-12 w-12" }: { name: string; avatarUrl?: string | null; className?: string }) {
   return (
     <Avatar className={`${className} border-2 border-background shadow-sm`}>
@@ -1540,6 +1635,7 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
       </Card>
 
       <div className={`${adminSection === "connections" ? "" : "hidden"} space-y-5`}>
+        <AssistantSettingsCard />
         <GoogleCalendarCard />
         <GoogleNestCard />
       </div>

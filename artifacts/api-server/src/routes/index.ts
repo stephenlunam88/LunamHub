@@ -25,6 +25,7 @@ import googleAuthRouter from "./google-auth";
 import { gamesNightRouter } from "./games-night";
 import { googleNestRouter } from "./google-nest";
 import { weatherRouter } from "./weather";
+import assistantRouter from "./assistant";
 import { requireAuth } from "../middleware/requireAuth";
 
 const router: IRouter = Router();
@@ -36,6 +37,7 @@ router.use("/auth", authRouter);
 // Everything below requires a valid session when APP_PASSWORD is set
 router.use(requireAuth);
 
+router.use("/assistant", assistantRouter);
 router.use("/family", familyRouter);
 router.use("/events", eventsRouter);
 router.use("/chores", choresRouter);

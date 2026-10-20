@@ -2,6 +2,7 @@
 // Manages app settings including the parent PIN
 
 import { Router } from "express";
+import { z } from "zod";
 import { db } from "@workspace/db";
 import { settingsTable } from "@workspace/db";
 import { UpdateSettingsBody, VerifyPinBody } from "@workspace/api-zod";
@@ -15,6 +16,11 @@ import {
   isLoginBlocked,
   recordLoginFailure,
 } from "../lib/loginThrottle";
+import {
+  clearStoredAssistantKey,
+  getAssistantConfigStatus,
+  saveAssistantConfig,
+} from "../lib/assistantConfig";
 
 const router = Router();
 
@@ -86,6 +92,27 @@ router.post("/verify-pin", async (req, res) => {
   }
   if (!valid) recordLoginFailure(throttleKey);
   res.json({ valid });
+});
+
+const AssistantConfigBody = z.object({
+  apiKey: z.string().max(500).optional(),
+  model: z.string().trim().min(1).max(120),
+});
+
+// Never return the API key; only expose whether one is configured.
+router.get("/assistant", requireParentVerification, async (_req, res) => {
+  res.json(await getAssistantConfigStatus());
+});
+
+router.put("/assistant", requireParentVerification, async (req, res) => {
+  const body = AssistantConfigBody.parse(req.body);
+  await saveAssistantConfig(body);
+  res.json(await getAssistantConfigStatus());
+});
+
+router.delete("/assistant/key", requireParentVerification, async (_req, res) => {
+  await clearStoredAssistantKey();
+  res.json(await getAssistantConfigStatus());
 });
 
 import { eq } from "drizzle-orm";

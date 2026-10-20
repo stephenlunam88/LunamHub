@@ -12,6 +12,7 @@ import {
   List,
   ListPlus,
   Menu,
+  MessageCircle,
   MonitorPlay,
   Plus,
   Repeat2,
@@ -33,6 +34,7 @@ const NAV_ITEMS = [
   { href: "/rewards", label: "Rewards", icon: Gift },
   { href: "/lists", label: "Lists", icon: List },
   { href: "/games", label: "Games", icon: Dice5 },
+  { href: "/assistant", label: "Assistant", icon: MessageCircle },
   { href: "/cameras", label: "Cameras", icon: Camera },
   { href: "/admin", label: "Parents", icon: Settings },
   { href: "/display", label: "Display", icon: MonitorPlay },
@@ -108,6 +110,7 @@ export function Layout({ children }: { children: ReactNode }) {
           className={cn(
             "pb-6 md:pb-0",
             (isDashboard || isCalendar) && "md:h-full",
+            path === "/assistant" && "h-full",
             !isDashboard &&
               !isCalendar &&
               "mx-auto max-w-5xl px-4 pt-4 md:px-6 md:pt-6",
@@ -128,7 +131,12 @@ export function Layout({ children }: { children: ReactNode }) {
         className="relative z-50 grid h-[calc(68px+env(safe-area-inset-bottom))] shrink-0 grid-cols-5 items-center border-t bg-card px-1 pt-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden"
       >
         <MobileLink href="/" label="Today" icon={Home} location={path} />
-        <MobileLink href="/calendar" label="Calendar" icon={Calendar} location={path} />
+        <MobileLink
+          href="/calendar"
+          label="Calendar"
+          icon={Calendar}
+          location={path}
+        />
         <button
           onClick={() => setQuickOpen(true)}
           className="relative flex h-14 w-full flex-col items-center justify-end rounded-xl pb-2.5 text-primary"
