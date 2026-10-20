@@ -641,9 +641,33 @@ export default function Calendar() {
             <span className="flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
               Google Calendar
-              {sync.isPending && (
-                <RefreshCw className="w-3 h-3 animate-spin ml-0.5" />
+              {sync.isError && (
+                <span className="text-destructive" role="alert">
+                  Sync failed
+                </span>
               )}
+              <button
+                type="button"
+                className="-mr-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-green-700 hover:bg-green-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+                aria-label={
+                  sync.isPending
+                    ? "Syncing Google Calendar"
+                    : sync.isError
+                      ? "Retry Google Calendar sync"
+                      : "Sync Google Calendar now"
+                }
+                title={
+                  lastSynced
+                    ? `Last synced at ${format(lastSynced, "h:mm a")}. Click to sync now.`
+                    : "Sync Google Calendar now"
+                }
+                disabled={sync.isPending}
+                onClick={() => sync.mutate({ data: { startDate, endDate } })}
+              >
+                <RefreshCw
+                  className={cn("h-3.5 w-3.5", sync.isPending && "animate-spin")}
+                />
+              </button>
             </span>
           )}
         </div>
@@ -775,28 +799,6 @@ export default function Calendar() {
           Loading events…
         </p>
       )}
-      {isConnected && (
-        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <span role={sync.isError ? "alert" : "status"}>
-            {sync.isPending
-              ? "Syncing Google Calendar…"
-              : sync.isError
-                ? "Sync failed. Your saved events are still available."
-                : lastSynced
-                  ? `Last synced at ${format(lastSynced, "h:mm a")}`
-                  : "Google Calendar connected"}
-          </span>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={sync.isPending}
-            onClick={() => sync.mutate({ data: { startDate, endDate } })}
-          >
-            Retry / sync now
-          </Button>
-        </div>
-      )}
-
       {/* ── Delete recurring event dialog ─────────────────────────────────── */}
       <Dialog
         open={!!deleteDialog}

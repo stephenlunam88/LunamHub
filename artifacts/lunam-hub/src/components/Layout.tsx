@@ -125,19 +125,19 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="Mobile navigation"
-        className="relative z-50 grid h-[calc(76px+env(safe-area-inset-bottom))] shrink-0 grid-cols-5 items-start border-t bg-card px-1 pt-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden"
+        className="relative z-50 grid h-[calc(68px+env(safe-area-inset-bottom))] shrink-0 grid-cols-5 items-center border-t bg-card px-1 pt-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden"
       >
         <MobileLink href="/" label="Today" icon={Home} location={path} />
         <MobileLink href="/calendar" label="Calendar" icon={Calendar} location={path} />
         <button
           onClick={() => setQuickOpen(true)}
-          className="-mt-6 flex flex-col items-center gap-1 text-primary"
+          className="relative flex h-14 w-full flex-col items-center justify-end rounded-xl pb-2.5 text-primary"
           aria-label="Open quick actions"
         >
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
+          <span className="absolute left-1/2 top-0 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
             <Plus className="h-7 w-7" />
           </span>
-          <span className="text-[10px] font-bold">Quick Add</span>
+          <span className="text-[10px] font-bold leading-none">Quick Add</span>
         </button>
         <MobileLink href="/lists" label="Lists" icon={List} location={path} />
         <button
@@ -248,7 +248,7 @@ function MobileLink({
     <Link
       href={href}
       className={cn(
-        "flex h-14 flex-col items-center justify-center gap-1 rounded-xl",
+        "flex h-14 w-full min-w-0 flex-col items-center justify-center gap-1 rounded-xl",
         active ? "text-primary" : "text-muted-foreground",
       )}
     >
