@@ -150,13 +150,13 @@
     height: calc(100% + env(safe-area-inset-bottom));
   }
 
-  /* Use some of the otherwise empty bottom inset for the nav labels/tap
-     targets, while keeping the prominent Assistant bubble nearly in place. */
+  /* Use the empty space above the nav row for its labels/tap targets, while
+     keeping the prominent Assistant bubble in place. */
   .mobile-nav-item {
-    transform: translateY(min(16px, env(safe-area-inset-bottom)));
+    transform: translateY(0);
   }
 
   .mobile-nav-assistant-bubble {
-    top: calc(-1.5rem - min(8px, env(safe-area-inset-bottom)));
+    top: calc(-1.5rem + min(8px, env(safe-area-inset-bottom)));
   }
 }
