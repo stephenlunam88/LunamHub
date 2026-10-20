@@ -142,7 +142,7 @@ export function Layout({ children }: { children: ReactNode }) {
           className="relative flex h-14 w-full flex-col items-center justify-end rounded-xl pb-2.5 text-primary"
           aria-label="Open Family Assistant"
         >
-          <span className="absolute left-1/2 -top-3 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
+          <span className="absolute left-1/2 -top-6 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
             <MessageCircle className="h-6 w-6" />
           </span>
           <span className="text-[10px] font-bold leading-none">Assistant</span>
