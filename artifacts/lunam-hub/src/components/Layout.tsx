@@ -139,10 +139,10 @@ export function Layout({ children }: { children: ReactNode }) {
         />
         <button
           onClick={() => navigate("/assistant")}
-          className="relative flex h-14 w-full flex-col items-center justify-end rounded-xl pb-2.5 text-primary"
+          className="mobile-nav-item relative flex h-14 w-full flex-col items-center justify-end rounded-xl pb-2.5 text-primary"
           aria-label="Open Family Assistant"
         >
-          <span className="absolute left-1/2 -top-6 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
+          <span className="mobile-nav-assistant-bubble absolute left-1/2 -top-6 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
             <MessageCircle className="h-6 w-6" />
           </span>
           <span className="text-[10px] font-bold leading-none">Assistant</span>
@@ -150,7 +150,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <MobileLink href="/lists" label="Lists" icon={List} location={path} />
         <button
           onClick={() => setMoreOpen(true)}
-          className="flex h-14 flex-col items-center justify-center gap-1 rounded-xl text-muted-foreground"
+          className="mobile-nav-item flex h-14 flex-col items-center justify-center gap-1 rounded-xl text-muted-foreground"
         >
           <Menu className="h-5 w-5" />
           <span className="text-[10px] font-bold">More</span>
@@ -276,7 +276,7 @@ function MobileLink({
     <Link
       href={href}
       className={cn(
-        "flex h-14 w-full min-w-0 flex-col items-center justify-center gap-1 rounded-xl",
+        "mobile-nav-item flex h-14 w-full min-w-0 flex-col items-center justify-center gap-1 rounded-xl",
         active ? "text-primary" : "text-muted-foreground",
       )}
     >

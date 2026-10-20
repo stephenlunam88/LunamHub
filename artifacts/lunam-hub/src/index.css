@@ -134,7 +134,7 @@
 }
 
 /* iPadOS paints the Home Screen app's bottom safe-area from the document
-   surface. Match it to the navigation without moving the navigation controls. */
+   surface. Match it to the navigation. */
 @media (display-mode: standalone), (display-mode: fullscreen) {
   html,
   body {
@@ -148,5 +148,15 @@
 @media (display-mode: standalone), (display-mode: fullscreen) {
   body {
     height: calc(100% + env(safe-area-inset-bottom));
+  }
+
+  /* Use some of the otherwise empty bottom inset for the nav labels/tap
+     targets, while keeping the prominent Assistant bubble nearly in place. */
+  .mobile-nav-item {
+    transform: translateY(min(16px, env(safe-area-inset-bottom)));
+  }
+
+  .mobile-nav-assistant-bubble {
+    top: calc(-1.5rem - min(8px, env(safe-area-inset-bottom)));
   }
 }
