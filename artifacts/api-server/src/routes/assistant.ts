@@ -6,6 +6,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { createLunamMcpServer } from "../lib/mcpOAuth.js";
 import { getAssistantConfig } from "../lib/assistantConfig";
+import { needsCalendarLookupForRemoval } from "../lib/assistantIntent";
 
 const router = Router();
 const HISTORY_LIMIT = 30;
@@ -86,7 +87,7 @@ const apiTool = {
   function: {
     name: API_TOOL_NAME,
     description:
-      "Use LunamHub's authenticated API for household features: family members (/family), calendar (/events), chores and daily summaries (/chores), rewards and redemption requests (/rewards, /redemptions), shared lists and items (/lists/{id}/items), meals and meal plans (/meals, /meal-plan), routines and items/completions (/routines), dashboard (/dashboard/summary), badges (/badges), point transactions and milestones (/point-transactions, /point-milestones, /chore-milestones, /streak-milestones), leaderboards (/leaderboard), Games Night (/games-night/players, /games-night/games, /games-night/history, /games-night/results, /games-night/dashboard), and weather (/weather). Supported methods are GET, POST, PATCH, PUT, DELETE. Use paths that match the API, such as /events, /events/42, /chores/summary, /lists, /lists/2/items, /meal-plan, /routines/3/complete, /games-night/history, or /weather. Put path IDs directly in the path; use query for query parameters and body for JSON. Read first when an ID is needed. Every non-GET call will be shown for explicit confirmation before it runs. Never include passwords, PINs, tokens, avatar/photo content, or secrets. Do not use settings, authentication, Google Calendar connection, camera, or file-storage endpoints; those are intentionally unavailable to this assistant.",
+      "Use LunamHub's authenticated API for household features: family members (/family), calendar (/events), chores and daily summaries (/chores), rewards and redemption requests (/rewards, /redemptions), shared lists and items (/lists/{id}/items), meals and meal plans (/meals, /meal-plan), routines and items/completions (/routines), dashboard (/dashboard/summary), badges (/badges), point transactions and milestones (/point-transactions, /point-milestones, /chore-milestones, /streak-milestones), leaderboards (/leaderboard), Games Night (/games-night/players, /games-night/games, /games-night/history, /games-night/results, /games-night/dashboard), and weather (/weather). Supported methods are GET, POST, PATCH, PUT, DELETE. Use paths that match the API, such as /events, /events/42, /chores/summary, /lists, /lists/2/items, /meal-plan, /routines/3/complete, /games-night/history, or /weather. Put path IDs directly in the path; use query for query parameters and body for JSON. Read first when an ID is needed. To remove an event, first use list_calendar_events to find the exact matching event, then prepare DELETE /events/{id}; never claim it is ready or removed without a matching write tool call. Every non-GET call will be shown for explicit confirmation before it runs. Never include passwords, PINs, tokens, avatar/photo content, or secrets. Do not use settings, authentication, Google Calendar connection, camera, or file-storage endpoints; those are intentionally unavailable to this assistant.",
     parameters: {
       type: "object",
       properties: {
@@ -153,6 +154,9 @@ async function callOpenAI(
   apiKey: string,
   model: string,
   tools: Array<Record<string, unknown>>,
+  toolChoice:
+    | "auto"
+    | { type: "function"; function: { name: string } } = "auto",
 ) {
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -164,7 +168,7 @@ async function callOpenAI(
       model,
       messages,
       tools,
-      tool_choice: "auto",
+      tool_choice: toolChoice,
     }),
     signal: AbortSignal.timeout(45_000),
   });
@@ -282,6 +286,7 @@ async function continueTurn(
   client: Client,
   request: import("express").Request,
 ) {
+  const forceCalendarLookup = needsCalendarLookupForRemoval(messages);
   const listed = await client.listTools();
   const tools: Array<Record<string, unknown>> = listed.tools.map((tool) => ({
     type: "function",
@@ -299,18 +304,37 @@ async function continueTurn(
         "You are the LunamHub family household assistant. Help with the whole household hub: calendar, chores, shared lists, meal planning, routines, rewards, family points and badges, Games Night, and weather.",
         `Today's date is ${new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Sydney" }).format(new Date())}. Use Australia/Sydney local time.`,
         "For any question about what is on the calendar on a date or during a date range, you MUST call list_calendar_events for that exact inclusive date range before answering. Do not use the dashboard/household summary as a substitute for calendar data, and never say a day is free unless list_calendar_events successfully returned no events for that date. If the calendar lookup fails or is incomplete, say you could not verify the calendar rather than claiming it is empty. Include recurring event occurrences returned for the requested date.",
-        "For creating calendar events or chores, use the dedicated create_calendar_event or create_chore tool, not call_lunamhub_api. Before preparing a write for a named person, call list_family_members and use the matching ID; never ask the user for an internal member ID. Resolve relative dates such as today or tomorrow from the Australia/Sydney date above. Infer a clear, concise event title from the request (for example, 'Honor has swimming' means title 'Swimming' assigned to Honor). Ask a concise clarification only when an essential detail is genuinely ambiguous or missing; do not ask the user to reconfirm details they already stated or details you can look up. Do not claim changes are saved until the relevant tool succeeds.",
+        "For creating calendar events or chores, use the dedicated create_calendar_event or create_chore tool, not call_lunamhub_api. For removing an event, first inspect the requested date with list_calendar_events; when there is a unique match, prepare DELETE /events/{id} with call_lunamhub_api so the app can show its confirmation controls. If there is no match or multiple plausible matches, explain that or ask which one; never claim a delete is ready without producing the pending write action. Before preparing a write for a named person, call list_family_members and use the matching ID; never ask the user for an internal member ID. Resolve relative dates such as today or tomorrow from the Australia/Sydney date above. Infer a clear, concise event title from the request (for example, 'Honor has swimming' means title 'Swimming' assigned to Honor). Ask a concise clarification only when an essential detail is genuinely ambiguous or missing; do not ask the user to reconfirm details they already stated or details you can look up. Do not claim changes are saved until the relevant tool succeeds.",
         "Every action that changes data requires confirmation through the app's Confirm/Cancel controls. When a write is ready, give only a short natural-language summary of what will change; do not ask for confirmation in chat or repeat implementation details such as endpoint names or internal IDs, because the app displays the pending action and confirmation controls. Never ask for or send a password, PIN, token, or secret in chat. If an operation requires one, direct the user to the normal LunamHub screen.",
       ].join(" "),
     },
     ...messages,
   ];
   let familyMembers: Array<{ id: number; name: string }> = [];
+  const calendarEventIds = new Set<number>();
 
   // Read-only lookups can run immediately. Writes are held in the session and
   // only executed by the explicit confirmation endpoint.
   for (let turn = 0; turn < 5; turn++) {
-    const answer = await callOpenAI(fullMessages, apiKey, model, tools);
+    const toolChoice =
+      turn === 0 && forceCalendarLookup
+        ? {
+            type: "function" as const,
+            function: { name: "list_calendar_events" },
+          }
+        : turn === 1 && forceCalendarLookup
+          ? {
+              type: "function" as const,
+              function: { name: API_TOOL_NAME },
+            }
+          : "auto";
+    const answer = await callOpenAI(
+      fullMessages,
+      apiKey,
+      model,
+      tools,
+      toolChoice,
+    );
     const toolCalls = answer.tool_calls ?? [];
     if (!toolCalls.length) {
       return {
@@ -343,6 +367,29 @@ async function continueTurn(
         try {
           const input = ApiRequestSchema.parse(args);
           if (input.method !== "GET") {
+            const eventPath = input.path.match(/^\/events\/(\d+)$/);
+            const eventId = eventPath ? Number(eventPath[1]) : null;
+            if (forceCalendarLookup && input.method !== "DELETE") {
+              fullMessages.push({
+                role: "tool",
+                tool_call_id: call.id,
+                content:
+                  "This is a calendar removal request. Prepare a DELETE for the exact matching event from the calendar results; do not use another method or endpoint.",
+              });
+              continue;
+            }
+            if (
+              forceCalendarLookup &&
+              (!eventId || !calendarEventIds.has(eventId))
+            ) {
+              fullMessages.push({
+                role: "tool",
+                tool_call_id: call.id,
+                content:
+                  "That event was not in the calendar results just checked. Do not prepare a deletion; ask the user to clarify which event they mean.",
+              });
+              continue;
+            }
             writes.push({
               id: call.id,
               name: call.function.name,
@@ -371,11 +418,27 @@ async function continueTurn(
             name: call.function.name,
             arguments: args,
           });
+          const resultText = mcpResultText(result);
           fullMessages.push({
             role: "tool",
             tool_call_id: call.id,
-            content: mcpResultText(result),
+            content: resultText,
           });
+          if (call.function.name === "list_calendar_events") {
+            try {
+              const events = JSON.parse(resultText) as Array<{
+                id?: unknown;
+              }>;
+              if (Array.isArray(events)) {
+                for (const event of events) {
+                  if (typeof event.id === "number")
+                    calendarEventIds.add(event.id);
+                }
+              }
+            } catch {
+              calendarEventIds.clear();
+            }
+          }
           if (call.function.name === "list_family_members") {
             try {
               familyMembers = JSON.parse(mcpResultText(result)) as Array<{
