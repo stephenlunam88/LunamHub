@@ -318,11 +318,11 @@ export async function syncCalendarRange(body: {
             await db
               .insert(eventMembersTable)
               .values(
-                members.map((member) => ({
-                  eventId: created.id,
-                  memberId: member.memberId,
-                })),
-              );
+              members.map((member) => ({
+                eventId: created.id,
+                memberId: member.memberId,
+              })),
+            );
         }
       }
       await db
@@ -466,12 +466,10 @@ router.get("/", async (req, res): Promise<void> => {
 });
 
 // ── Create event (also pushes to Google Calendar) ────────────────────────────
-router.post("/", async (req, res): Promise<void> => {
-  req.log.info(
-    { rawTimezone: (req.body as Record<string, unknown>).timezone },
-    "create event: raw timezone from req.body",
-  );
-  const body = CreateEventBody.parse(req.body);
+export async function createCalendarEvent(
+  input: unknown,
+): Promise<ReturnType<typeof formatEvent>> {
+  const body = CreateEventBody.parse(input);
   const assignedMembers: number[] =
     (body as { assignedMembers?: number[] }).assignedMembers ?? [];
   const timezone: string | undefined = (body as { timezone?: string }).timezone;
@@ -489,11 +487,11 @@ router.post("/", async (req, res): Promise<void> => {
       await db
         .insert(eventMembersTable)
         .values(
-          [...new Set(assignedMembers)].map((mid) => ({
-            eventId: event.id,
-            memberId: mid,
-          })),
-        );
+        [...new Set(assignedMembers)].map((mid) => ({
+          eventId: event.id,
+          memberId: mid,
+        })),
+      );
     }
 
     // Best-effort push to Google Calendar; store returned googleEventId
@@ -520,7 +518,15 @@ router.post("/", async (req, res): Promise<void> => {
 
     return formatEvent(event, [...new Set(assignedMembers)]);
   });
-  res.status(201).json(result);
+  return result;
+}
+
+router.post("/", async (req, res): Promise<void> => {
+  req.log.info(
+    { rawTimezone: (req.body as Record<string, unknown>).timezone },
+    "create event: raw timezone from req.body",
+  );
+  res.status(201).json(await createCalendarEvent(req.body));
 });
 
 // ── Get event ─────────────────────────────────────────────────────────────────
@@ -664,8 +670,8 @@ const handleCalendarError: ErrorRequestHandler = (error, req, res, _next) => {
   res
     .status(502)
     .json({
-      error:
-        "Calendar operation failed. Your local events have been preserved. Check the Google connection in Admin and retry.",
+    error:
+      "Calendar operation failed. Your local events have been preserved. Check the Google connection in Admin and retry.",
     });
 };
 router.use(handleCalendarError);

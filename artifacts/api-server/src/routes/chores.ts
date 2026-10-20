@@ -55,6 +55,7 @@ const CreateChoreSchema = z.object({
   // For weekly chores: days of week [0=Sun … 6=Sat]. Defaults to [today's DOW] when omitted.
   daysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
 });
+export type CreateChoreInput = z.infer<typeof CreateChoreSchema>;
 
 const router = Router();
 
@@ -321,8 +322,8 @@ async function verifyParentPin(
     res
       .status(403)
       .json({
-        error:
-          "This parent has no PIN configured. Set a PIN in Admin before approving.",
+      error:
+        "This parent has no PIN configured. Set a PIN in Admin before approving.",
       });
     return false;
   }
@@ -424,10 +425,10 @@ router.get("/", async (req, res) => {
 
 // ── POST /api/chores — create template + seed today's instance(s) ──────────────
 
-router.post("/", async (req, res) => {
+export async function createChoreRecords(input: unknown) {
   await runMigrationIfNeeded();
 
-  const body = CreateChoreSchema.parse(req.body);
+  const body = CreateChoreSchema.parse(input);
   const today = todayStr();
 
   // For weekly: store caller-supplied daysOfWeek or default to today's DOW
@@ -450,8 +451,7 @@ router.post("/", async (req, res) => {
     .returning();
 
   if (!template) {
-    res.status(500).json({ error: "Failed to create chore" });
-    return;
+    throw new Error("Failed to create chore");
   }
 
   // Collect assigned children
@@ -512,7 +512,16 @@ router.post("/", async (req, res) => {
     ),
   );
 
-  res.status(201).json(formatted);
+  return {
+    templateId: template.id,
+    title: template.title,
+    instances: formatted,
+  };
+}
+
+router.post("/", async (req, res) => {
+  const created = await createChoreRecords(req.body);
+  res.status(201).json(created.instances);
 });
 
 // ── PATCH /api/chores/:id — update instance fields; propagates to template ─────

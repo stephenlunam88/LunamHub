@@ -35,6 +35,7 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set in .env}
       LOCAL_PHOTO_DIR: /data/photos
       APP_PASSWORD: ${APP_PASSWORD:-}
+      MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-https://lunamhub.swimforge.com.au}
       CORS_ORIGIN: ${CORS_ORIGIN:-}
       HOUSEHOLD_TIME_ZONE: ${HOUSEHOLD_TIME_ZONE:-Australia/Sydney}
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}

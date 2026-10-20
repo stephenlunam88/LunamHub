@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { ensureGamesNightSchema } from "./lib/gamesNightMigration";
 import { ensureSessionSchema } from "./lib/postgresSessionStore";
 import { startCalendarPolling } from "./lib/calendarPolling";
+import { ensureMcpOAuthSchema } from "./lib/mcpOAuth";
 
 const rawPort = process.env["PORT"];
 
@@ -18,7 +19,11 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-Promise.all([ensureGamesNightSchema(), ensureSessionSchema()])
+Promise.all([
+  ensureGamesNightSchema(),
+  ensureSessionSchema(),
+  ensureMcpOAuthSchema(),
+])
   .then(() => {
     app.listen(port, (err) => {
       if (err) {
@@ -30,6 +35,6 @@ Promise.all([ensureGamesNightSchema(), ensureSessionSchema()])
     });
   })
   .catch((err) => {
-    logger.error({ err }, "Games Night database migration failed");
+    logger.error({ err }, "API database schema initialization failed");
     process.exit(1);
   });

@@ -5,6 +5,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { PostgresSessionStore } from "./lib/postgresSessionStore";
+import { mountMcpIntegration } from "./lib/mcpOAuth";
 
 const app: Express = express();
 
@@ -37,7 +38,7 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.json());
+app.use(express.json({ limit: "100kb" }));
 app.use(express.urlencoded({ extended: true }));
 
 const secret = process.env["SESSION_SECRET"] ?? "dev-secret-change-me";
@@ -52,16 +53,22 @@ app.use(
     name: "lunam.sid",
     secret,
     store: new PostgresSessionStore(),
+    // Cloudflare supplies the visitor-facing X-Forwarded-Proto value, which
+    // Nginx preserves for the API. This keeps cookies Secure on HTTPS while
+    // still allowing direct HTTP access on a trusted local network.
+    proxy: process.env["NODE_ENV"] === "production",
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
       sameSite: "lax",
+      secure: process.env["NODE_ENV"] === "production" ? "auto" : false,
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     },
   }),
 );
 
+mountMcpIntegration(app);
 app.use("/api", router);
 
 export default app;
