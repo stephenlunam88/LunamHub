@@ -82,6 +82,15 @@ const CATEGORY_COLORS: Record<string, string> = {
   other: "bg-gray-100 text-gray-800",
 };
 
+const CATEGORY_MARKER_COLORS: Record<string, string> = {
+  school: "#3b82f6",
+  sport: "#22c55e",
+  appointment: "#ef4444",
+  birthday: "#eab308",
+  family: "#a855f7",
+  other: "#0ea5e9",
+};
+
 const RECURRENCE_LABELS: Record<string, string> = {
   DAILY: "Daily",
   WEEKLY: "Weekly",
@@ -100,24 +109,6 @@ function formatEventTime(time: string): string {
   const hour = h % 12 || 12;
   return m === 0 ? `${hour}${period}` : `${hour}:${mStr}${period}`;
 }
-
-const CATEGORY_PILL_BG: Record<string, string> = {
-  school: "bg-blue-500 text-white",
-  sport: "bg-green-500 text-white",
-  appointment: "bg-red-500 text-white",
-  birthday: "bg-yellow-400 text-yellow-900",
-  family: "bg-purple-500 text-white",
-  other: "bg-sky-500 text-white",
-};
-
-const CATEGORY_DOT_BG: Record<string, string> = {
-  school: "bg-blue-500",
-  sport: "bg-green-500",
-  appointment: "bg-red-500",
-  birthday: "bg-yellow-400",
-  family: "bg-purple-500",
-  other: "bg-sky-500",
-};
 
 function parseLocalDate(dateStr: string): Date {
   return parseISO(dateStr + "T00:00:00");
@@ -268,6 +259,14 @@ export default function Calendar() {
     event: Event;
     day: Date;
   } | null>(null);
+  const [recurringEdit, setRecurringEdit] = useState<{
+    event: Event;
+    day: Date;
+  } | null>(null);
+  const [editingOccurrence, setEditingOccurrence] = useState<{
+    event: Event;
+    date: string;
+  } | null>(null);
 
   const rangeStart =
     view === "month"
@@ -410,14 +409,17 @@ export default function Calendar() {
       onSuccess: (createdEvent, _variables, optimisticId) => {
         updateVisibleEvents((events) => {
           const remaining = events.filter(
-            (event) => event.id !== optimisticId && event.id !== createdEvent.id,
+            (event) =>
+              event.id !== optimisticId && event.id !== createdEvent.id,
           );
           return occursInVisibleRange(createdEvent)
             ? [...remaining, createdEvent]
             : remaining;
         });
-        setOpen(false);
-        setForm(DEFAULT_FORM(format(selectedDay, "yyyy-MM-dd")));
+        if (!editingOccurrence) {
+          setOpen(false);
+          setForm(DEFAULT_FORM(format(selectedDay, "yyyy-MM-dd")));
+        }
       },
       onSettled: invalidate,
     },
@@ -452,6 +454,7 @@ export default function Calendar() {
       onSuccess: () => {
         setOpen(false);
         setEditingEventId(null);
+        setEditingOccurrence(null);
       },
       onSettled: invalidate,
     },
@@ -466,7 +469,9 @@ export default function Calendar() {
         const previousEvent = qc
           .getQueryData<Event[]>(getListEventsQueryKey({ startDate, endDate }))
           ?.find((event) => event.id === id);
-        updateVisibleEvents((events) => events.filter((event) => event.id !== id));
+        updateVisibleEvents((events) =>
+          events.filter((event) => event.id !== id),
+        );
         return previousEvent;
       },
       onError: (error, _variables, previousEvent) => {
@@ -482,6 +487,7 @@ export default function Calendar() {
   function openCreate(date: Date) {
     setMode("create");
     setEditingEventId(null);
+    setEditingOccurrence(null);
     setForm(DEFAULT_FORM(format(date, "yyyy-MM-dd")));
     setOpen(true);
   }
@@ -501,28 +507,48 @@ export default function Calendar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function openEdit(e: Event) {
+  function openEdit(e: Event, occurrenceDay?: Date) {
     if (e.id < 0) return;
+    const occurrence = occurrenceDay
+      ? { event: e, date: format(occurrenceDay, "yyyy-MM-dd") }
+      : null;
+    setEditingOccurrence(occurrence);
     setMode("edit");
     setEditingEventId(e.id);
     setForm({
       title: e.title,
-      date: e.date,
+      date: occurrence?.date ?? e.date,
       startTime: e.startTime ?? undefined,
       endTime: e.endTime ?? undefined,
       allDay: e.allDay,
       category: (e.category as EventInput["category"]) ?? "other",
       description: e.description ?? "",
       location: e.location ?? "",
-      recurrence: (e.recurrence as string | null | undefined) ?? undefined,
-      recurrenceEndDate:
-        (e.recurrenceEndDate as string | null | undefined) ?? undefined,
-      recurrenceDays:
-        (e as Event & { recurrenceDays?: string | null }).recurrenceDays ??
-        undefined,
+      recurrence: occurrence
+        ? undefined
+        : ((e.recurrence as string | null | undefined) ?? undefined),
+      recurrenceEndDate: occurrence
+        ? undefined
+        : ((e.recurrenceEndDate as string | null | undefined) ?? undefined),
+      recurrenceDays: occurrence
+        ? undefined
+        : ((e as Event & { recurrenceDays?: string | null }).recurrenceDays ??
+          undefined),
       assignedMembers: e.assignedMembers ?? [],
     });
     setOpen(true);
+  }
+
+  function requestEdit(e: Event, day: Date) {
+    if (e.recurrence) {
+      setRecurringEdit({ event: e, day });
+      return;
+    }
+    openEdit(e);
+  }
+
+  function requestDelete(e: Event, day: Date) {
+    if (e.id >= 0) setDeleteDialog({ event: e, day });
   }
 
   function toggleMember(id: number) {
@@ -534,7 +560,7 @@ export default function Calendar() {
     }));
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     const cleanedRecurrence = (form.recurrence || undefined) as
       | EventInputRecurrence
       | undefined;
@@ -545,6 +571,49 @@ export default function Calendar() {
     const cleanedStartTime = form.startTime || undefined;
     const cleanedEndTime = form.endTime || undefined;
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    if (mode === "edit" && editingOccurrence && editingEventId !== null) {
+      const occurrenceData: EventInput = {
+        title: form.title,
+        date: form.date,
+        allDay: form.allDay ?? !cleanedStartTime,
+        category: form.category,
+        timezone,
+        ...(form.description ? { description: form.description } : {}),
+        ...(form.location ? { location: form.location } : {}),
+        ...(!form.allDay && cleanedStartTime
+          ? { startTime: cleanedStartTime }
+          : {}),
+        ...(!form.allDay && cleanedEndTime ? { endTime: cleanedEndTime } : {}),
+        assignedMembers: form.assignedMembers,
+      };
+      let createdOverride: Event | undefined;
+      try {
+        createdOverride = await createEvent.mutateAsync({
+          data: occurrenceData,
+        });
+        const exceptions = new Set(
+          (editingOccurrence.event.recurrenceExceptions as string | null)
+            ?.split(",")
+            .filter(Boolean) ?? [],
+        );
+        exceptions.add(editingOccurrence.date);
+        await updateEvent.mutateAsync({
+          id: editingEventId,
+          data: {
+            recurrenceExceptions: [...exceptions].sort().join(","),
+          } as EventUpdate,
+        });
+      } catch {
+        if (createdOverride) {
+          await deleteEvent
+            .mutateAsync({ id: createdOverride.id })
+            .catch(() => undefined);
+        }
+        setOpen(true);
+      }
+      return;
+    }
 
     if (mode === "create") {
       const data = {
@@ -626,11 +695,7 @@ export default function Calendar() {
       .filter(Boolean) as FamilyMember[];
   const eventAccent = (event: Event) => {
     const members = membersFor(event);
-    return members.length === 1
-      ? members[0].color
-      : members.length
-        ? "#7c3aed"
-        : "#64748b";
+    return members.length === 1 ? members[0].color : "#64748b";
   };
 
   return (
@@ -666,7 +731,10 @@ export default function Calendar() {
                 onClick={() => sync.mutate({ data: { startDate, endDate } })}
               >
                 <RefreshCw
-                  className={cn("h-3.5 w-3.5", sync.isPending && "animate-spin")}
+                  className={cn(
+                    "h-3.5 w-3.5",
+                    sync.isPending && "animate-spin",
+                  )}
                 />
               </button>
             </span>
@@ -785,10 +853,23 @@ export default function Calendar() {
             ))}
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Colours show people · Categories show activities
-          {gcalStatus?.timeZone ? ` · ${gcalStatus.timeZone}` : ""}
-        </p>
+        <div
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground"
+          aria-label="Calendar color key"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-sm bg-sky-500" />
+            Activity category
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-slate-500" />
+            Family member
+          </span>
+          <span>
+            Event edge uses the member color when one person is assigned
+          </span>
+          {gcalStatus?.timeZone && <span>{gcalStatus.timeZone}</span>}
+        </div>
       </div>
       {eventsError && (
         <p role="alert" className="text-destructive">
@@ -800,7 +881,58 @@ export default function Calendar() {
           Loading events…
         </p>
       )}
-      {/* ── Delete recurring event dialog ─────────────────────────────────── */}
+      {/* ── Recurring edit scope dialog ───────────────────────────────────── */}
+      <Dialog
+        open={!!recurringEdit}
+        onOpenChange={(value) => {
+          if (!value) setRecurringEdit(null);
+        }}
+      >
+        <DialogContent className="rounded-3xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Edit recurring event?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            “{recurringEdit?.event.title}” is part of a repeating series. Choose
+            which event you want to change.
+          </p>
+          <div className="mt-2 flex flex-col gap-2">
+            <Button
+              variant="outline"
+              className="h-12 justify-start rounded-xl"
+              onClick={() => {
+                if (!recurringEdit) return;
+                const { event, day } = recurringEdit;
+                setRecurringEdit(null);
+                openEdit(event, day);
+              }}
+            >
+              Edit just{" "}
+              {recurringEdit ? format(recurringEdit.day, "d MMM") : "this date"}
+            </Button>
+            <Button
+              className="h-12 justify-start rounded-xl"
+              onClick={() => {
+                if (!recurringEdit) return;
+                const { event } = recurringEdit;
+                setRecurringEdit(null);
+                openEdit(event);
+              }}
+            >
+              Edit entire series
+            </Button>
+            <Button
+              variant="ghost"
+              className="h-11 rounded-xl"
+              onClick={() => setRecurringEdit(null)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Event deletion confirmation ──────────────────────────────────── */}
       <Dialog
         open={!!deleteDialog}
         onOpenChange={(v) => {
@@ -809,52 +941,71 @@ export default function Calendar() {
       >
         <DialogContent className="rounded-3xl max-w-sm">
           <DialogHeader>
-            <DialogTitle>Delete "{deleteDialog?.event.title}"</DialogTitle>
+            <DialogTitle>Delete “{deleteDialog?.event.title}”?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            This is a recurring event. What would you like to delete?
+            {deleteDialog?.event.recurrence
+              ? "This event repeats. Choose whether to remove just this date or the entire series."
+              : `This event on ${deleteDialog ? format(deleteDialog.day, "EEE d MMM yyyy") : "this date"} will be removed from the calendar.`}
           </p>
           <div className="flex flex-col gap-2 mt-2">
-            <Button
-              variant="outline"
-              className="rounded-xl h-12 justify-start"
-              disabled={deleteEvent.isPending || updateEvent.isPending}
-              onClick={() => {
-                if (!deleteDialog) return;
-                const ev = deleteDialog.event as Event & {
-                  recurrenceExceptions?: string | null;
-                };
-                const dateStr = format(deleteDialog.day, "yyyy-MM-dd");
-                const current = ev.recurrenceExceptions
-                  ? ev.recurrenceExceptions.split(",")
-                  : [];
-                if (!current.includes(dateStr)) {
-                  const updated = [...current, dateStr].join(",");
-                  updateEvent.mutate({
-                    id: ev.id,
-                    data: { recurrenceExceptions: updated } as EventUpdate,
-                  });
-                }
-                setDeleteDialog(null);
-              }}
-            >
-              <span className="font-medium">Delete this date only</span>
-              <span className="text-muted-foreground text-xs ml-1">
-                ({deleteDialog ? format(deleteDialog.day, "d MMM yyyy") : ""})
-              </span>
-            </Button>
-            <Button
-              variant="destructive"
-              className="rounded-xl h-12"
-              disabled={deleteEvent.isPending || updateEvent.isPending}
-              onClick={() => {
-                if (!deleteDialog) return;
-                deleteEvent.mutate({ id: deleteDialog.event.id });
-                setDeleteDialog(null);
-              }}
-            >
-              Delete entire series
-            </Button>
+            {deleteDialog?.event.recurrence ? (
+              <>
+                <Button
+                  variant="outline"
+                  className="min-h-12 justify-start rounded-xl"
+                  disabled={deleteEvent.isPending || updateEvent.isPending}
+                  onClick={() => {
+                    if (!deleteDialog) return;
+                    const ev = deleteDialog.event as Event & {
+                      recurrenceExceptions?: string | null;
+                    };
+                    const dateStr = format(deleteDialog.day, "yyyy-MM-dd");
+                    const current = ev.recurrenceExceptions
+                      ? ev.recurrenceExceptions.split(",")
+                      : [];
+                    if (!current.includes(dateStr)) {
+                      const updated = [...current, dateStr].sort().join(",");
+                      updateEvent.mutate({
+                        id: ev.id,
+                        data: { recurrenceExceptions: updated } as EventUpdate,
+                      });
+                    }
+                    setDeleteDialog(null);
+                  }}
+                >
+                  Delete only{" "}
+                  {deleteDialog
+                    ? format(deleteDialog.day, "d MMM yyyy")
+                    : "this date"}
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="min-h-12 rounded-xl"
+                  disabled={deleteEvent.isPending || updateEvent.isPending}
+                  onClick={() => {
+                    if (!deleteDialog) return;
+                    deleteEvent.mutate({ id: deleteDialog.event.id });
+                    setDeleteDialog(null);
+                  }}
+                >
+                  Delete entire series
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="destructive"
+                className="min-h-12 rounded-xl"
+                disabled={deleteEvent.isPending}
+                onClick={() => {
+                  if (!deleteDialog) return;
+                  deleteEvent.mutate({ id: deleteDialog.event.id });
+                  setDeleteDialog(null);
+                }}
+              >
+                Delete event
+              </Button>
+            )}
             <Button
               variant="ghost"
               className="rounded-xl h-10"
@@ -877,9 +1028,23 @@ export default function Calendar() {
         <DialogContent className="rounded-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {mode === "edit" ? "Edit Event" : "New Event"}
+              {editingOccurrence
+                ? "Edit this occurrence"
+                : mode === "edit"
+                  ? "Edit Event"
+                  : "New Event"}
             </DialogTitle>
           </DialogHeader>
+          {editingOccurrence && (
+            <p className="-mt-2 text-sm text-muted-foreground">
+              Changes apply only to{" "}
+              {format(
+                new Date(`${editingOccurrence.date}T12:00:00`),
+                "EEEE d MMMM",
+              )}
+              . The rest of the series stays unchanged.
+            </p>
+          )}
           <div className="space-y-4">
             <div>
               <Label>Title</Label>
@@ -1037,85 +1202,88 @@ export default function Calendar() {
               </div>
             )}
 
-            <div>
-              <Label>Repeat</Label>
-              <Select
-                value={form.recurrence ?? "none"}
-                onValueChange={(v) =>
-                  setForm((f) => ({
-                    ...f,
-                    recurrence: v === "none" ? undefined : v,
-                    recurrenceEndDate:
-                      v === "none" ? undefined : f.recurrenceEndDate,
-                    recurrenceDays:
-                      v === "none" ||
-                      v === "DAILY" ||
-                      v === "MONTHLY" ||
-                      v === "YEARLY"
-                        ? undefined
-                        : f.recurrenceDays,
-                  }))
-                }
-              >
-                <SelectTrigger className="rounded-xl h-12">
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="DAILY">Daily</SelectItem>
-                  <SelectItem value="WEEKLY">Weekly</SelectItem>
-                  <SelectItem value="FORTNIGHTLY">Fortnightly</SelectItem>
-                  <SelectItem value="MONTHLY">Monthly</SelectItem>
-                  <SelectItem value="YEARLY">Yearly</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {(form.recurrence === "WEEKLY" ||
-              form.recurrence === "FORTNIGHTLY") && (
+            {!editingOccurrence && (
               <div>
-                <Label>Repeat on days (optional)</Label>
-                <div className="flex gap-1 mt-1 flex-wrap">
-                  {DOW_LABELS.map((label, idx) => {
-                    const active =
-                      form.recurrenceDays
-                        ?.split(",")
-                        .map(Number)
-                        .includes(idx) ?? false;
-                    return (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => {
-                          const current = form.recurrenceDays
-                            ? form.recurrenceDays.split(",").map(Number)
-                            : [];
-                          const next = active
-                            ? current.filter((d) => d !== idx)
-                            : [...current, idx].sort((a, b) => a - b);
-                          setForm((f) => ({
-                            ...f,
-                            recurrenceDays:
-                              next.length > 0 ? next.join(",") : undefined,
-                          }));
-                        }}
-                        className={cn(
-                          "px-2 py-1 rounded-lg text-xs font-medium border transition-colors",
-                          active
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-background text-muted-foreground border-border",
-                        )}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Leave blank to repeat on the event's start day
-                </p>
+                <Label>Repeat</Label>
+                <Select
+                  value={form.recurrence ?? "none"}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      recurrence: v === "none" ? undefined : v,
+                      recurrenceEndDate:
+                        v === "none" ? undefined : f.recurrenceEndDate,
+                      recurrenceDays:
+                        v === "none" ||
+                        v === "DAILY" ||
+                        v === "MONTHLY" ||
+                        v === "YEARLY"
+                          ? undefined
+                          : f.recurrenceDays,
+                    }))
+                  }
+                >
+                  <SelectTrigger className="rounded-xl h-12">
+                    <SelectValue placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="DAILY">Daily</SelectItem>
+                    <SelectItem value="WEEKLY">Weekly</SelectItem>
+                    <SelectItem value="FORTNIGHTLY">Fortnightly</SelectItem>
+                    <SelectItem value="MONTHLY">Monthly</SelectItem>
+                    <SelectItem value="YEARLY">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             )}
-            {form.recurrence && (
+            {!editingOccurrence &&
+              (form.recurrence === "WEEKLY" ||
+                form.recurrence === "FORTNIGHTLY") && (
+                <div>
+                  <Label>Repeat on days (optional)</Label>
+                  <div className="flex gap-1 mt-1 flex-wrap">
+                    {DOW_LABELS.map((label, idx) => {
+                      const active =
+                        form.recurrenceDays
+                          ?.split(",")
+                          .map(Number)
+                          .includes(idx) ?? false;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            const current = form.recurrenceDays
+                              ? form.recurrenceDays.split(",").map(Number)
+                              : [];
+                            const next = active
+                              ? current.filter((d) => d !== idx)
+                              : [...current, idx].sort((a, b) => a - b);
+                            setForm((f) => ({
+                              ...f,
+                              recurrenceDays:
+                                next.length > 0 ? next.join(",") : undefined,
+                            }));
+                          }}
+                          className={cn(
+                            "px-2 py-1 rounded-lg text-xs font-medium border transition-colors",
+                            active
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background text-muted-foreground border-border",
+                          )}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Leave blank to repeat on the event's start day
+                  </p>
+                </div>
+              )}
+            {!editingOccurrence && form.recurrence && (
               <div>
                 <Label>End Repeat (optional)</Label>
                 <Input
@@ -1241,7 +1409,13 @@ export default function Calendar() {
                         {format(day, "d")}
                       </div>
                       {dayEvents.slice(0, 5).map((ev) => {
-                        const cat = ev.category ?? "other";
+                        const categoryColor =
+                          CATEGORY_MARKER_COLORS[ev.category ?? "other"] ??
+                          CATEGORY_MARKER_COLORS.other;
+                        const eventMembers = membersFor(ev);
+                        const memberLabel =
+                          eventMembers.map((m) => m.name).join(", ") ||
+                          "Unassigned";
                         return ev.allDay ? (
                           <div
                             key={ev.id}
@@ -1250,25 +1424,48 @@ export default function Calendar() {
                               "bg-muted text-foreground border-l-[3px]",
                             )}
                             style={{ borderLeftColor: eventAccent(ev) }}
-                            title={`${ev.title} — ${
-                              membersFor(ev)
-                                .map((m) => m.name)
-                                .join(", ") || "Unassigned"
-                            }`}
+                            title={`${ev.title} · ${ev.category ?? "other"} · ${memberLabel}`}
                           >
+                            <span
+                              className="mr-1 inline-block h-1.5 w-1.5 rounded-sm"
+                              style={{ backgroundColor: categoryColor }}
+                            />
+                            {eventMembers.slice(0, 2).map((member) => (
+                              <span
+                                key={member.id}
+                                className="mr-0.5 inline-block h-1.5 w-1.5 rounded-full"
+                                style={{ backgroundColor: member.color }}
+                              />
+                            ))}
+                            {eventMembers.length > 2 && (
+                              <span className="mr-1 text-[8px]">
+                                +{eventMembers.length - 2}
+                              </span>
+                            )}
                             {ev.title}
                           </div>
                         ) : (
                           <div
                             key={ev.id}
                             className="text-[10px] leading-tight flex items-center gap-0.5 mb-0.5 min-w-0"
+                            title={`${ev.title} · ${ev.category ?? "other"} · ${memberLabel}`}
                           >
                             <span
-                              className={cn(
-                                "w-1.5 h-1.5 rounded-full shrink-0",
-                              )}
-                              style={{ backgroundColor: eventAccent(ev) }}
+                              className="h-1.5 w-1.5 shrink-0 rounded-sm"
+                              style={{ backgroundColor: categoryColor }}
                             />
+                            {eventMembers.slice(0, 2).map((member) => (
+                              <span
+                                key={member.id}
+                                className="h-1.5 w-1.5 shrink-0 rounded-full"
+                                style={{ backgroundColor: member.color }}
+                              />
+                            ))}
+                            {eventMembers.length > 2 && (
+                              <span className="shrink-0 text-[8px]">
+                                +{eventMembers.length - 2}
+                              </span>
+                            )}
                             <span className="truncate text-foreground/80">
                               {ev.startTime
                                 ? `${formatEventTime(ev.startTime)}${ev.endTime ? `–${formatEventTime(ev.endTime)}` : ""} `
@@ -1322,52 +1519,79 @@ export default function Calendar() {
                       )}
                       <div className="space-y-2">
                         {entries.map((event) => (
-                          <button
+                          <div
                             key={event.id}
-                            onClick={() => {
-                              setSelectedDay(day);
-                              openEdit(event);
-                            }}
-                            className="block w-full text-left rounded-lg bg-muted/50 p-3 border-l-4"
-                            style={{ borderLeftColor: eventAccent(event) }}
+                            className="flex items-stretch gap-1"
                           >
-                            <p className="text-xs text-muted-foreground">
-                              {event.allDay
-                                ? "All day"
-                                : `${event.startTime ? formatEventTime(event.startTime) : ""}${event.endTime ? ` – ${formatEventTime(event.endTime)}` : ""}`}
-                            </p>
-                            <p className="font-medium break-words">
-                              {event.title}
-                            </p>
-                            <div className="flex flex-wrap gap-x-2 gap-y-1 mt-1 text-xs">
-                              {membersFor(event).length ? (
-                                membersFor(event).map((member) => (
-                                  <span
-                                    key={member.id}
-                                    className="inline-flex items-center gap-1"
-                                  >
-                                    <span
-                                      className="h-2 w-2 rounded-full"
-                                      style={{ backgroundColor: member.color }}
-                                    />
-                                    {member.name}
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="text-muted-foreground">
-                                  Unassigned
-                                </span>
-                              )}
-                            </div>
-                            {event.location && (
-                              <p className="text-xs text-muted-foreground mt-1 break-words">
-                                {event.location}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedDay(day);
+                                requestEdit(event, day);
+                              }}
+                              className="min-w-0 flex-1 text-left rounded-lg bg-muted/50 p-3 border-l-4"
+                              style={{ borderLeftColor: eventAccent(event) }}
+                              aria-label={`Edit ${event.title}`}
+                            >
+                              <p className="text-xs text-muted-foreground">
+                                {event.allDay
+                                  ? "All day"
+                                  : `${event.startTime ? formatEventTime(event.startTime) : ""}${event.endTime ? ` – ${formatEventTime(event.endTime)}` : ""}`}
                               </p>
-                            )}
-                            <span className="text-xs text-muted-foreground capitalize">
-                              {event.category}
-                            </span>
-                          </button>
+                              <p className="font-medium break-words">
+                                {event.title}
+                              </p>
+                              <div className="flex flex-wrap gap-x-2 gap-y-1 mt-1 text-xs">
+                                {membersFor(event).length ? (
+                                  membersFor(event).map((member) => (
+                                    <span
+                                      key={member.id}
+                                      className="inline-flex items-center gap-1"
+                                    >
+                                      <span
+                                        className="h-2 w-2 rounded-full"
+                                        style={{
+                                          backgroundColor: member.color,
+                                        }}
+                                      />
+                                      {member.name}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="text-muted-foreground">
+                                    Unassigned
+                                  </span>
+                                )}
+                              </div>
+                              {event.location && (
+                                <p className="text-xs text-muted-foreground mt-1 break-words">
+                                  {event.location}
+                                </p>
+                              )}
+                              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground capitalize">
+                                <span
+                                  className="h-1.5 w-1.5 rounded-sm"
+                                  style={{
+                                    backgroundColor:
+                                      CATEGORY_MARKER_COLORS[
+                                        event.category ?? "other"
+                                      ] ?? CATEGORY_MARKER_COLORS.other,
+                                  }}
+                                />
+                                {event.category ?? "other"}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              className="min-h-11 min-w-11 self-start rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                              onClick={() => requestDelete(event, day)}
+                              disabled={event.id < 0}
+                              aria-label={`Delete ${event.title}`}
+                              title={`Delete ${event.title}`}
+                            >
+                              <Trash2 className="mx-auto h-4 w-4" />
+                            </button>
+                          </div>
                         ))}
                       </div>
                       <Button
@@ -1389,156 +1613,154 @@ export default function Calendar() {
         </Card>
 
         {/* ── Day panel ───────────────────────────────────────────────────── */}
-        <Card className="rounded-3xl border-0 shadow-sm flex flex-col overflow-visible lg:overflow-hidden">
-          <CardHeader className="shrink-0">
-            <CardTitle className="text-xl font-serif">
-              {format(selectedDay, "EEEE, MMM d")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-            {selectedDayEvents.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">
-                No events this day
-              </p>
-            ) : (
-              selectedDayEvents.map((e) => {
-                const assignedMemberObjects = (e.assignedMembers ?? [])
-                  .map((id) => memberById[id])
-                  .filter(Boolean) as FamilyMember[];
-                return (
-                  <div
-                    key={e.id}
-                    className="bg-muted rounded-2xl p-4 flex gap-3 border-l-4"
-                    style={{ borderLeftColor: eventAccent(e) }}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-base">
-                          {e.title}
-                        </span>
-                        {e.googleEventId && (
-                          <span className="text-[10px] font-medium text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">
-                            GCal
+        {view === "month" && (
+          <Card className="rounded-3xl border-0 shadow-sm flex flex-col overflow-visible lg:overflow-hidden">
+            <CardHeader className="shrink-0">
+              <CardTitle className="text-xl font-serif">
+                {format(selectedDay, "EEEE, MMM d")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+              {selectedDayEvents.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
+                  No events this day
+                </p>
+              ) : (
+                selectedDayEvents.map((e) => {
+                  const assignedMemberObjects = (e.assignedMembers ?? [])
+                    .map((id) => memberById[id])
+                    .filter(Boolean) as FamilyMember[];
+                  return (
+                    <div
+                      key={e.id}
+                      className="bg-muted rounded-2xl p-4 flex gap-3 border-l-4"
+                      style={{ borderLeftColor: eventAccent(e) }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-base">
+                            {e.title}
                           </span>
-                        )}
-                        {e.recurrence && (
-                          <span className="text-[10px] font-medium text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded-full">
-                            {RECURRENCE_LABELS[e.recurrence as string] ??
-                              e.recurrence}
-                          </span>
-                        )}
-                        {e.id < 0 && (
-                          <span className="text-[10px] text-muted-foreground">
-                            Saving…
-                          </span>
-                        )}
-                      </div>
-                      {e.startTime && (
-                        <div className="flex items-center gap-1 text-muted-foreground text-sm mt-1">
-                          <Clock className="w-3 h-3" />
-                          {formatEventTime(e.startTime)}
-                          {e.endTime ? ` – ${formatEventTime(e.endTime)}` : ""}
-                        </div>
-                      )}
-                      {e.location && (
-                        <div className="flex items-center gap-1 text-muted-foreground text-sm mt-1">
-                          <MapPin className="w-3 h-3 shrink-0" />
-                          <span className="line-clamp-1">{e.location}</span>
-                        </div>
-                      )}
-                      {e.description && (
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                          {e.description}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        <Badge
-                          className={cn(
-                            "text-xs",
-                            CATEGORY_COLORS[e.category ?? "other"],
+                          {e.googleEventId && (
+                            <span className="text-[10px] font-medium text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">
+                              GCal
+                            </span>
                           )}
-                          variant="outline"
-                        >
-                          {e.category}
-                        </Badge>
-                        {/* Assigned member avatars */}
-                        {assignedMemberObjects.length > 0 && (
-                          <div className="flex -space-x-1">
-                            {assignedMemberObjects.map((m) => (
-                              <span
-                                key={m.id}
-                                className="inline-flex items-center gap-1 px-1"
-                              >
-                                <span
-                                  className="h-2 w-2 rounded-full"
-                                  style={{ backgroundColor: m.color }}
-                                />
-                                <MemberAvatar member={m} size="xs" />
-                                <span className="text-xs">{m.name}</span>
-                              </span>
-                            ))}
+                          {e.recurrence && (
+                            <span className="text-[10px] font-medium text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded-full">
+                              {RECURRENCE_LABELS[e.recurrence as string] ??
+                                e.recurrence}
+                            </span>
+                          )}
+                          {e.id < 0 && (
+                            <span className="text-[10px] text-muted-foreground">
+                              Saving…
+                            </span>
+                          )}
+                        </div>
+                        {e.startTime && (
+                          <div className="flex items-center gap-1 text-muted-foreground text-sm mt-1">
+                            <Clock className="w-3 h-3" />
+                            {formatEventTime(e.startTime)}
+                            {e.endTime
+                              ? ` – ${formatEventTime(e.endTime)}`
+                              : ""}
                           </div>
                         )}
-                        {!assignedMemberObjects.length && (
-                          <span className="text-xs text-muted-foreground">
-                            Unassigned
-                          </span>
+                        {e.location && (
+                          <div className="flex items-center gap-1 text-muted-foreground text-sm mt-1">
+                            <MapPin className="w-3 h-3 shrink-0" />
+                            <span className="line-clamp-1">{e.location}</span>
+                          </div>
                         )}
+                        {e.description && (
+                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                            {e.description}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <Badge
+                            className={cn(
+                              "text-xs",
+                              CATEGORY_COLORS[e.category ?? "other"],
+                            )}
+                            variant="outline"
+                          >
+                            {e.category}
+                          </Badge>
+                          {/* Assigned member avatars */}
+                          {assignedMemberObjects.length > 0 && (
+                            <div className="flex -space-x-1">
+                              {assignedMemberObjects.map((m) => (
+                                <span
+                                  key={m.id}
+                                  className="inline-flex items-center gap-1 px-1"
+                                >
+                                  <span
+                                    className="h-2 w-2 rounded-full"
+                                    style={{ backgroundColor: m.color }}
+                                  />
+                                  <MemberAvatar member={m} size="xs" />
+                                  <span className="text-xs">{m.name}</span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {!assignedMemberObjects.length && (
+                            <span className="text-xs text-muted-foreground">
+                              Unassigned
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1 shrink-0">
+                        <button
+                          onClick={() => requestEdit(e, selectedDay)}
+                          disabled={e.id < 0}
+                          className="min-h-11 min-w-11 rounded-lg text-muted-foreground hover:bg-muted-foreground/10 hover:text-foreground transition-colors"
+                          aria-label={`Edit ${e.title}`}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          disabled={e.id < 0}
+                          onClick={() => requestDelete(e, selectedDay)}
+                          className="min-h-11 min-w-11 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                          aria-label={`Delete ${e.title}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-1 shrink-0">
-                      <button
-                        onClick={() => openEdit(e)}
-                        disabled={e.id < 0}
-                        className="text-muted-foreground hover:text-foreground transition-colors p-1"
-                        aria-label="Edit event"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        disabled={e.id < 0}
-                        onClick={() => {
-                          if (e.recurrence) {
-                            setDeleteDialog({ event: e, day: selectedDay });
-                          } else {
-                            deleteEvent.mutate({ id: e.id });
-                          }
-                        }}
-                        className="text-muted-foreground hover:text-destructive transition-colors p-1"
-                        aria-label="Delete event"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-            <Button
-              variant="outline"
-              className="w-full rounded-xl h-14"
-              onClick={() => openCreate(selectedDay)}
-            >
-              <Plus className="w-4 h-4 mr-2" /> Add to this day
-            </Button>
-            {isConnected && (
+                  );
+                })
+              )}
               <Button
-                variant="ghost"
-                className="w-full rounded-xl h-10 text-muted-foreground text-sm gap-1.5"
-                onClick={() => sync.mutate({ data: { startDate, endDate } })}
-                disabled={sync.isPending}
+                variant="outline"
+                className="w-full rounded-xl h-14"
+                onClick={() => openCreate(selectedDay)}
               >
-                <RefreshCw
-                  className={cn(
-                    "w-3.5 h-3.5",
-                    sync.isPending && "animate-spin",
-                  )}
-                />
-                {sync.isPending ? "Syncing…" : "Sync Google Calendar"}
+                <Plus className="w-4 h-4 mr-2" /> Add to this day
               </Button>
-            )}
-          </CardContent>
-        </Card>
+              {isConnected && (
+                <Button
+                  variant="ghost"
+                  className="w-full rounded-xl h-10 text-muted-foreground text-sm gap-1.5"
+                  onClick={() => sync.mutate({ data: { startDate, endDate } })}
+                  disabled={sync.isPending}
+                >
+                  <RefreshCw
+                    className={cn(
+                      "w-3.5 h-3.5",
+                      sync.isPending && "animate-spin",
+                    )}
+                  />
+                  {sync.isPending ? "Syncing…" : "Sync Google Calendar"}
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
