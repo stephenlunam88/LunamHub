@@ -56,11 +56,19 @@ function actionSummary(action: PendingAction) {
 }
 
 async function readResponse<T>(response: Response): Promise<T> {
-  const body = (await response.json().catch(() => ({}))) as {
-    error?: string;
-  } & T;
-  if (!response.ok)
-    throw new Error(body.error ?? "Request failed. Please try again.");
+  const responseText = await response.text();
+  let body: { error?: string } & T = {} as { error?: string } & T;
+  try {
+    body = JSON.parse(responseText) as { error?: string } & T;
+  } catch {
+    // Reverse proxies can return an HTML error page instead of the API's JSON.
+  }
+  if (!response.ok) {
+    throw new Error(
+      body.error ??
+        `Request failed (HTTP ${response.status}). Please try again.`,
+    );
+  }
   return body;
 }
 

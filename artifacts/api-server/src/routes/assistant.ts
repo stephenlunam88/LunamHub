@@ -165,7 +165,6 @@ async function callOpenAI(
       messages,
       tools,
       tool_choice: "auto",
-      temperature: 0.2,
     }),
     signal: AbortSignal.timeout(45_000),
   });
