@@ -7,6 +7,10 @@ import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { createLunamMcpServer } from "../lib/mcpOAuth.js";
 import { getAssistantConfig } from "../lib/assistantConfig";
 import { needsCalendarLookupForRemoval } from "../lib/assistantIntent";
+import {
+  normalizeAssistantApiRequest,
+  summarizeAssistantApiAction,
+} from "../lib/assistantApiRequest";
 
 const router = Router();
 const HISTORY_LIMIT = 30;
@@ -116,7 +120,7 @@ const apiTool = {
   function: {
     name: API_TOOL_NAME,
     description:
-      "Use LunamHub's authenticated API for household features: family members (/family), calendar (/events), chores and daily summaries (/chores), rewards and redemption requests (/rewards, /redemptions), shared lists and items (/lists/{id}/items), meals and meal plans (/meals, /meal-plan), routines and items/completions (/routines), dashboard (/dashboard/summary), badges (/badges), point transactions and milestones (/point-transactions, /point-milestones, /chore-milestones, /streak-milestones), leaderboards (/leaderboard), Games Night (/games-night/players, /games-night/games, /games-night/history, /games-night/results, /games-night/dashboard), and weather (/weather). Supported methods are GET, POST, PATCH, PUT, DELETE. Use paths that match the API, such as /events, /events/42, /chores/summary, /lists, /lists/2/items, /meal-plan, /routines/3/complete, /games-night/history, or /weather. Put path IDs directly in the path; use query for query parameters and body for JSON. Read first when an ID is needed. To remove an event, first use list_calendar_events to find the exact matching event, then prepare DELETE /events/{id}; never claim it is ready or removed without a matching write tool call. Every non-GET call will be shown for explicit confirmation before it runs. Never include passwords, PINs, tokens, avatar/photo content, or secrets. Do not use settings, authentication, Google Calendar connection, camera, or file-storage endpoints; those are intentionally unavailable to this assistant.",
+      'Use LunamHub\'s authenticated API for household features: family members (/family), calendar (/events), chores and daily summaries (/chores), rewards and redemption requests (/rewards, /redemptions), shared lists and items (/lists/{id}/items), meals and meal plans (/meals, /meal-plan), routines and items/completions (/routines), dashboard (/dashboard/summary), badges (/badges), point transactions and milestones (/point-transactions, /point-milestones, /chore-milestones, /streak-milestones), leaderboards (/leaderboard), Games Night (/games-night/players, /games-night/games, /games-night/history, /games-night/results, /games-night/dashboard), and weather (/weather). Supported methods are GET, POST, PATCH, PUT, DELETE. Use paths that match the API, such as /events, /events/42, /chores/summary, /lists, /lists/2/items, /meal-plan, /routines/3/complete, /games-night/history, or /weather. Put path IDs directly in the path; use query for query parameters and body for JSON. For POST /lists/{id}/items, the item field is text (for example {"text":"Milk"}), not name. Read first when an ID is needed. To remove an event, first use list_calendar_events to find the exact matching event, then prepare DELETE /events/{id}; never claim it is ready or removed without a matching write tool call. Every non-GET call will be shown for explicit confirmation before it runs. Never include passwords, PINs, tokens, avatar/photo content, or secrets. Do not use settings, authentication, Google Calendar connection, camera, or file-storage endpoints; those are intentionally unavailable to this assistant.',
     parameters: {
       type: "object",
       properties: {
@@ -245,7 +249,8 @@ async function callHouseholdApi(
   const parsed = ApiRequestSchema.safeParse(input);
   if (!parsed.success)
     return `Invalid API request: ${parsed.error.issues[0]?.message ?? "check the arguments"}`;
-  const { method, path, query, body } = parsed.data;
+  const { method, path, query } = parsed.data;
+  const body = normalizeAssistantApiRequest(method, path, parsed.data.body);
   const normalizedPath = path.toLowerCase();
   if (
     !path.startsWith("/") ||
@@ -533,6 +538,14 @@ async function continueTurn(
               ...(assignedNames.length ? { assignedNames } : {}),
               ...(deletedEvent
                 ? { summary: formatEventRemovalSummary(deletedEvent) }
+                : call.name === API_TOOL_NAME
+                  ? {
+                      summary: summarizeAssistantApiAction(
+                        String(call.arguments.method),
+                        String(call.arguments.path),
+                        call.arguments.body as Record<string, unknown> | undefined,
+                      ),
+                    }
                 : {}),
             };
           }),

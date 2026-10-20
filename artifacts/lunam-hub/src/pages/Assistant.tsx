@@ -63,19 +63,111 @@ function renderAssistantContent(content: string) {
   });
 }
 
+function readableValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function formatApiAction(action: PendingAction) {
+  const args = action.arguments;
+  const method = String(args.method ?? "");
+  const path = String(args.path ?? "");
+  if (action.summary) return action.summary;
+
+  const body = (args.body && typeof args.body === "object"
+    ? args.body
+    : {}) as Record<string, unknown>;
+  const label =
+    readableValue(body.title) ??
+    readableValue(body.name) ??
+    readableValue(body.text) ??
+    readableValue(body.label);
+  const quoted = label ? ` “${label}”` : "";
+  const people = action.assignedNames?.length
+    ? ` for ${action.assignedNames.join(", ")}`
+    : "";
+  const detail = [readableValue(body.date), readableValue(body.startTime)]
+    .filter((value): value is string => Boolean(value))
+    .join(" at ");
+  const target = path.split("?")[0] ?? "";
+  const isCreate = method === "POST";
+  const isRemove = method === "DELETE";
+  const verb = isCreate ? "Add" : isRemove ? "Remove" : "Update";
+
+  if (/^\/lists\/\d+\/items$/.test(target)) {
+    const item = readableValue(body.text) ?? readableValue(body.name);
+    if (isCreate && item) return `Add “${item}” to the shopping list`;
+    if (isRemove) return item ? `Remove “${item}” from the shopping list` : "Remove an item from the shopping list";
+    if (method === "PATCH" || method === "PUT") return item ? `Update “${item}” on the shopping list` : "Update a shopping-list item";
+    return "Update the shopping list";
+  }
+
+  if (/^\/lists(?:\/\d+)?$/.test(target)) {
+    return isCreate
+      ? `Create shopping list${quoted}`
+      : `${verb} the shopping list`;
+  }
+  if (/^\/events(?:\/\d+)?$/.test(target)) {
+    const event = quoted || " a calendar event";
+    const when = detail ? ` for ${detail}` : "";
+    return isCreate ? `Add${event}${when}${people}` : `${verb}${event}${people}`;
+  }
+  if (/^\/chores(?:\/\d+)?$/.test(target)) {
+    return `${verb}${quoted || " a chore"}${people}${readableValue(body.dueDate) ? `, due ${String(body.dueDate)}` : ""}`;
+  }
+  if (/^\/family(?:\/\d+)?$/.test(target)) {
+    return `${isCreate ? "Add" : isRemove ? "Remove" : "Update"} family member${quoted}`;
+  }
+  if (/^\/rewards(?:\/\d+)?$/.test(target)) {
+    return `${isCreate ? "Create" : isRemove ? "Remove" : "Update"} reward${quoted}`;
+  }
+  if (/^\/redemptions(?:\/\d+)?(?:\/(approve|reject|fulfill))?$/.test(target)) {
+    const operation = target.match(/\/(approve|reject|fulfill)$/)?.[1];
+    if (operation === "approve") return "Approve a reward request";
+    if (operation === "reject") return "Decline a reward request";
+    if (operation === "fulfill") return "Mark a reward as given";
+    return "Submit a reward request";
+  }
+  if (/^\/meals(?:\/\d+)?$/.test(target)) {
+    return `${isCreate ? "Save" : isRemove ? "Remove" : "Update"} meal${quoted}`;
+  }
+  if (/^\/meal-plan(?:\/\d+)?(?:\/add-to-grocery)?$/.test(target)) {
+    return target.endsWith("/add-to-grocery")
+      ? "Add meal ingredients to the shopping list"
+      : `${isCreate ? "Add to" : isRemove ? "Remove from" : "Update"} the meal plan`;
+  }
+  if (/^\/routines(?:\/\d+)?(?:\/items(?:\/\d+)?)?(?:\/complete)?$/.test(target)) {
+    if (target.endsWith("/complete")) return "Mark a routine as complete";
+    if (target.includes("/items")) return `${isCreate ? "Add" : isRemove ? "Remove" : "Update"} routine step${quoted}`;
+    return `${isCreate ? "Create" : isRemove ? "Remove" : "Update"} routine${quoted}`;
+  }
+  if (/^\/(?:badges|point-milestones|chore-milestones|streak-milestones)(?:\/\d+)?$/.test(target)) {
+    const noun = target.startsWith("/badges")
+      ? "badge"
+      : target.includes("point-milestones")
+        ? "points milestone"
+        : target.includes("chore-milestones")
+          ? "chore milestone"
+          : "streak milestone";
+    return `${isCreate ? "Create" : isRemove ? "Remove" : "Update"} ${noun}${quoted}`;
+  }
+  if (/^\/point-transactions$/.test(target)) {
+    const points = typeof body.amount === "number" ? ` (${body.amount > 0 ? "+" : ""}${body.amount} points)` : "";
+    return `Adjust household points${points}`;
+  }
+  if (/^\/games-night\/(guests|games|results)(?:\/\d+)?$/.test(target)) {
+    const section = target.split("/")[2];
+    const noun = section === "guests" ? "guest" : section === "games" ? "game" : "game-night result";
+    return `${isCreate ? "Add" : isRemove ? "Remove" : "Update"} ${noun}${quoted}`;
+  }
+
+  // Never expose internal routes, numeric IDs, or raw request JSON in the UI.
+  return "Make a change to household information";
+}
+
 function actionSummary(action: PendingAction) {
   const args = action.arguments;
   if (action.name === "call_lunamhub_api") {
-    const method = String(args.method ?? "API");
-    const path = String(args.path ?? "unknown endpoint");
-    if (method === "DELETE" && /^\/events\/\d+$/.test(path)) {
-      return action.summary ?? "Remove calendar event";
-    }
-    const query = args.query
-      ? `?${new URLSearchParams(args.query as Record<string, string>)}`
-      : "";
-    const body = args.body ? ` · ${JSON.stringify(args.body)}` : "";
-    return `${method} ${path}${query}${body}`.slice(0, 1_500);
+    return formatApiAction(action);
   }
   if (action.name === "create_calendar_event") {
     const people = action.assignedNames?.length
@@ -356,7 +448,7 @@ export default function Assistant() {
             <p className="font-semibold">
               {isCalendarRemoval
                 ? "Confirm event removal"
-                : "Confirm before I save"}
+                : "Review this change"}
             </p>
             <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
               {pending.actions.map((action, index) => (
