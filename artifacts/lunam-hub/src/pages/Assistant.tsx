@@ -19,6 +19,49 @@ type PendingAction = {
 };
 type Pending = { id: string; actions: PendingAction[] };
 
+function renderAssistantContent(content: string) {
+  const renderInline = (text: string, keyPrefix: string) =>
+    text
+      .split(/(\*\*[^*]+\*\*)/g)
+      .map((part, index) =>
+        part.startsWith("**") && part.endsWith("**") ? (
+          <strong key={`${keyPrefix}-${index}`}>{part.slice(2, -2)}</strong>
+        ) : (
+          part
+        ),
+      );
+
+  return content.split(/\n\s*\n/).map((paragraph, paragraphIndex) => {
+    const lines = paragraph.split("\n");
+    const isList =
+      lines.length > 1 && lines.every((line) => /^\s*[-*]\s+/.test(line));
+    if (isList) {
+      return (
+        <ul key={paragraphIndex} className="list-disc space-y-1 pl-5">
+          {lines.map((line, lineIndex) => (
+            <li key={lineIndex}>
+              {renderInline(
+                line.replace(/^\s*[-*]\s+/, ""),
+                `${paragraphIndex}-${lineIndex}`,
+              )}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+    return (
+      <p key={paragraphIndex}>
+        {lines.map((line, lineIndex) => (
+          <span key={lineIndex}>
+            {lineIndex > 0 && <br />}
+            {renderInline(line, `${paragraphIndex}-${lineIndex}`)}
+          </span>
+        ))}
+      </p>
+    );
+  });
+}
+
 function actionSummary(action: PendingAction) {
   const args = action.arguments;
   if (action.name === "call_lunamhub_api") {
@@ -277,11 +320,13 @@ export default function Assistant() {
               key={`${index}-${message.role}`}
               className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
             >
-              <p
+              <div
                 className={`max-w-[90%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-relaxed ${message.role === "user" ? "rounded-br-md bg-primary text-primary-foreground" : "rounded-bl-md bg-muted"}`}
               >
-                {message.content}
-              </p>
+                {message.role === "assistant"
+                  ? renderAssistantContent(message.content)
+                  : message.content}
+              </div>
             </div>
           ))
         )}
