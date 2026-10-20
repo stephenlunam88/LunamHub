@@ -138,14 +138,14 @@ export function Layout({ children }: { children: ReactNode }) {
           location={path}
         />
         <button
-          onClick={() => setQuickOpen(true)}
+          onClick={() => navigate("/assistant")}
           className="relative flex h-14 w-full flex-col items-center justify-end rounded-xl pb-2.5 text-primary"
-          aria-label="Open quick actions"
+          aria-label="Open Family Assistant"
         >
           <span className="absolute left-1/2 top-0 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
-            <Plus className="h-7 w-7" />
+            <MessageCircle className="h-6 w-6" />
           </span>
-          <span className="text-[10px] font-bold leading-none">Quick Add</span>
+          <span className="text-[10px] font-bold leading-none">Assistant</span>
         </button>
         <MobileLink href="/lists" label="Lists" icon={List} location={path} />
         <button
@@ -218,8 +218,28 @@ export function Layout({ children }: { children: ReactNode }) {
             <DialogTitle className="font-serif text-2xl">More</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => {
+                setMoreOpen(false);
+                setQuickOpen(true);
+              }}
+              className="col-span-2 flex min-h-16 items-center gap-3 rounded-2xl bg-primary/10 px-4 text-left text-primary"
+            >
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                <Plus className="h-5 w-5" />
+              </span>
+              <span>
+                <b className="block">Quick Add</b>
+                <small className="text-muted-foreground">
+                  Add an event, chore, list item, or game result
+                </small>
+              </span>
+            </button>
             {NAV_ITEMS.filter(
-              (item) => !["/", "/calendar", "/lists"].includes(item.href),
+              (item) =>
+                !["/", "/calendar", "/lists", "/assistant"].includes(
+                  item.href,
+                ),
             ).map((item) => {
               const Icon = item.icon;
               return (
