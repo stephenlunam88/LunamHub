@@ -27,7 +27,19 @@ test("a find-it follow-up continues a pending calendar removal lookup", () => {
   );
 });
 
-test("a user's removal confirmation after the assistant offers to remove an event triggers lookup", () => {
+test("an implicit cancellation request triggers an immediate calendar lookup", () => {
+  assert.equal(
+    needsCalendarLookupForRemoval([
+      {
+        role: "user",
+        content: "Honor doesn't have swimming at 1pm tomorrow anymore",
+      },
+    ]),
+    true,
+  );
+});
+
+test("a direct remove-it follow-up triggers a calendar lookup", () => {
   assert.equal(
     needsCalendarLookupForRemoval([
       { role: "user", content: "Honor has swimming tomorrow at 1pm" },

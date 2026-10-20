@@ -16,10 +16,29 @@ export function needsCalendarLookupForRemoval(messages: ConversationMessage[]) {
   const hasCalendarTarget = /\b(calendar|event|appointment|meeting)\b/i.test(
     context,
   );
-  if (!hasCalendarTarget) return false;
+  const hasDateOrTime =
+    /\b(today|tonight|tomorrow|yesterday|next\s+(?:week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b/i.test(
+      latestUser.content,
+    ) ||
+    /\b\d{1,2}(?::\d{2})?\s?(?:am|pm)\b/i.test(latestUser.content) ||
+    /\b\d{4}-\d{2}-\d{2}\b/.test(latestUser.content);
 
-  if (/\b(remove|delete|cancel|take off)\b/i.test(latestUser.content))
+  const explicitRemoval = /\b(remove|delete|cancel|take off)\b/i.test(
+    latestUser.content,
+  );
+  const impliedRemoval =
+    /\b(?:doesn['’]t have|does not have|no longer has|isn['’]t having|is not having)\b.{0,120}\banymore\b/i.test(
+      latestUser.content,
+    ) ||
+    /\b(?:no longer needed|isn['’]t happening|is not happening|has been cancelled|has been canceled)\b/i.test(
+      latestUser.content,
+    );
+  if (
+    (explicitRemoval && (hasCalendarTarget || hasDateOrTime)) ||
+    impliedRemoval
+  )
     return true;
+  if (!hasCalendarTarget) return false;
 
   const isLookupFollowUp =
     /\b(find it|find the event|look it up|search for it|check for it)\b/i.test(

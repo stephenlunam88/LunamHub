@@ -16,6 +16,7 @@ type PendingAction = {
   name: string;
   arguments: Record<string, unknown>;
   assignedNames?: string[];
+  summary?: string;
 };
 type Pending = { id: string; actions: PendingAction[] };
 
@@ -67,6 +68,9 @@ function actionSummary(action: PendingAction) {
   if (action.name === "call_lunamhub_api") {
     const method = String(args.method ?? "API");
     const path = String(args.path ?? "unknown endpoint");
+    if (method === "DELETE" && /^\/events\/\d+$/.test(path)) {
+      return action.summary ?? "Remove calendar event";
+    }
     const query = args.query
       ? `?${new URLSearchParams(args.query as Record<string, string>)}`
       : "";
@@ -214,6 +218,17 @@ export default function Assistant() {
     ]);
   }
 
+  const isCalendarRemoval = Boolean(
+    pending?.actions.length &&
+    pending.actions.every(
+      (action) =>
+        action.name === "call_lunamhub_api" &&
+        action.arguments.method === "DELETE" &&
+        typeof action.arguments.path === "string" &&
+        /^\/events\/\d+$/.test(action.arguments.path),
+    ),
+  );
+
   async function toggleRecording() {
     setError("");
     if (recording) {
@@ -338,7 +353,11 @@ export default function Assistant() {
         )}
         {pending && (
           <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4">
-            <p className="font-semibold">Confirm before I save</p>
+            <p className="font-semibold">
+              {isCalendarRemoval
+                ? "Confirm event removal"
+                : "Confirm before I save"}
+            </p>
             <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
               {pending.actions.map((action, index) => (
                 <li key={`${action.name}-${index}`}>

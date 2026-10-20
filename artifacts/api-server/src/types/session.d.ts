@@ -18,6 +18,7 @@ declare module "express-session" {
         name: string;
         arguments: Record<string, unknown>;
         assignedNames?: string[];
+        summary?: string;
       }>;
     };
   }

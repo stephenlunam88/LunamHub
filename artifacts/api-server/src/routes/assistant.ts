@@ -80,7 +80,36 @@ type ToolCall = {
   name: string;
   arguments: Record<string, unknown>;
 };
-type DisplayAction = ToolCall & { assignedNames?: string[] };
+type DisplayAction = ToolCall & {
+  assignedNames?: string[];
+  summary?: string;
+};
+type CalendarEventSummary = {
+  id: number;
+  title: string;
+  date: string;
+  startTime?: string | null;
+  allDay?: boolean;
+};
+
+function formatEventRemovalSummary(event: CalendarEventSummary) {
+  const date = new Intl.DateTimeFormat("en-AU", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(`${event.date}T00:00:00Z`));
+  const time = event.startTime
+    ? (() => {
+        const [hours, minutes] = event.startTime!.split(":").map(Number);
+        const hour = hours % 12 || 12;
+        return ` · ${hour}:${String(minutes).padStart(2, "0")}${hours >= 12 ? "pm" : "am"}`;
+      })()
+    : event.allDay
+      ? " · all day"
+      : "";
+  return `Remove “${event.title}” · ${date}${time}`;
+}
 
 const apiTool = {
   type: "function",
@@ -311,7 +340,7 @@ async function continueTurn(
     ...messages,
   ];
   let familyMembers: Array<{ id: number; name: string }> = [];
-  const calendarEventIds = new Set<number>();
+  const calendarEventsById = new Map<number, CalendarEventSummary>();
 
   // Read-only lookups can run immediately. Writes are held in the session and
   // only executed by the explicit confirmation endpoint.
@@ -380,7 +409,7 @@ async function continueTurn(
             }
             if (
               forceCalendarLookup &&
-              (!eventId || !calendarEventIds.has(eventId))
+              (!eventId || !calendarEventsById.has(eventId))
             ) {
               fullMessages.push({
                 role: "tool",
@@ -426,17 +455,28 @@ async function continueTurn(
           });
           if (call.function.name === "list_calendar_events") {
             try {
-              const events = JSON.parse(resultText) as Array<{
-                id?: unknown;
-              }>;
+              const events = JSON.parse(resultText) as Array<
+                Partial<CalendarEventSummary>
+              >;
               if (Array.isArray(events)) {
                 for (const event of events) {
-                  if (typeof event.id === "number")
-                    calendarEventIds.add(event.id);
+                  if (
+                    typeof event.id === "number" &&
+                    typeof event.title === "string" &&
+                    typeof event.date === "string"
+                  ) {
+                    calendarEventsById.set(event.id, {
+                      id: event.id,
+                      title: event.title,
+                      date: event.date,
+                      startTime: event.startTime,
+                      allDay: event.allDay,
+                    });
+                  }
                 }
               }
             } catch {
-              calendarEventIds.clear();
+              calendarEventsById.clear();
             }
           }
           if (call.function.name === "list_family_members") {
@@ -466,6 +506,15 @@ async function continueTurn(
           messages: fullMessages,
           toolCalls: writes,
           displayActions: writes.map((call): DisplayAction => {
+            const deletePath =
+              call.name === API_TOOL_NAME &&
+              call.arguments.method === "DELETE" &&
+              typeof call.arguments.path === "string"
+                ? call.arguments.path.match(/^\/events\/(\d+)$/)
+                : null;
+            const deletedEvent = deletePath
+              ? calendarEventsById.get(Number(deletePath[1]))
+              : undefined;
             const ids = Array.isArray(call.arguments["assignedMembers"])
               ? (call.arguments["assignedMembers"] as number[])
               : [
@@ -482,6 +531,9 @@ async function continueTurn(
             return {
               ...call,
               ...(assignedNames.length ? { assignedNames } : {}),
+              ...(deletedEvent
+                ? { summary: formatEventRemovalSummary(deletedEvent) }
+                : {}),
             };
           }),
         },
@@ -521,6 +573,7 @@ router.post("/chat", async (req, res) => {
         name: string;
         arguments: Record<string, unknown>;
         assignedNames?: string[];
+        summary?: string;
       }>;
     } | null = null;
     if (result.pending) {
@@ -535,10 +588,11 @@ router.post("/chat", async (req, res) => {
       pending = {
         id,
         actions: result.pending.displayActions.map(
-          ({ name, arguments: args, assignedNames }) => ({
+          ({ name, arguments: args, assignedNames, summary }) => ({
             name,
             arguments: args,
             ...(assignedNames ? { assignedNames } : {}),
+            ...(summary ? { summary } : {}),
           }),
         ),
       };
@@ -617,6 +671,7 @@ router.post("/confirm", async (req, res) => {
         name: string;
         arguments: Record<string, unknown>;
         assignedNames?: string[];
+        summary?: string;
       }>;
     } | null = null;
     if (result.pending) {
@@ -631,10 +686,11 @@ router.post("/confirm", async (req, res) => {
       nextPending = {
         id,
         actions: result.pending.displayActions.map(
-          ({ name, arguments: args, assignedNames }) => ({
+          ({ name, arguments: args, assignedNames, summary }) => ({
             name,
             arguments: args,
             ...(assignedNames ? { assignedNames } : {}),
+            ...(summary ? { summary } : {}),
           }),
         ),
       };
