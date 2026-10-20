@@ -99,10 +99,10 @@ export function Layout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)] text-foreground md:pt-0">
       <main
         className={cn(
-          "min-h-0 flex-1 overflow-y-auto pt-[env(safe-area-inset-top)] md:pt-0",
+          "min-h-0 flex-1 overflow-y-auto",
           isDashboard && "md:overflow-hidden",
         )}
       >
@@ -128,7 +128,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="Mobile navigation"
-        className="relative z-50 grid h-[calc(68px+env(safe-area-inset-bottom))] shrink-0 grid-cols-5 items-end border-t bg-card px-1 pt-2 pb-2 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden"
+        className="relative z-50 grid h-[calc(72px+env(safe-area-inset-bottom))] shrink-0 grid-cols-5 items-end border-t bg-card px-1 pt-2 pb-[calc(8px+env(safe-area-inset-bottom))] shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden"
       >
         <MobileLink href="/" label="Today" icon={Home} location={path} />
         <MobileLink
@@ -139,21 +139,21 @@ export function Layout({ children }: { children: ReactNode }) {
         />
         <button
           onClick={() => navigate("/assistant")}
-          className="mobile-nav-item relative flex h-14 w-full flex-col items-center justify-end rounded-xl pb-2.5 text-primary"
+          className="relative flex h-14 w-full flex-col items-center justify-end rounded-xl pb-2.5 text-primary"
           aria-label="Open Family Assistant"
         >
-          <span className="mobile-nav-assistant-bubble absolute left-1/2 -top-6 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
+          <span className="absolute left-1/2 top-3.5 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md">
             <MessageCircle className="h-6 w-6" />
           </span>
-          <span className="text-[10px] font-bold leading-none">Assistant</span>
+          <span className="translate-y-2 text-[10px] font-bold leading-none">Assistant</span>
         </button>
         <MobileLink href="/lists" label="Lists" icon={List} location={path} />
         <button
           onClick={() => setMoreOpen(true)}
-          className="mobile-nav-item flex h-14 flex-col items-center justify-center gap-1 rounded-xl text-muted-foreground"
+          className="flex h-14 flex-col items-center justify-center gap-1 rounded-xl text-muted-foreground"
         >
-          <Menu className="h-5 w-5" />
-          <span className="text-[10px] font-bold">More</span>
+          <Menu className="h-5 w-5 translate-y-2" />
+          <span className="translate-y-2 text-[10px] font-bold">More</span>
         </button>
       </nav>
 
@@ -276,12 +276,12 @@ function MobileLink({
     <Link
       href={href}
       className={cn(
-        "mobile-nav-item flex h-14 w-full min-w-0 flex-col items-center justify-center gap-1 rounded-xl",
+        "flex h-14 w-full min-w-0 flex-col items-center justify-center gap-1 rounded-xl",
         active ? "text-primary" : "text-muted-foreground",
       )}
     >
-      <Icon className="h-5 w-5" />
-      <span className="text-[10px] font-bold">{label}</span>
+      <Icon className="h-5 w-5 translate-y-2" />
+      <span className="translate-y-2 text-[10px] font-bold">{label}</span>
     </Link>
   );
 }

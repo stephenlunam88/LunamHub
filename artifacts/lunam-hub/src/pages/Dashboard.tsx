@@ -507,7 +507,7 @@ export default function Dashboard() {
 
   return (
     <>
-      <div className="space-y-4 p-4 pb-24 md:hidden">
+      <div className="space-y-4 p-4 pb-0 md:hidden">
         <div>
           <p className="text-sm font-semibold text-muted-foreground">
             {format(now, "EEEE, MMMM do")}

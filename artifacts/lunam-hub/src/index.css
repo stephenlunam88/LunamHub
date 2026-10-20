@@ -141,22 +141,3 @@
     background-color: #ffffff !important;
   }
 }
-
-/* iOS Home Screen apps can size the document only to the area above the
-   bottom safe area. Extend the shell so the mobile navigation background
-   fills through to the display edge instead of leaving a blank strip. */
-@media (display-mode: standalone), (display-mode: fullscreen) {
-  body {
-    height: calc(100% + env(safe-area-inset-bottom));
-  }
-
-  /* Use the empty space above the nav row for its labels/tap targets, while
-     keeping the prominent Assistant bubble in place. */
-  .mobile-nav-item {
-    transform: translateY(0);
-  }
-
-  .mobile-nav-assistant-bubble {
-    top: calc(-1.5rem + min(8px, env(safe-area-inset-bottom)));
-  }
-}
