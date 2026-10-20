@@ -142,11 +142,10 @@
   }
 }
 
-/* iPadOS reports the standalone document height above its bottom inset.
-   Extend the tablet app shell through that inset so the real navigation row,
-   including its controls, reaches the display edge. */
-@media (min-width: 768px) and (display-mode: standalone),
-  (min-width: 768px) and (display-mode: fullscreen) {
+/* iOS Home Screen apps can size the document only to the area above the
+   bottom safe area. Extend the shell so the mobile navigation background
+   fills through to the display edge instead of leaving a blank strip. */
+@media (display-mode: standalone), (display-mode: fullscreen) {
   body {
     height: calc(100% + env(safe-area-inset-bottom));
   }
