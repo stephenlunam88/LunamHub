@@ -152,6 +152,6 @@
      indicator. Extend the fixed shell by that safe-area amount; the nav's
      existing bottom padding keeps its controls above the indicator. */
   #root {
-    bottom: calc(0px - env(safe-area-inset-bottom));
+    bottom: calc(0px - env(safe-area-inset-bottom) / 2);
   }
 }
