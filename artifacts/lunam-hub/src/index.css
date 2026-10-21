@@ -128,10 +128,12 @@
     margin: 0;
     overflow: hidden;
   }
-  /* Use the dynamic viewport for the app shell. On iOS Home Screen installs,
-     percentage heights can stop above the bottom of the screen and leave a
-     large blank strip below the bottom navigation. Safe areas remain handled
-     by the shell and navigation themselves. */
+  /* Keep the entire clipping chain sized to the dynamic viewport. On iOS Home
+     Screen installs, percentage heights on html/body can stop short and clip
+     a full-height app shell, leaving a blank strip below the navigation. Safe
+     areas remain handled by the shell and navigation themselves. */
+  html,
+  body,
   #root {
     height: 100dvh;
   }
