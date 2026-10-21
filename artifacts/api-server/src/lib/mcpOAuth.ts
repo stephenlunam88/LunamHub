@@ -50,6 +50,7 @@ import {
 import { pool } from "@workspace/db";
 import { createCalendarEvent } from "../routes/events.js";
 import { createChoreRecords } from "../routes/chores.js";
+import { normalizeAssistantApiRequest } from "./assistantApiRequest.js";
 import {
   isLoginBlocked,
   clearLoginFailures,
@@ -63,6 +64,29 @@ const SUPPORTED_SCOPES = [
   "calendar:write",
   "chores:read",
   "chores:write",
+  "api:read",
+  "api:write",
+  "api:delete",
+];
+const HOUSEHOLD_API_PREFIXES = [
+  "/family",
+  "/events",
+  "/chores",
+  "/rewards",
+  "/redemptions",
+  "/lists",
+  "/meals",
+  "/meal-plan",
+  "/routines",
+  "/dashboard",
+  "/badges",
+  "/point-transactions",
+  "/leaderboard",
+  "/streak-milestones",
+  "/point-milestones",
+  "/chore-milestones",
+  "/games-night",
+  "/weather",
 ];
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
 const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -70,6 +94,190 @@ const FLOW_TTL_SECONDS = 10 * 60;
 const HASH = (value: string) =>
   createHash("sha256").update(value).digest("hex");
 const randomSecret = () => randomBytes(32).toString("base64url");
+const McpApiPathSchema = z.string().min(1).max(180);
+const McpApiQuerySchema = z
+  .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+  .refine(
+    (values) =>
+      Object.keys(values).length <= 20 &&
+      Object.values(values).every(
+        (value) => typeof value !== "string" || value.length <= 500,
+      ),
+  )
+  .optional();
+const McpApiBodySchema = z
+  .record(z.string(), z.unknown())
+  .refine((value) => Object.keys(value).length <= 50)
+  .optional();
+let mcpApiSessionCookie: string | undefined;
+let mcpApiSessionPromise: Promise<string> | undefined;
+
+async function getMcpApiSessionCookie() {
+  if (mcpApiSessionCookie) return mcpApiSessionCookie;
+  if (mcpApiSessionPromise) return mcpApiSessionPromise;
+  mcpApiSessionPromise = (async () => {
+    const password = process.env["APP_PASSWORD"];
+    if (!password) throw new Error("MCP API access requires APP_PASSWORD.");
+    const port = Number(process.env["PORT"] ?? 8080);
+    const response = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Forwarded-Proto": "https",
+      },
+      body: JSON.stringify({ password }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok)
+      throw new Error("Could not authenticate the MCP API request.");
+    const cookie = response.headers
+      .get("set-cookie")
+      ?.match(/(?:^|,\s*)(lunam\.sid=[^;,]+)/)?.[1];
+    if (!cookie) throw new Error("The API did not issue a session cookie.");
+    mcpApiSessionCookie = cookie;
+    return cookie;
+  })();
+  try {
+    return await mcpApiSessionPromise;
+  } finally {
+    mcpApiSessionPromise = undefined;
+  }
+}
+
+function containsSensitiveApiField(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  if (Array.isArray(value)) return value.some(containsSensitiveApiField);
+  return Object.entries(value).some(
+    ([key, child]) =>
+      /^(pin|pinhash|password|token|secret)$/i.test(key) ||
+      containsSensitiveApiField(child),
+  );
+}
+
+async function callMcpHouseholdApi(
+  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
+  path: string,
+  query?: Record<string, string | number | boolean>,
+  body?: Record<string, unknown>,
+) {
+  const normalizedPath = path.toLowerCase();
+  if (
+    !path.startsWith("/") ||
+    path.includes("//") ||
+    path.includes("%") ||
+    path.includes("\\") ||
+    path.includes("?") ||
+    path.includes("#") ||
+    path.split("/").some((segment) => segment === "." || segment === "..") ||
+    !HOUSEHOLD_API_PREFIXES.some(
+      (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+    ) ||
+    normalizedPath.startsWith("/events/google-calendar-") ||
+    /^\/family\/\d+\/(avatar|set-pin|verify-pin)$/.test(normalizedPath)
+  ) {
+    return {
+      isError: true,
+      content: [
+        {
+          type: "text" as const,
+          text: "That API path is not available to the MCP connection.",
+        },
+      ],
+    };
+  }
+  if (containsSensitiveApiField(query)) {
+    return {
+      isError: true,
+      content: [
+        {
+          type: "text" as const,
+          text: "For safety, credentials and secrets cannot be sent through MCP.",
+        },
+      ],
+    };
+  }
+  const normalizedBody = normalizeAssistantApiRequest(method, path, body);
+  if (containsSensitiveApiField(normalizedBody)) {
+    return {
+      isError: true,
+      content: [
+        {
+          type: "text" as const,
+          text: "For safety, PINs, passwords, tokens, and secrets cannot be sent through MCP.",
+        },
+      ],
+    };
+  }
+  if (normalizedBody && JSON.stringify(normalizedBody).length > 20_000) {
+    return {
+      isError: true,
+      content: [
+        {
+          type: "text" as const,
+          text: "That API payload is too large for MCP.",
+        },
+      ],
+    };
+  }
+
+  const port = Number(process.env["PORT"] ?? 8080);
+  const url = new URL(`/api${path}`, `http://127.0.0.1:${port}`);
+  for (const [key, value] of Object.entries(query ?? {}))
+    url.searchParams.set(key, String(value));
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const cookie = await getMcpApiSessionCookie();
+      const response = await fetch(url, {
+        method,
+        headers: {
+          Cookie: cookie,
+          ...(normalizedBody && method !== "GET"
+            ? { "Content-Type": "application/json" }
+            : {}),
+        },
+        ...(normalizedBody && method !== "GET"
+          ? { body: JSON.stringify(normalizedBody) }
+          : {}),
+        redirect: "manual",
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (response.status === 401 && attempt === 0) {
+        mcpApiSessionCookie = undefined;
+        continue;
+      }
+      const responseText = (await response.text()).slice(0, 16_000);
+      return {
+        isError: !response.ok,
+        content: [
+          {
+            type: "text" as const,
+            text: `${response.ok ? "Success" : `HTTP ${response.status}`}${responseText ? `: ${responseText}` : "."}`,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text" as const,
+            text: `API request failed: ${error instanceof Error ? error.message : "unknown error"}`,
+          },
+        ],
+      };
+    }
+  }
+  return {
+    isError: true,
+    content: [
+      {
+        type: "text" as const,
+        text: "API authentication expired. Retry the request.",
+      },
+    ],
+  };
+}
 const isCalendarDate = (value: string) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const parsed = new Date(`${value}T00:00:00Z`);
@@ -512,6 +720,9 @@ function consentPage(
     "calendar:write": "Add events to the family calendar",
     "chores:read": "View family chore templates",
     "chores:write": "Add family chores",
+    "api:read": "Read household data across LunamHub features",
+    "api:write": "Create or update household data across LunamHub features",
+    "api:delete": "Delete household data across LunamHub features",
   };
   const scopeRows = scopes
     .map((scope) => `<li>${escapeHtml(names[scope] ?? scope)}</li>`)
@@ -548,7 +759,7 @@ export function mountMcpIntegration(app: Express) {
       issuerUrl: baseUrl,
       resourceServerUrl: resourceUrl,
       scopesSupported: SUPPORTED_SCOPES,
-      resourceName: "LunamHub family calendar and chores",
+      resourceName: "LunamHub household APIs",
     }),
   );
 
@@ -696,7 +907,7 @@ export function createLunamMcpServer(auth: AuthInfo) {
       // arrays. Keep pathological object/array payloads from consuming memory.
       maxToolInputElements: 100,
       instructions:
-        "You manage the connected LunamHub household calendar and chores. Confirm ambiguous dates, times, people, or recurrence before creating anything. Use family member IDs from list_family_members when assigning events or chores.",
+        "You manage the connected LunamHub household across its API: family, calendar, chores, lists, meals, routines, rewards, points, badges, Games Night, dashboard, and weather. Use the read_lunamhub_api, write_lunamhub_api, and delete_lunamhub_api tools only for those household features; authentication, settings, secrets, uploads, and external account connections are unavailable. Resolve IDs with read tools first. Do not make changes without a clear user request. Before deleting, identify the exact item; ask if ambiguous. A recurring calendar event may represent an entire series, so distinguish deleting one occurrence from deleting the full series. Never send passwords, PINs, tokens, or secrets.",
     },
   );
 
@@ -1082,6 +1293,76 @@ export function createLunamMcpServer(auth: AuthInfo) {
     },
   );
 
+  server.registerTool(
+    "read_lunamhub_api",
+    {
+      title: "Read LunamHub household data",
+      description:
+        "Read household data from LunamHub's supported APIs: family, calendar, chores, rewards, redemptions, lists, meals, meal plans, routines, dashboard, badges, points, leaderboards, Games Night, and weather. Use an API path such as /events, /chores/summary, /lists/2/items, /meal-plan, /games-night/history, or /weather. Path IDs go in the path; query values go in query. Do not use authentication, settings, Google account connection, camera, or file-storage paths.",
+      inputSchema: {
+        path: McpApiPathSchema,
+        query: McpApiQuerySchema,
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ path, query }) => {
+      if (!auth.scopes.includes("api:read")) return needsScope("api:read");
+      return callMcpHouseholdApi("GET", path, query);
+    },
+  );
+
+  server.registerTool(
+    "write_lunamhub_api",
+    {
+      title: "Create or update LunamHub data",
+      description:
+        "Create or update household data through LunamHub's supported APIs. method must be POST, PATCH, or PUT. Supply a supported API path, optional query, and JSON body. This executes the change when called, so only call it after the user clearly requests that change. Never use it for DELETE; use delete_lunamhub_api instead. Do not use authentication, settings, Google account connection, camera, or file-storage paths.",
+      inputSchema: {
+        method: z.enum(["POST", "PATCH", "PUT"]),
+        path: McpApiPathSchema,
+        query: McpApiQuerySchema,
+        body: McpApiBodySchema,
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ method, path, query, body }) => {
+      if (!auth.scopes.includes("api:write")) return needsScope("api:write");
+      return callMcpHouseholdApi(method, path, query, body);
+    },
+  );
+
+  server.registerTool(
+    "delete_lunamhub_api",
+    {
+      title: "Delete LunamHub household data",
+      description:
+        "Delete a specific household item through LunamHub's supported APIs. Only call after the user clearly asks to delete/remove the identified item; if more than one match exists, ask which one. For a recurring calendar event, clarify whether they mean one occurrence or the entire series. Use a path such as /events/42, /chores/12, /lists/2/items/7, or /meals/4. Deletion happens immediately when called. Do not use authentication, settings, Google account connection, camera, or file-storage paths.",
+      inputSchema: {
+        path: McpApiPathSchema,
+        query: McpApiQuerySchema,
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ path, query }) => {
+      if (!auth.scopes.includes("api:delete")) return needsScope("api:delete");
+      return callMcpHouseholdApi("DELETE", path, query);
+    },
+  );
+
   // The official MCP SDK currently passes through _meta but doesn't model
   // OpenAI's top-level per-tool OAuth extension, so add it to tools/list.
   type ListedTool = { name: string; [key: string]: unknown };
@@ -1106,6 +1387,9 @@ export function createLunamMcpServer(auth: AuthInfo) {
           create_calendar_event: ["household:read", "calendar:write"],
           list_chores: ["chores:read"],
           create_chore: ["household:read", "chores:write"],
+          read_lunamhub_api: ["api:read"],
+          write_lunamhub_api: ["api:write"],
+          delete_lunamhub_api: ["api:delete"],
         };
         return {
           ...result,

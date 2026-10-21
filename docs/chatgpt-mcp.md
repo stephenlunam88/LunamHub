@@ -16,7 +16,12 @@ Once this code is deployed, each ChatGPT account can add a custom MCP server usi
 - `create_calendar_event` creates an event and uses LunamHub's existing Google Calendar sync when connected.
 - `list_chores` reads active chore templates.
 - `create_chore` creates a chore using LunamHub's existing template and instance generation.
+- `read_lunamhub_api` reads supported household APIs, including family, dashboard, lists, meals, routines, rewards, points, badges, Games Night, and weather.
+- `write_lunamhub_api` creates or updates supported household data with POST, PATCH, or PUT.
+- `delete_lunamhub_api` deletes a specific household item through a supported DELETE endpoint.
 
-OAuth permissions are scoped separately for household member lookup, calendar reads/writes, and chore reads/writes. Access and refresh tokens are stored as hashes; OAuth client secrets are encrypted using `SESSION_SECRET`.
+The general API tools are restricted to household feature routes. Authentication, settings and secrets, Google account connections, camera/avatar uploads, and file storage remain unavailable through MCP. Read, write, and delete permissions are separate OAuth scopes (`api:read`, `api:write`, and `api:delete`). A connection that predates these scopes must reconnect and approve them. Access and refresh tokens are stored as hashes; OAuth client secrets are encrypted using `SESSION_SECRET`.
+
+The API tools execute writes when called; the MCP client may ask for its own approval. The assistant must only delete an identified item after a clear user request, and must clarify whether a recurring calendar event means one occurrence or the entire series.
 
 This is a private household connector, not a publicly submitted ChatGPT app. After deployment, test OAuth discovery, consent, token refresh/revocation, and each tool through the ChatGPT connector or MCP Inspector before relying on it for family scheduling.

@@ -17,6 +17,9 @@ test("MCP exposes the household calendar and chore tools with scoped OAuth metad
       "calendar:write",
       "chores:read",
       "chores:write",
+      "api:read",
+      "api:write",
+      "api:delete",
     ],
     resource: new URL("https://lunamhub.swimforge.com.au/mcp"),
   };
@@ -45,6 +48,9 @@ test("MCP exposes the household calendar and chore tools with scoped OAuth metad
       "list_calendar_events",
       "list_chores",
       "list_family_members",
+      "read_lunamhub_api",
+      "write_lunamhub_api",
+      "delete_lunamhub_api",
     ].sort(),
   );
   assert.deepEqual(byName.get("create_calendar_event")?.["securitySchemes"], [
@@ -53,6 +59,24 @@ test("MCP exposes the household calendar and chore tools with scoped OAuth metad
   assert.deepEqual(byName.get("create_chore")?.["securitySchemes"], [
     { type: "oauth2", scopes: ["household:read", "chores:write"] },
   ]);
+  assert.deepEqual(byName.get("read_lunamhub_api")?.["securitySchemes"], [
+    { type: "oauth2", scopes: ["api:read"] },
+  ]);
+  assert.deepEqual(byName.get("write_lunamhub_api")?.["securitySchemes"], [
+    { type: "oauth2", scopes: ["api:write"] },
+  ]);
+  assert.deepEqual(byName.get("delete_lunamhub_api")?.["securitySchemes"], [
+    { type: "oauth2", scopes: ["api:delete"] },
+  ]);
+  assert.equal(
+    (
+      byName.get("delete_lunamhub_api")?.["annotations"] as Record<
+        string,
+        unknown
+      >
+    )?.["destructiveHint"],
+    true,
+  );
   assert.equal(
     (byName.get("get_profile")?.["_meta"] as Record<string, unknown>)?.[
       "openai/profile"
@@ -81,6 +105,26 @@ test("MCP exposes the household calendar and chore tools with scoped OAuth metad
   assert.deepEqual(
     wireTools.tools.map((tool) => tool.name).sort(),
     [...byName.keys()].sort(),
+  );
+  const blockedSettings = await client.callTool({
+    name: "read_lunamhub_api",
+    arguments: { path: "/settings" },
+  });
+  assert.equal(blockedSettings.isError, true);
+  assert.match(
+    blockedSettings.content[0]?.type === "text"
+      ? blockedSettings.content[0].text
+      : "",
+    /not available/,
+  );
+  const blockedPin = await client.callTool({
+    name: "write_lunamhub_api",
+    arguments: { method: "PATCH", path: "/family/1", body: { pin: "1234" } },
+  });
+  assert.equal(blockedPin.isError, true);
+  assert.match(
+    blockedPin.content[0]?.type === "text" ? blockedPin.content[0].text : "",
+    /PINs, passwords, tokens, and secrets/,
   );
   await client.close();
   await server.close();
