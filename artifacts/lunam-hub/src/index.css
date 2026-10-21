@@ -154,4 +154,14 @@
   #root {
     bottom: calc(0px - env(safe-area-inset-bottom));
   }
+  /* Some iOS standalone windows report a dynamic viewport shorter than the
+     full display area. Use that measured CSS viewport delta rather than a
+     device-specific offset. */
+  @supports (height: 100lvh) {
+    #root {
+      bottom: calc(
+        0px - env(safe-area-inset-bottom) - max(0px, 100lvh - 100dvh)
+      );
+    }
+  }
 }
