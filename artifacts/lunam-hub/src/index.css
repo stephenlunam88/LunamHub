@@ -128,14 +128,14 @@
     margin: 0;
     overflow: hidden;
   }
-  /* Keep the entire clipping chain sized to the dynamic viewport. On iOS Home
-     Screen installs, percentage heights on html/body can stop short and clip
-     a full-height app shell, leaving a blank strip below the navigation. Safe
-     areas remain handled by the shell and navigation themselves. */
-  html,
-  body,
+  /* Pin the app shell to the viewport instead of relying on iOS standalone's
+     sometimes-short document height. The shell applies the top safe area and
+     the nav applies the bottom safe area; this root adds neither inset. */
   #root {
-    height: 100dvh;
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: auto;
   }
   body {
     @apply font-sans antialiased bg-background text-foreground;
