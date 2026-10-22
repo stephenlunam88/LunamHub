@@ -10,9 +10,10 @@ export interface ChoreStreak {
 }
 
 /**
- * A successful scheduled day is one where every chore due for the child is done.
- * Unscheduled calendar days do not interrupt a streak. An unfinished current day
- * is treated as still in progress, so it neither increments nor breaks the streak.
+ * A successful scheduled day is one where every chore is done or excused and at
+ * least one was done. A fully excused day is neutral: it pauses a streak without
+ * increasing it. Unscheduled days do not interrupt a streak. An unfinished
+ * current day remains in progress and neither increments nor breaks the streak.
  */
 export function calculateChoreStreak(
   instances: readonly StreakInstance[],
@@ -31,8 +32,13 @@ export function calculateChoreStreak(
   let longest = 0;
   let run = 0;
   for (const date of scheduledDates) {
-    const allDone = byDate.get(date)!.every((instance) => instance.status === "done");
-    if (allDone) {
+    const day = byDate.get(date)!;
+    const allResolved = day.every(
+      (instance) => instance.status === "done" || instance.status === "excused",
+    );
+    const fullyExcused = day.every((instance) => instance.status === "excused");
+    if (fullyExcused) continue;
+    if (allResolved) {
       run++;
       longest = Math.max(longest, run);
     } else {
@@ -43,9 +49,14 @@ export function calculateChoreStreak(
   let current = 0;
   for (let i = scheduledDates.length - 1; i >= 0; i--) {
     const date = scheduledDates[i]!;
-    const allDone = byDate.get(date)!.every((instance) => instance.status === "done");
-    if (date === today && !allDone) continue;
-    if (!allDone) break;
+    const day = byDate.get(date)!;
+    const allResolved = day.every(
+      (instance) => instance.status === "done" || instance.status === "excused",
+    );
+    const fullyExcused = day.every((instance) => instance.status === "excused");
+    if (fullyExcused) continue;
+    if (date === today && !allResolved) continue;
+    if (!allResolved) break;
     current++;
   }
 

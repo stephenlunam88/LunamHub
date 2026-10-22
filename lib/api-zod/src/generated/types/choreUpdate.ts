@@ -5,6 +5,7 @@
  * LunamHub Family Command Centre API
  * OpenAPI spec version: 0.1.0
  */
+import type { ChoreUpdateDuePeriod } from './choreUpdateDuePeriod';
 import type { ChoreUpdateRepeatType } from './choreUpdateRepeatType';
 import type { ChoreUpdateStatus } from './choreUpdateStatus';
 
@@ -17,5 +18,8 @@ export interface ChoreUpdate {
   dueDate?: string | null;
   repeatType?: ChoreUpdateRepeatType;
   pointsValue?: number;
+  daysOfWeek?: number[];
+  /** @nullable */
+  duePeriod?: ChoreUpdateDuePeriod;
   status?: ChoreUpdateStatus;
 }

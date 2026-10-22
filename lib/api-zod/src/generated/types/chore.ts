@@ -5,6 +5,7 @@
  * LunamHub Family Command Centre API
  * OpenAPI spec version: 0.1.0
  */
+import type { ChoreDuePeriod } from './choreDuePeriod';
 import type { ChoreRepeatType } from './choreRepeatType';
 import type { ChoreStatus } from './choreStatus';
 import type { FamilyMember } from './familyMember';
@@ -22,6 +23,9 @@ export interface Chore {
   /** @nullable */
   dueDate?: string | null;
   repeatType: ChoreRepeatType;
+  daysOfWeek?: number[];
+  /** @nullable */
+  duePeriod?: ChoreDuePeriod;
   pointsValue: number;
   status: ChoreStatus;
   pointsAwarded: boolean;
@@ -33,5 +37,13 @@ export interface Chore {
   approvedByParentId?: number | null;
   /** @nullable */
   missedAt?: string | null;
+  /** @nullable */
+  excusedAt?: string | null;
+  /** @nullable */
+  excusedByParentId?: number | null;
+  /** @nullable */
+  skippedAt?: Date | null;
+  /** @nullable */
+  skippedByParentId?: number | null;
   createdAt: string;
 }

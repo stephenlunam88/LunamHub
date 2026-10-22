@@ -15,4 +15,6 @@ export const ChoreStatus = {
   done: 'done',
   missed: 'missed',
   rejected: 'rejected',
+  excused: 'excused',
+  skipped: 'skipped',
 } as const;

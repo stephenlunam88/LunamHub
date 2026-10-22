@@ -5,6 +5,7 @@ import { ensureSessionSchema } from "./lib/postgresSessionStore";
 import { startCalendarPolling } from "./lib/calendarPolling";
 import { ensureMcpOAuthSchema } from "./lib/mcpOAuth";
 import { ensureAssistantConfigSchema } from "./lib/assistantConfig";
+import { ensureChoreSchema } from "./lib/choreSchema";
 
 const rawPort = process.env["PORT"];
 
@@ -25,6 +26,7 @@ Promise.all([
   ensureSessionSchema(),
   ensureMcpOAuthSchema(),
   ensureAssistantConfigSchema(),
+  ensureChoreSchema(),
 ])
   .then(() => {
     app.listen(port, (err) => {

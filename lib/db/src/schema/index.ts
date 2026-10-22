@@ -37,6 +37,8 @@ export const choreInstanceStatusEnum = pgEnum("chore_instance_status", [
   "done",
   "missed",
   "rejected",
+  "excused",
+  "skipped",
 ]);
 export const eventCategoryEnum = pgEnum("event_category", [
   "school",
@@ -189,6 +191,8 @@ export const choreTemplatesTable = pgTable("chore_templates", {
   repeatType: repeatTypeEnum("repeat_type").notNull().default("once"),
   // JSON array of day-of-week numbers (0=Sun … 6=Sat) for weekly chores, e.g. "[1,3]"
   daysOfWeek: text("days_of_week"),
+  // Optional part-of-day bucket (not a clock-time deadline).
+  duePeriod: text("due_period"),
   requiresApproval: boolean("requires_approval").notNull().default(true),
   active: boolean("active").notNull().default(true),
   createdBy: integer("created_by").references(() => familyMembersTable.id, {
@@ -232,6 +236,8 @@ export const choreInstancesTable = pgTable(
     title: text("title").notNull(),
     pointsValue: integer("points_value").notNull().default(10),
     repeatType: repeatTypeEnum("repeat_type").notNull().default("once"),
+    daysOfWeek: text("days_of_week"),
+    duePeriod: text("due_period"),
     dueDate: text("due_date").notNull(), // YYYY-MM-DD
     status: choreInstanceStatusEnum("status").notNull().default("todo"),
     pointsAwarded: boolean("points_awarded").notNull().default(false),
@@ -242,6 +248,16 @@ export const choreInstancesTable = pgTable(
       { onDelete: "set null" },
     ),
     missedAt: timestamp("missed_at"),
+    excusedAt: timestamp("excused_at"),
+    excusedByParentId: integer("excused_by_parent_id").references(
+      () => familyMembersTable.id,
+      { onDelete: "set null" },
+    ),
+    skippedAt: timestamp("skipped_at"),
+    skippedByParentId: integer("skipped_by_parent_id").references(
+      () => familyMembersTable.id,
+      { onDelete: "set null" },
+    ),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [

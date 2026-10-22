@@ -344,6 +344,38 @@ paths:
                 items:
                   $ref: "#/components/schemas/Chore"
 
+  /chores/schedule:
+    get:
+      operationId: getChoreSchedule
+      tags: [chores]
+      summary: Get chores scheduled across a date range
+      parameters:
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: First calendar date to include (defaults to today).
+        - name: days
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 14
+            default: 7
+        - name: assignedTo
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Scheduled chore instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Chore"
   /chores/{id}:
     get:
       operationId: getChore
@@ -400,6 +432,27 @@ paths:
       responses:
         "204":
           description: Deleted
+
+  /chores/away-day:
+    post:
+      operationId: excuseChoresForAwayDay
+      tags: [chores]
+      summary: Excuse all missed chores on a date (optionally for one child)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChoreAwayDayBody"
+      responses:
+        "200":
+          description: Missed chores excused without points
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Chore"
 
   /chores/{id}/complete:
     post:
@@ -465,6 +518,56 @@ paths:
       responses:
         "200":
           description: Rejected — status reset to todo or missed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chore"
+
+  /chores/{id}/excuse:
+    post:
+      operationId: excuseChore
+      tags: [chores]
+      summary: Excuse one missed chore occurrence because the child was away
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChoreExcuseBody"
+      responses:
+        "200":
+          description: Occurrence excused without points
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chore"
+
+  /chores/{id}/skip:
+    post:
+      operationId: skipMissedChore
+      tags: [chores]
+      summary: Resolve one missed chore as skipped (parent action)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChoreSkipBody"
+      responses:
+        "200":
+          description: Skipped occurrence
           content:
             application/json:
               schema:
@@ -2093,11 +2196,18 @@ components:
         repeatType:
           type: string
           enum: [once, daily, weekly]
+        daysOfWeek:
+          type: array
+          items:
+            type: integer
+        duePeriod:
+          type: [string, "null"]
+          enum: [morning, afternoon, evening]
         pointsValue:
           type: integer
         status:
           type: string
-          enum: [todo, pending_approval, done, missed, rejected]
+          enum: [todo, pending_approval, done, missed, rejected, excused, skipped]
         pointsAwarded:
           type: boolean
         completedAt:
@@ -2108,6 +2218,15 @@ components:
           type: ["integer", "null"]
         missedAt:
           type: ["string", "null"]
+        excusedAt:
+          type: ["string", "null"]
+        excusedByParentId:
+          type: [integer, "null"]
+        skippedAt:
+          type: [string, "null"]
+          format: date-time
+        skippedByParentId:
+          type: [integer, "null"]
         createdAt:
           type: string
       required:
@@ -2126,6 +2245,37 @@ components:
           type: integer
         pin:
           type: string
+
+    ChoreExcuseBody:
+      type: object
+      properties:
+        parentId:
+          type: integer
+        pin:
+          type: string
+
+    ChoreSkipBody:
+      type: object
+      properties:
+        parentId:
+          type: integer
+        pin:
+          type: string
+
+    ChoreAwayDayBody:
+      type: object
+      properties:
+        dueDate:
+          type: string
+          format: date
+        childId:
+          type: integer
+          description: Omit to excuse every child's missed chores on this date.
+        parentId:
+          type: integer
+        pin:
+          type: string
+      required: [dueDate]
 
     ChoreRejectBody:
       type: object
@@ -2163,7 +2313,10 @@ components:
           type: array
           items:
             type: integer
-          description: "For weekly chores — which days to repeat (0=Sun, 1=Mon … 6=Sat). Defaults to today's day of week."
+          description: "For weekly chores — selected days to repeat (0=Sun, 1=Mon … 6=Sat)."
+        duePeriod:
+          type: [string, "null"]
+          enum: [morning, afternoon, evening]
       required:
         - title
         - repeatType
@@ -2185,6 +2338,13 @@ components:
           enum: [once, daily, weekly]
         pointsValue:
           type: integer
+        daysOfWeek:
+          type: array
+          items:
+            type: integer
+        duePeriod:
+          type: [string, "null"]
+          enum: [morning, afternoon, evening]
         status:
           type: string
           enum: [todo, pending_approval, done, missed, rejected]

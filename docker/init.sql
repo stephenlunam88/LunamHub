@@ -7,7 +7,7 @@
 CREATE TYPE role AS ENUM ('parent', 'child');
 CREATE TYPE repeat_type AS ENUM ('once', 'daily', 'weekly');
 CREATE TYPE chore_status AS ENUM ('pending', 'completed', 'approved', 'missed');
-CREATE TYPE chore_instance_status AS ENUM ('todo', 'pending_approval', 'done', 'missed', 'rejected');
+CREATE TYPE chore_instance_status AS ENUM ('todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped');
 CREATE TYPE event_category AS ENUM ('school', 'sport', 'appointment', 'birthday', 'family', 'other');
 CREATE TYPE redemption_status AS ENUM ('pending', 'approved', 'rejected', 'fulfilled');
 CREATE TYPE list_category AS ENUM ('grocery', 'packing', 'school', 'reminders', 'other');
@@ -83,6 +83,7 @@ CREATE TABLE chore_templates (
     points_value INTEGER NOT NULL DEFAULT 10,
     repeat_type repeat_type NOT NULL DEFAULT 'once',
     days_of_week TEXT,
+    due_period TEXT,
     requires_approval BOOLEAN NOT NULL DEFAULT TRUE,
     active BOOLEAN NOT NULL DEFAULT TRUE,
     created_by INTEGER REFERENCES family_members(id) ON DELETE SET NULL,
@@ -105,6 +106,8 @@ CREATE TABLE chore_instances (
     title TEXT NOT NULL,
     points_value INTEGER NOT NULL DEFAULT 10,
     repeat_type repeat_type NOT NULL DEFAULT 'once',
+    days_of_week TEXT,
+    due_period TEXT,
     due_date TEXT NOT NULL,
     status chore_instance_status NOT NULL DEFAULT 'todo',
     points_awarded BOOLEAN NOT NULL DEFAULT FALSE,
@@ -112,6 +115,10 @@ CREATE TABLE chore_instances (
     approved_at TIMESTAMP,
     approved_by_parent_id INTEGER REFERENCES family_members(id) ON DELETE SET NULL,
     missed_at TIMESTAMP,
+    excused_at TIMESTAMP,
+    excused_by_parent_id INTEGER REFERENCES family_members(id) ON DELETE SET NULL,
+    skipped_at TIMESTAMP,
+    skipped_by_parent_id INTEGER REFERENCES family_members(id) ON DELETE SET NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     CONSTRAINT unique_chore_instance_per_day UNIQUE (template_id, child_id, due_date)
 );

@@ -297,6 +297,18 @@ export const ChoreRepeatType = {
   weekly: 'weekly',
 } as const;
 
+/**
+ * @nullable
+ */
+export type ChoreDuePeriod = typeof ChoreDuePeriod[keyof typeof ChoreDuePeriod] | null;
+
+
+export const ChoreDuePeriod = {
+  morning: 'morning',
+  afternoon: 'afternoon',
+  evening: 'evening',
+} as const;
+
 export type ChoreStatus = typeof ChoreStatus[keyof typeof ChoreStatus];
 
 
@@ -306,6 +318,8 @@ export const ChoreStatus = {
   done: 'done',
   missed: 'missed',
   rejected: 'rejected',
+  excused: 'excused',
+  skipped: 'skipped',
 } as const;
 
 export interface Chore {
@@ -321,6 +335,9 @@ export interface Chore {
   /** @nullable */
   dueDate?: string | null;
   repeatType: ChoreRepeatType;
+  daysOfWeek?: number[];
+  /** @nullable */
+  duePeriod?: ChoreDuePeriod;
   pointsValue: number;
   status: ChoreStatus;
   pointsAwarded: boolean;
@@ -332,10 +349,36 @@ export interface Chore {
   approvedByParentId?: number | null;
   /** @nullable */
   missedAt?: string | null;
+  /** @nullable */
+  excusedAt?: string | null;
+  /** @nullable */
+  excusedByParentId?: number | null;
+  /** @nullable */
+  skippedAt?: string | null;
+  /** @nullable */
+  skippedByParentId?: number | null;
   createdAt: string;
 }
 
 export interface ChoreApproveBody {
+  parentId?: number;
+  pin?: string;
+}
+
+export interface ChoreExcuseBody {
+  parentId?: number;
+  pin?: string;
+}
+
+export interface ChoreSkipBody {
+  parentId?: number;
+  pin?: string;
+}
+
+export interface ChoreAwayDayBody {
+  dueDate: string;
+  /** Omit to excuse every child's missed chores on this date. */
+  childId?: number;
   parentId?: number;
   pin?: string;
 }
@@ -356,6 +399,18 @@ export const ChoreInputRepeatType = {
   weekly: 'weekly',
 } as const;
 
+/**
+ * @nullable
+ */
+export type ChoreInputDuePeriod = typeof ChoreInputDuePeriod[keyof typeof ChoreInputDuePeriod] | null;
+
+
+export const ChoreInputDuePeriod = {
+  morning: 'morning',
+  afternoon: 'afternoon',
+  evening: 'evening',
+} as const;
+
 export interface ChoreInput {
   title: string;
   description?: string;
@@ -365,8 +420,10 @@ export interface ChoreInput {
   dueDate?: string;
   repeatType: ChoreInputRepeatType;
   pointsValue: number;
-  /** For weekly chores — which days to repeat (0=Sun, 1=Mon … 6=Sat). Defaults to today's day of week. */
+  /** For weekly chores — selected days to repeat (0=Sun, 1=Mon … 6=Sat). */
   daysOfWeek?: number[];
+  /** @nullable */
+  duePeriod?: ChoreInputDuePeriod;
 }
 
 export type ChoreUpdateRepeatType = typeof ChoreUpdateRepeatType[keyof typeof ChoreUpdateRepeatType];
@@ -376,6 +433,18 @@ export const ChoreUpdateRepeatType = {
   once: 'once',
   daily: 'daily',
   weekly: 'weekly',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ChoreUpdateDuePeriod = typeof ChoreUpdateDuePeriod[keyof typeof ChoreUpdateDuePeriod] | null;
+
+
+export const ChoreUpdateDuePeriod = {
+  morning: 'morning',
+  afternoon: 'afternoon',
+  evening: 'evening',
 } as const;
 
 export type ChoreUpdateStatus = typeof ChoreUpdateStatus[keyof typeof ChoreUpdateStatus];
@@ -398,6 +467,9 @@ export interface ChoreUpdate {
   dueDate?: string | null;
   repeatType?: ChoreUpdateRepeatType;
   pointsValue?: number;
+  daysOfWeek?: number[];
+  /** @nullable */
+  duePeriod?: ChoreUpdateDuePeriod;
   status?: ChoreUpdateStatus;
 }
 
@@ -1024,6 +1096,19 @@ assignedTo?: number | null;
  * @nullable
  */
 status?: string | null;
+};
+
+export type GetChoreScheduleParams = {
+/**
+ * First calendar date to include (defaults to today).
+ */
+startDate?: string;
+/**
+ * @minimum 1
+ * @maximum 14
+ */
+days?: number;
+assignedTo?: number;
 };
 
 export type GetMealPlanParams = {

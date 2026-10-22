@@ -308,13 +308,19 @@ export const ListChoresResponseItem = zod.object({
 }).optional(),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "daysOfWeek": zod.array(zod.number()).optional(),
+  "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "pointsValue": zod.number(),
-  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected']),
+  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
   "pointsAwarded": zod.boolean(),
   "completedAt": zod.string().nullish(),
   "approvedAt": zod.string().nullish(),
   "approvedByParentId": zod.number().nullish(),
   "missedAt": zod.string().nullish(),
+  "excusedAt": zod.string().nullish(),
+  "excusedByParentId": zod.number().nullish(),
+  "skippedAt": zod.coerce.date().nullish(),
+  "skippedByParentId": zod.number().nullish(),
   "createdAt": zod.string()
 })
 export const ListChoresResponse = zod.array(ListChoresResponseItem)
@@ -331,8 +337,61 @@ export const CreateChoreBody = zod.object({
   "dueDate": zod.string().optional(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
   "pointsValue": zod.number(),
-  "daysOfWeek": zod.array(zod.number()).optional().describe('For weekly chores — which days to repeat (0=Sun, 1=Mon … 6=Sat). Defaults to today\'s day of week.')
+  "daysOfWeek": zod.array(zod.number()).optional().describe('For weekly chores — selected days to repeat (0=Sun, 1=Mon … 6=Sat).'),
+  "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish()
 })
+
+
+/**
+ * @summary Get chores scheduled across a date range
+ */
+export const getChoreScheduleQueryDaysDefault = 7;
+export const getChoreScheduleQueryDaysMax = 14;
+
+
+
+export const GetChoreScheduleQueryParams = zod.object({
+  "startDate": zod.date().optional().describe('First calendar date to include (defaults to today).'),
+  "days": zod.coerce.number().min(1).max(getChoreScheduleQueryDaysMax).default(getChoreScheduleQueryDaysDefault),
+  "assignedTo": zod.coerce.number().optional()
+})
+
+export const GetChoreScheduleResponseItem = zod.object({
+  "id": zod.number(),
+  "templateId": zod.number().nullish(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "assignedTo": zod.number().nullish(),
+  "assignedMember": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "role": zod.enum(['parent', 'child']),
+  "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
+  "createdAt": zod.string()
+}).optional(),
+  "dueDate": zod.string().nullish(),
+  "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "daysOfWeek": zod.array(zod.number()).optional(),
+  "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
+  "pointsValue": zod.number(),
+  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
+  "pointsAwarded": zod.boolean(),
+  "completedAt": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "approvedByParentId": zod.number().nullish(),
+  "missedAt": zod.string().nullish(),
+  "excusedAt": zod.string().nullish(),
+  "excusedByParentId": zod.number().nullish(),
+  "skippedAt": zod.coerce.date().nullish(),
+  "skippedByParentId": zod.number().nullish(),
+  "createdAt": zod.string()
+})
+export const GetChoreScheduleResponse = zod.array(GetChoreScheduleResponseItem)
 
 
 /**
@@ -362,13 +421,19 @@ export const GetChoreResponse = zod.object({
 }).optional(),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "daysOfWeek": zod.array(zod.number()).optional(),
+  "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "pointsValue": zod.number(),
-  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected']),
+  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
   "pointsAwarded": zod.boolean(),
   "completedAt": zod.string().nullish(),
   "approvedAt": zod.string().nullish(),
   "approvedByParentId": zod.number().nullish(),
   "missedAt": zod.string().nullish(),
+  "excusedAt": zod.string().nullish(),
+  "excusedByParentId": zod.number().nullish(),
+  "skippedAt": zod.coerce.date().nullish(),
+  "skippedByParentId": zod.number().nullish(),
   "createdAt": zod.string()
 })
 
@@ -387,6 +452,8 @@ export const UpdateChoreBody = zod.object({
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']).optional(),
   "pointsValue": zod.number().optional(),
+  "daysOfWeek": zod.array(zod.number()).optional(),
+  "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected']).optional()
 })
 
@@ -410,13 +477,19 @@ export const UpdateChoreResponse = zod.object({
 }).optional(),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "daysOfWeek": zod.array(zod.number()).optional(),
+  "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "pointsValue": zod.number(),
-  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected']),
+  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
   "pointsAwarded": zod.boolean(),
   "completedAt": zod.string().nullish(),
   "approvedAt": zod.string().nullish(),
   "approvedByParentId": zod.number().nullish(),
   "missedAt": zod.string().nullish(),
+  "excusedAt": zod.string().nullish(),
+  "excusedByParentId": zod.number().nullish(),
+  "skippedAt": zod.coerce.date().nullish(),
+  "skippedByParentId": zod.number().nullish(),
   "createdAt": zod.string()
 })
 
@@ -427,6 +500,54 @@ export const UpdateChoreResponse = zod.object({
 export const DeleteChoreParams = zod.object({
   "id": zod.coerce.number()
 })
+
+
+/**
+ * @summary Excuse all missed chores on a date (optionally for one child)
+ */
+export const ExcuseChoresForAwayDayBody = zod.object({
+  "dueDate": zod.coerce.date(),
+  "childId": zod.number().optional().describe('Omit to excuse every child\'s missed chores on this date.'),
+  "parentId": zod.number().optional(),
+  "pin": zod.string().optional()
+})
+
+export const ExcuseChoresForAwayDayResponseItem = zod.object({
+  "id": zod.number(),
+  "templateId": zod.number().nullish(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "assignedTo": zod.number().nullish(),
+  "assignedMember": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "role": zod.enum(['parent', 'child']),
+  "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
+  "createdAt": zod.string()
+}).optional(),
+  "dueDate": zod.string().nullish(),
+  "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "daysOfWeek": zod.array(zod.number()).optional(),
+  "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
+  "pointsValue": zod.number(),
+  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
+  "pointsAwarded": zod.boolean(),
+  "completedAt": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "approvedByParentId": zod.number().nullish(),
+  "missedAt": zod.string().nullish(),
+  "excusedAt": zod.string().nullish(),
+  "excusedByParentId": zod.number().nullish(),
+  "skippedAt": zod.coerce.date().nullish(),
+  "skippedByParentId": zod.number().nullish(),
+  "createdAt": zod.string()
+})
+export const ExcuseChoresForAwayDayResponse = zod.array(ExcuseChoresForAwayDayResponseItem)
 
 
 /**
@@ -456,13 +577,19 @@ export const CompleteChoreResponse = zod.object({
 }).optional(),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "daysOfWeek": zod.array(zod.number()).optional(),
+  "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "pointsValue": zod.number(),
-  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected']),
+  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
   "pointsAwarded": zod.boolean(),
   "completedAt": zod.string().nullish(),
   "approvedAt": zod.string().nullish(),
   "approvedByParentId": zod.number().nullish(),
   "missedAt": zod.string().nullish(),
+  "excusedAt": zod.string().nullish(),
+  "excusedByParentId": zod.number().nullish(),
+  "skippedAt": zod.coerce.date().nullish(),
+  "skippedByParentId": zod.number().nullish(),
   "createdAt": zod.string()
 })
 
@@ -499,13 +626,19 @@ export const ApproveChoreResponse = zod.object({
 }).optional(),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "daysOfWeek": zod.array(zod.number()).optional(),
+  "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "pointsValue": zod.number(),
-  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected']),
+  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
   "pointsAwarded": zod.boolean(),
   "completedAt": zod.string().nullish(),
   "approvedAt": zod.string().nullish(),
   "approvedByParentId": zod.number().nullish(),
   "missedAt": zod.string().nullish(),
+  "excusedAt": zod.string().nullish(),
+  "excusedByParentId": zod.number().nullish(),
+  "skippedAt": zod.coerce.date().nullish(),
+  "skippedByParentId": zod.number().nullish(),
   "createdAt": zod.string()
 })
 
@@ -543,13 +676,117 @@ export const RejectChoreResponse = zod.object({
 }).optional(),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "daysOfWeek": zod.array(zod.number()).optional(),
+  "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "pointsValue": zod.number(),
-  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected']),
+  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
   "pointsAwarded": zod.boolean(),
   "completedAt": zod.string().nullish(),
   "approvedAt": zod.string().nullish(),
   "approvedByParentId": zod.number().nullish(),
   "missedAt": zod.string().nullish(),
+  "excusedAt": zod.string().nullish(),
+  "excusedByParentId": zod.number().nullish(),
+  "skippedAt": zod.coerce.date().nullish(),
+  "skippedByParentId": zod.number().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Excuse one missed chore occurrence because the child was away
+ */
+export const ExcuseChoreParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ExcuseChoreBody = zod.object({
+  "parentId": zod.number().optional(),
+  "pin": zod.string().optional()
+})
+
+export const ExcuseChoreResponse = zod.object({
+  "id": zod.number(),
+  "templateId": zod.number().nullish(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "assignedTo": zod.number().nullish(),
+  "assignedMember": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "role": zod.enum(['parent', 'child']),
+  "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
+  "createdAt": zod.string()
+}).optional(),
+  "dueDate": zod.string().nullish(),
+  "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "daysOfWeek": zod.array(zod.number()).optional(),
+  "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
+  "pointsValue": zod.number(),
+  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
+  "pointsAwarded": zod.boolean(),
+  "completedAt": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "approvedByParentId": zod.number().nullish(),
+  "missedAt": zod.string().nullish(),
+  "excusedAt": zod.string().nullish(),
+  "excusedByParentId": zod.number().nullish(),
+  "skippedAt": zod.coerce.date().nullish(),
+  "skippedByParentId": zod.number().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Resolve one missed chore as skipped (parent action)
+ */
+export const SkipMissedChoreParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SkipMissedChoreBody = zod.object({
+  "parentId": zod.number().optional(),
+  "pin": zod.string().optional()
+})
+
+export const SkipMissedChoreResponse = zod.object({
+  "id": zod.number(),
+  "templateId": zod.number().nullish(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "assignedTo": zod.number().nullish(),
+  "assignedMember": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "role": zod.enum(['parent', 'child']),
+  "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
+  "createdAt": zod.string()
+}).optional(),
+  "dueDate": zod.string().nullish(),
+  "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "daysOfWeek": zod.array(zod.number()).optional(),
+  "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
+  "pointsValue": zod.number(),
+  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
+  "pointsAwarded": zod.boolean(),
+  "completedAt": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "approvedByParentId": zod.number().nullish(),
+  "missedAt": zod.string().nullish(),
+  "excusedAt": zod.string().nullish(),
+  "excusedByParentId": zod.number().nullish(),
+  "skippedAt": zod.coerce.date().nullish(),
+  "skippedByParentId": zod.number().nullish(),
   "createdAt": zod.string()
 })
 
@@ -1279,13 +1516,19 @@ export const GetDashboardSummaryResponse = zod.object({
 }).optional(),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "daysOfWeek": zod.array(zod.number()).optional(),
+  "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "pointsValue": zod.number(),
-  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected']),
+  "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
   "pointsAwarded": zod.boolean(),
   "completedAt": zod.string().nullish(),
   "approvedAt": zod.string().nullish(),
   "approvedByParentId": zod.number().nullish(),
   "missedAt": zod.string().nullish(),
+  "excusedAt": zod.string().nullish(),
+  "excusedByParentId": zod.number().nullish(),
+  "skippedAt": zod.coerce.date().nullish(),
+  "skippedByParentId": zod.number().nullish(),
   "createdAt": zod.string()
 })),
   "pendingApprovals": zod.number(),

@@ -1201,6 +1201,7 @@ export function createLunamMcpServer(auth: AuthInfo) {
           pointsValue: choreTemplatesTable.pointsValue,
           repeatType: choreTemplatesTable.repeatType,
           daysOfWeek: choreTemplatesTable.daysOfWeek,
+          duePeriod: choreTemplatesTable.duePeriod,
           active: choreTemplatesTable.active,
         })
         .from(choreTemplatesTable)
@@ -1236,7 +1237,7 @@ export function createLunamMcpServer(auth: AuthInfo) {
     {
       title: "Add a chore",
       description:
-        "Create a family chore. Use a family member ID to assign it. repeatType is once, daily, or weekly; daysOfWeek uses 0=Sunday through 6=Saturday. Ask for missing or ambiguous details before creating.",
+        "Create a family chore. Use a family member ID to assign it. repeatType is once, daily, or weekly; daysOfWeek uses 0=Sunday through 6=Saturday; duePeriod is an optional morning, afternoon, or evening bucket (not a clock-time deadline). Ask for missing or ambiguous details before creating.",
       inputSchema: {
         title: z.string().min(1).max(200),
         description: z.string().max(2000).optional(),
@@ -1249,6 +1250,7 @@ export function createLunamMcpServer(auth: AuthInfo) {
         repeatType: z.enum(["once", "daily", "weekly"]),
         pointsValue: z.number().int().min(0).max(10000).default(10),
         daysOfWeek: z.array(z.number().int().min(0).max(6)).max(7).optional(),
+        duePeriod: z.enum(["morning", "afternoon", "evening"]).nullable().optional(),
       },
       annotations: {
         readOnlyHint: false,

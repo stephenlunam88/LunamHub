@@ -28,10 +28,13 @@ import type {
   BonusPointsInput,
   Chore,
   ChoreApproveBody,
+  ChoreAwayDayBody,
+  ChoreExcuseBody,
   ChoreInput,
   ChoreMilestone,
   ChoreMilestoneInput,
   ChoreRejectBody,
+  ChoreSkipBody,
   ChoreSummary,
   ChoreUpdate,
   DashboardSummary,
@@ -42,6 +45,7 @@ import type {
   FamilyMember,
   FamilyMemberInput,
   FamilyMemberUpdate,
+  GetChoreScheduleParams,
   GetDashboardSummaryParams,
   GetMealPlanParams,
   GoogleCalendarStatus,
@@ -1371,6 +1375,90 @@ export const useCreateChore = <TError = ErrorType<unknown>,
       return useMutation(getCreateChoreMutationOptions(options));
     }
 
+export const getGetChoreScheduleUrl = (params?: GetChoreScheduleParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/chores/schedule?${stringifiedParams}` : `/api/chores/schedule`
+}
+
+/**
+ * @summary Get chores scheduled across a date range
+ */
+export const getChoreSchedule = async (params?: GetChoreScheduleParams, options?: RequestInit): Promise<Chore[]> => {
+
+  return customFetch<Chore[]>(getGetChoreScheduleUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetChoreScheduleQueryKey = (params?: GetChoreScheduleParams,) => {
+    return [
+    `/api/chores/schedule`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetChoreScheduleQueryOptions = <TData = Awaited<ReturnType<typeof getChoreSchedule>>, TError = ErrorType<unknown>>(params?: GetChoreScheduleParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getChoreSchedule>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetChoreScheduleQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getChoreSchedule>>> = ({ signal }) => getChoreSchedule(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getChoreSchedule>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetChoreScheduleQueryResult = NonNullable<Awaited<ReturnType<typeof getChoreSchedule>>>
+export type GetChoreScheduleQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get chores scheduled across a date range
+ */
+
+export function useGetChoreSchedule<TData = Awaited<ReturnType<typeof getChoreSchedule>>, TError = ErrorType<unknown>>(
+ params?: GetChoreScheduleParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getChoreSchedule>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetChoreScheduleQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
 export const getGetChoreUrl = (id: number,) => {
 
 
@@ -1590,6 +1678,77 @@ export const useDeleteChore = <TError = ErrorType<unknown>,
       return useMutation(getDeleteChoreMutationOptions(options));
     }
 
+export const getExcuseChoresForAwayDayUrl = () => {
+
+
+
+
+  return `/api/chores/away-day`
+}
+
+/**
+ * @summary Excuse all missed chores on a date (optionally for one child)
+ */
+export const excuseChoresForAwayDay = async (choreAwayDayBody: ChoreAwayDayBody, options?: RequestInit): Promise<Chore[]> => {
+
+  return customFetch<Chore[]>(getExcuseChoresForAwayDayUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      choreAwayDayBody,)
+  }
+);}
+
+
+
+
+export const getExcuseChoresForAwayDayMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof excuseChoresForAwayDay>>, TError,{data: BodyType<ChoreAwayDayBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof excuseChoresForAwayDay>>, TError,{data: BodyType<ChoreAwayDayBody>}, TContext> => {
+
+const mutationKey = ['excuseChoresForAwayDay'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof excuseChoresForAwayDay>>, {data: BodyType<ChoreAwayDayBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  excuseChoresForAwayDay(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExcuseChoresForAwayDayMutationResult = NonNullable<Awaited<ReturnType<typeof excuseChoresForAwayDay>>>
+    export type ExcuseChoresForAwayDayMutationBody = BodyType<ChoreAwayDayBody>
+    export type ExcuseChoresForAwayDayMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Excuse all missed chores on a date (optionally for one child)
+ */
+export const useExcuseChoresForAwayDay = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof excuseChoresForAwayDay>>, TError,{data: BodyType<ChoreAwayDayBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof excuseChoresForAwayDay>>,
+        TError,
+        {data: BodyType<ChoreAwayDayBody>},
+        TContext
+      > => {
+      return useMutation(getExcuseChoresForAwayDayMutationOptions(options));
+    }
+
 export const getCompleteChoreUrl = (id: number,) => {
 
 
@@ -1802,6 +1961,150 @@ export const useRejectChore = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getRejectChoreMutationOptions(options));
+    }
+
+export const getExcuseChoreUrl = (id: number,) => {
+
+
+
+
+  return `/api/chores/${id}/excuse`
+}
+
+/**
+ * @summary Excuse one missed chore occurrence because the child was away
+ */
+export const excuseChore = async (id: number,
+    choreExcuseBody: ChoreExcuseBody, options?: RequestInit): Promise<Chore> => {
+
+  return customFetch<Chore>(getExcuseChoreUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      choreExcuseBody,)
+  }
+);}
+
+
+
+
+export const getExcuseChoreMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof excuseChore>>, TError,{id: number;data: BodyType<ChoreExcuseBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof excuseChore>>, TError,{id: number;data: BodyType<ChoreExcuseBody>}, TContext> => {
+
+const mutationKey = ['excuseChore'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof excuseChore>>, {id: number;data: BodyType<ChoreExcuseBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  excuseChore(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExcuseChoreMutationResult = NonNullable<Awaited<ReturnType<typeof excuseChore>>>
+    export type ExcuseChoreMutationBody = BodyType<ChoreExcuseBody>
+    export type ExcuseChoreMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Excuse one missed chore occurrence because the child was away
+ */
+export const useExcuseChore = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof excuseChore>>, TError,{id: number;data: BodyType<ChoreExcuseBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof excuseChore>>,
+        TError,
+        {id: number;data: BodyType<ChoreExcuseBody>},
+        TContext
+      > => {
+      return useMutation(getExcuseChoreMutationOptions(options));
+    }
+
+export const getSkipMissedChoreUrl = (id: number,) => {
+
+
+
+
+  return `/api/chores/${id}/skip`
+}
+
+/**
+ * @summary Resolve one missed chore as skipped (parent action)
+ */
+export const skipMissedChore = async (id: number,
+    choreSkipBody: ChoreSkipBody, options?: RequestInit): Promise<Chore> => {
+
+  return customFetch<Chore>(getSkipMissedChoreUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      choreSkipBody,)
+  }
+);}
+
+
+
+
+export const getSkipMissedChoreMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof skipMissedChore>>, TError,{id: number;data: BodyType<ChoreSkipBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof skipMissedChore>>, TError,{id: number;data: BodyType<ChoreSkipBody>}, TContext> => {
+
+const mutationKey = ['skipMissedChore'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof skipMissedChore>>, {id: number;data: BodyType<ChoreSkipBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  skipMissedChore(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SkipMissedChoreMutationResult = NonNullable<Awaited<ReturnType<typeof skipMissedChore>>>
+    export type SkipMissedChoreMutationBody = BodyType<ChoreSkipBody>
+    export type SkipMissedChoreMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Resolve one missed chore as skipped (parent action)
+ */
+export const useSkipMissedChore = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof skipMissedChore>>, TError,{id: number;data: BodyType<ChoreSkipBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof skipMissedChore>>,
+        TError,
+        {id: number;data: BodyType<ChoreSkipBody>},
+        TContext
+      > => {
+      return useMutation(getSkipMissedChoreMutationOptions(options));
     }
 
 export const getGetChoresSummaryUrl = () => {

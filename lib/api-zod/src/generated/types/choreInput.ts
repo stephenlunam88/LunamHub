@@ -5,6 +5,7 @@
  * LunamHub Family Command Centre API
  * OpenAPI spec version: 0.1.0
  */
+import type { ChoreInputDuePeriod } from './choreInputDuePeriod';
 import type { ChoreInputRepeatType } from './choreInputRepeatType';
 
 export interface ChoreInput {
@@ -16,6 +17,8 @@ export interface ChoreInput {
   dueDate?: string;
   repeatType: ChoreInputRepeatType;
   pointsValue: number;
-  /** For weekly chores — which days to repeat (0=Sun, 1=Mon … 6=Sat). Defaults to today's day of week. */
+  /** For weekly chores — selected days to repeat (0=Sun, 1=Mon … 6=Sat). */
   daysOfWeek?: number[];
+  /** @nullable */
+  duePeriod?: ChoreInputDuePeriod;
 }

@@ -44,6 +44,25 @@ const ChoreRejectBodySchema = z.object({
   markAsMissed: z.boolean().optional(),
 });
 
+const ChoreExcuseBodySchema = z.object({
+  parentId: z.number().int().positive().optional(),
+  pin: z.string().optional(),
+});
+
+const ChoreSkipBodySchema = z.object({
+  parentId: z.number().int().positive().optional(),
+  pin: z.string().optional(),
+});
+
+const ChoreAwayDayBodySchema = z.object({
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  childId: z.number().int().positive().optional(),
+  parentId: z.number().int().positive().optional(),
+  pin: z.string().optional(),
+});
+
+const ChoreDuePeriodSchema = z.enum(["morning", "afternoon", "evening"]);
+
 const CreateChoreSchema = z.object({
   title: z.string(),
   description: z.string().optional(),
@@ -54,6 +73,7 @@ const CreateChoreSchema = z.object({
   pointsValue: z.number().int(),
   // For weekly chores: days of week [0=Sun … 6=Sat]. Defaults to [today's DOW] when omitted.
   daysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
+  duePeriod: ChoreDuePeriodSchema.nullable().optional(),
 });
 export type CreateChoreInput = z.infer<typeof CreateChoreSchema>;
 
@@ -103,6 +123,8 @@ function formatInstance(
     assignedMember: member,
     dueDate: inst.dueDate,
     repeatType: inst.repeatType,
+    daysOfWeek: parseDaysOfWeek(inst.daysOfWeek),
+    duePeriod: inst.duePeriod,
     pointsValue: inst.pointsValue,
     status: inst.status,
     pointsAwarded: inst.pointsAwarded,
@@ -110,8 +132,27 @@ function formatInstance(
     approvedAt: inst.approvedAt?.toISOString() ?? null,
     approvedByParentId: inst.approvedByParentId ?? null,
     missedAt: inst.missedAt?.toISOString() ?? null,
+    excusedAt: inst.excusedAt?.toISOString() ?? null,
+    excusedByParentId: inst.excusedByParentId ?? null,
+    skippedAt: inst.skippedAt?.toISOString() ?? null,
+    skippedByParentId: inst.skippedByParentId ?? null,
     createdAt: inst.createdAt.toISOString(),
   };
+}
+
+function parseDaysOfWeek(value: string | null): number[] {
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter(
+          (day): day is number =>
+            Number.isInteger(day) && day >= 0 && day <= 6,
+        )
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 // ── Per-row idempotent migration: chores → templates + instances ───────────────
@@ -204,23 +245,8 @@ async function runMigrationIfNeeded() {
 
 // ── Daily instance generation ──────────────────────────────────────────────────
 
-async function generateTodayInstances() {
-  await runMigrationIfNeeded();
-
-  const today = todayStr();
-
-  // 1. Mark past-due todo instances as missed
-  await db
-    .update(choreInstancesTable)
-    .set({ status: "missed", missedAt: new Date() })
-    .where(
-      and(
-        eq(choreInstancesTable.status, "todo"),
-        lt(choreInstancesTable.dueDate, today),
-      ),
-    );
-
-  // 2. Get all active templates with their child assignments
+async function generateInstancesForDate(targetDate: string) {
+  // Get all active templates with their child assignments.
   const templates = await db
     .select()
     .from(choreTemplatesTable)
@@ -234,7 +260,7 @@ async function generateTodayInstances() {
     .from(choreTemplateChildrenTable)
     .where(inArray(choreTemplateChildrenTable.templateId, templateIds));
 
-  const todayDow = dayOfWeek(today); // 0=Sun … 6=Sat
+  const targetDow = dayOfWeek(targetDate); // 0=Sun … 6=Sat
 
   for (const template of templates) {
     if (template.repeatType === "once") continue; // seeded at creation, not regenerated
@@ -255,7 +281,9 @@ async function generateTodayInstances() {
             title: template.title,
             pointsValue: template.pointsValue,
             repeatType: "daily" as const,
-            dueDate: today,
+            daysOfWeek: template.daysOfWeek,
+            duePeriod: template.duePeriod,
+            dueDate: targetDate,
             status: "todo" as const,
             pointsAwarded: false,
           })),
@@ -264,16 +292,11 @@ async function generateTodayInstances() {
     }
 
     if (template.repeatType === "weekly") {
-      // daysOfWeek stored as JSON array, e.g. "[1,3]". Default: day the template was created.
-      let targetDays: number[];
-      try {
-        targetDays = template.daysOfWeek
-          ? (JSON.parse(template.daysOfWeek) as number[])
-          : [dayOfWeek(householdDate(template.createdAt))];
-      } catch {
-        targetDays = [dayOfWeek(householdDate(template.createdAt))];
-      }
-      if (!targetDays.includes(todayDow)) continue;
+      // Existing templates without selected days retain their original weekly day.
+      const targetDays = template.daysOfWeek
+        ? parseDaysOfWeek(template.daysOfWeek)
+        : [dayOfWeek(householdDate(template.createdAt))];
+      if (!targetDays.includes(targetDow)) continue;
 
       await db
         .insert(choreInstancesTable)
@@ -284,7 +307,9 @@ async function generateTodayInstances() {
             title: template.title,
             pointsValue: template.pointsValue,
             repeatType: "weekly" as const,
-            dueDate: today,
+            daysOfWeek: template.daysOfWeek,
+            duePeriod: template.duePeriod,
+            dueDate: targetDate,
             status: "todo" as const,
             pointsAwarded: false,
           })),
@@ -292,6 +317,29 @@ async function generateTodayInstances() {
         .onConflictDoNothing();
     }
   }
+}
+
+async function generateTodayInstances() {
+  await runMigrationIfNeeded();
+
+  const today = todayStr();
+  await db
+    .update(choreInstancesTable)
+    .set({ status: "missed", missedAt: new Date() })
+    .where(
+      and(
+        eq(choreInstancesTable.status, "todo"),
+        lt(choreInstancesTable.dueDate, today),
+      ),
+    );
+
+  await generateInstancesForDate(today);
+}
+
+function addDays(date: string, amount: number): string {
+  const result = new Date(`${date}T12:00:00.000Z`);
+  result.setUTCDate(result.getUTCDate() + amount);
+  return result.toISOString().slice(0, 10);
 }
 
 // ── Parent PIN verification ────────────────────────────────────────────────────
@@ -405,7 +453,7 @@ router.get("/", async (req, res) => {
     .where(
       or(
         eq(choreInstancesTable.dueDate, today),
-        eq(choreInstancesTable.status, "missed"),
+        inArray(choreInstancesTable.status, ["missed", "excused", "skipped"]),
       ),
     )
     .orderBy(choreInstancesTable.createdAt);
@@ -431,11 +479,12 @@ export async function createChoreRecords(input: unknown) {
   const body = CreateChoreSchema.parse(input);
   const today = todayStr();
 
-  // For weekly: store caller-supplied daysOfWeek or default to today's DOW
-  const daysOfWeekJson =
+  const normalizedDaysOfWeek =
     body.repeatType === "weekly"
-      ? JSON.stringify(body.daysOfWeek ?? [dayOfWeek(today)])
-      : null;
+      ? [...new Set(body.daysOfWeek ?? [dayOfWeek(today)])]
+      : [];
+  const daysOfWeekJson =
+    body.repeatType === "weekly" ? JSON.stringify(normalizedDaysOfWeek) : null;
 
   const [template] = await db
     .insert(choreTemplatesTable)
@@ -445,6 +494,7 @@ export async function createChoreRecords(input: unknown) {
       pointsValue: body.pointsValue,
       repeatType: body.repeatType,
       daysOfWeek: daysOfWeekJson,
+      duePeriod: body.duePeriod ?? null,
       requiresApproval: true,
       active: true,
     })
@@ -476,11 +526,10 @@ export async function createChoreRecords(input: unknown) {
   //   weekly: only if today is one of the target days; otherwise no instance yet
   const dueDate = body.repeatType === "once" ? (body.dueDate ?? today) : today;
 
-  const todayDow = new Date().getDay();
+  const todayDow = dayOfWeek(today);
   let shouldSeedToday = true;
   if (body.repeatType === "weekly") {
-    const targetDays = body.daysOfWeek ?? [todayDow];
-    shouldSeedToday = targetDays.includes(todayDow);
+    shouldSeedToday = normalizedDaysOfWeek.includes(todayDow);
   }
 
   if (childIds.length > 0 && shouldSeedToday) {
@@ -493,6 +542,8 @@ export async function createChoreRecords(input: unknown) {
           title: template.title,
           pointsValue: template.pointsValue,
           repeatType: template.repeatType,
+          daysOfWeek: daysOfWeekJson,
+          duePeriod: template.duePeriod,
           dueDate,
           status: "todo" as const,
           pointsAwarded: false,
@@ -524,6 +575,72 @@ router.post("/", async (req, res) => {
   res.status(201).json(created.instances);
 });
 
+const ChoreScheduleQuerySchema = z.object({
+  startDate: z.string().optional(),
+  days: z.coerce.number().int().min(1).max(14).default(7),
+  assignedTo: z.coerce.number().int().positive().optional(),
+});
+
+router.get("/schedule", async (req, res) => {
+  const parsed = ChoreScheduleQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid chore schedule range" });
+    return;
+  }
+
+  const startDate = parsed.data.startDate ?? todayStr();
+  const parsedDate = new Date(`${startDate}T12:00:00.000Z`);
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(startDate) ||
+    Number.isNaN(parsedDate.getTime()) ||
+    parsedDate.toISOString().slice(0, 10) !== startDate
+  ) {
+    res.status(400).json({ error: "startDate must be a real YYYY-MM-DD date" });
+    return;
+  }
+
+  const dates = Array.from({ length: parsed.data.days }, (_, index) =>
+    addDays(startDate, index),
+  );
+  const today = todayStr();
+  if (dates.includes(today)) await generateTodayInstances();
+  else await runMigrationIfNeeded();
+  for (const date of dates) {
+    if (date > today) await generateInstancesForDate(date);
+  }
+
+  const endDate = dates[dates.length - 1]!;
+  let instances = await db
+    .select()
+    .from(choreInstancesTable)
+    .where(
+      and(
+        sql`${choreInstancesTable.dueDate} >= ${startDate}`,
+        sql`${choreInstancesTable.dueDate} <= ${endDate}`,
+      ),
+    );
+  if (parsed.data.assignedTo !== undefined) {
+    instances = instances.filter((row) => row.childId === parsed.data.assignedTo);
+  }
+
+  const periodOrder = { morning: 0, afternoon: 1, evening: 2 } as const;
+  instances.sort((a, b) => {
+    const dateOrder = a.dueDate.localeCompare(b.dueDate);
+    if (dateOrder) return dateOrder;
+    const periodA = periodOrder[a.duePeriod as keyof typeof periodOrder] ?? 3;
+    const periodB = periodOrder[b.duePeriod as keyof typeof periodOrder] ?? 3;
+    return periodA - periodB || a.createdAt.getTime() - b.createdAt.getTime();
+  });
+
+  res.json(
+    await Promise.all(
+      instances.map(async (instance) =>
+        formatInstance(instance, await getMemberById(instance.childId)),
+      ),
+    ),
+  );
+});
+
 // ── PATCH /api/chores/:id — update instance fields; propagates to template ─────
 
 const UpdateChoreSchema = z.object({
@@ -531,6 +648,8 @@ const UpdateChoreSchema = z.object({
   description: z.string().nullable().optional(),
   dueDate: z.string().nullable().optional(),
   repeatType: z.enum(["once", "daily", "weekly"]).optional(),
+  daysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
+  duePeriod: ChoreDuePeriodSchema.nullable().optional(),
   pointsValue: z.number().int().optional(),
   status: z
     .enum(["todo", "pending_approval", "done", "missed", "rejected"])
@@ -559,6 +678,10 @@ router.patch("/:id", async (req, res) => {
     instanceUpdates.dueDate = body.dueDate ?? inst.dueDate;
   if (body.repeatType !== undefined)
     instanceUpdates.repeatType = body.repeatType;
+  if (body.daysOfWeek !== undefined)
+    instanceUpdates.daysOfWeek = JSON.stringify([...new Set(body.daysOfWeek)]);
+  if (body.duePeriod !== undefined)
+    instanceUpdates.duePeriod = body.duePeriod;
   if (body.status !== undefined) instanceUpdates.status = body.status;
 
   const [updated] = await db
@@ -574,7 +697,9 @@ router.patch("/:id", async (req, res) => {
     (body.title !== undefined ||
       body.description !== undefined ||
       body.pointsValue !== undefined ||
-      body.repeatType !== undefined)
+      body.repeatType !== undefined ||
+      body.daysOfWeek !== undefined ||
+      body.duePeriod !== undefined)
   ) {
     const templateUpdates: Partial<typeof choreTemplatesTable.$inferInsert> =
       {};
@@ -585,10 +710,51 @@ router.patch("/:id", async (req, res) => {
       templateUpdates.pointsValue = body.pointsValue;
     if (body.repeatType !== undefined)
       templateUpdates.repeatType = body.repeatType;
+    if (body.daysOfWeek !== undefined)
+      templateUpdates.daysOfWeek = JSON.stringify([...new Set(body.daysOfWeek)]);
+    if (body.duePeriod !== undefined)
+      templateUpdates.duePeriod = body.duePeriod;
     await db
       .update(choreTemplatesTable)
       .set(templateUpdates)
       .where(eq(choreTemplatesTable.id, inst.templateId));
+
+    const scheduleChanged =
+      body.repeatType !== undefined || body.daysOfWeek !== undefined;
+    if (scheduleChanged) {
+      // Remove only untouched future snapshots. The calendar regenerates them
+      // from the updated template when it next loads those dates.
+      await db
+        .delete(choreInstancesTable)
+        .where(
+          and(
+            eq(choreInstancesTable.templateId, inst.templateId),
+            eq(choreInstancesTable.status, "todo"),
+            sql`${choreInstancesTable.dueDate} > ${todayStr()}`,
+          ),
+        );
+    } else if (
+      body.title !== undefined ||
+      body.pointsValue !== undefined ||
+      body.duePeriod !== undefined
+    ) {
+      const futureUpdates: Partial<typeof choreInstancesTable.$inferInsert> = {};
+      if (body.title !== undefined) futureUpdates.title = body.title;
+      if (body.pointsValue !== undefined)
+        futureUpdates.pointsValue = body.pointsValue;
+      if (body.duePeriod !== undefined)
+        futureUpdates.duePeriod = body.duePeriod;
+      await db
+        .update(choreInstancesTable)
+        .set(futureUpdates)
+        .where(
+          and(
+            eq(choreInstancesTable.templateId, inst.templateId),
+            eq(choreInstancesTable.status, "todo"),
+            sql`${choreInstancesTable.dueDate} > ${todayStr()}`,
+          ),
+        );
+    }
   }
 
   res.json(formatInstance(updated!, await getMemberById(updated!.childId)));
@@ -800,6 +966,119 @@ router.post("/:id/reject", async (req, res) => {
     return;
   }
   res.json(formatInstance(inst, await getMemberById(inst.childId)));
+});
+
+// ── POST /api/chores/:id/excuse — parent marks one missed occurrence as away ──
+
+router.post("/:id/excuse", async (req, res) => {
+  const id = Number(req.params.id);
+  const bodyParse = ChoreExcuseBodySchema.safeParse(req.body);
+  if (!bodyParse.success) {
+    res.status(400).json({ error: "Invalid excuse request" });
+    return;
+  }
+
+  const parentId = bodyParse.data.parentId ?? null;
+  const pin = bodyParse.data.pin ?? null;
+  const ok = await verifyParentPin(parentId, pin, res, req.ip);
+  if (!ok) return;
+
+  const now = new Date();
+  const [instance] = await db
+    .update(choreInstancesTable)
+    .set({
+      status: "excused",
+      excusedAt: now,
+      excusedByParentId: parentId,
+      pointsAwarded: false,
+    })
+    .where(
+      and(
+        eq(choreInstancesTable.id, id),
+        eq(choreInstancesTable.status, "missed"),
+      ),
+    )
+    .returning();
+
+  if (!instance) {
+    const [current] = await db
+      .select()
+      .from(choreInstancesTable)
+      .where(eq(choreInstancesTable.id, id));
+    if (!current) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.status(409).json({ error: "Only a missed chore can be marked away" });
+    return;
+  }
+
+  res.json(formatInstance(instance, await getMemberById(instance.childId)));
+});
+
+// ── POST /api/chores/:id/skip — parent resolves a missed chore as skipped ────
+
+router.post("/:id/skip", async (req, res) => {
+  const id = Number(req.params.id);
+  const parsed = ChoreSkipBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid skip request" });
+    return;
+  }
+  const parentId = parsed.data.parentId ?? null;
+  if (!(await verifyParentPin(parentId, parsed.data.pin ?? null, res, req.ip))) return;
+
+  const now = new Date();
+  const [instance] = await db
+    .update(choreInstancesTable)
+    .set({ status: "skipped", skippedAt: now, skippedByParentId: parentId, pointsAwarded: false })
+    .where(and(eq(choreInstancesTable.id, id), eq(choreInstancesTable.status, "missed")))
+    .returning();
+  if (!instance) {
+    const [current] = await db.select().from(choreInstancesTable).where(eq(choreInstancesTable.id, id));
+    if (!current) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.status(409).json({ error: "Only a missed chore can be skipped" });
+    return;
+  }
+  res.json(formatInstance(instance, await getMemberById(instance.childId)));
+});
+
+// ── POST /api/chores/away-day — excuse all missed chores for a date ───────────
+
+router.post("/away-day", async (req, res) => {
+  const parsed = ChoreAwayDayBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid away-day request" });
+    return;
+  }
+  const { dueDate, childId } = parsed.data;
+  const checkedDate = new Date(`${dueDate}T12:00:00.000Z`);
+  if (Number.isNaN(checkedDate.getTime()) || checkedDate.toISOString().slice(0, 10) !== dueDate) {
+    res.status(400).json({ error: "dueDate must be a real YYYY-MM-DD date" });
+    return;
+  }
+  const parentId = parsed.data.parentId ?? null;
+  if (!(await verifyParentPin(parentId, parsed.data.pin ?? null, res, req.ip))) return;
+
+  const now = new Date();
+  const conditions = [
+    eq(choreInstancesTable.status, "missed"),
+    eq(choreInstancesTable.dueDate, dueDate),
+  ];
+  if (childId !== undefined) conditions.push(eq(choreInstancesTable.childId, childId));
+  const instances = await db
+    .update(choreInstancesTable)
+    .set({ status: "excused", excusedAt: now, excusedByParentId: parentId, pointsAwarded: false })
+    .where(and(...conditions))
+    .returning();
+  res.json(
+    await Promise.all(instances.map(async (instance) =>
+      formatInstance(instance, await getMemberById(instance.childId)),
+    )),
+  );
 });
 
 // ── Badge awarding ─────────────────────────────────────────────────────────────

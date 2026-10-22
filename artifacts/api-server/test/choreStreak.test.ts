@@ -61,3 +61,55 @@ test("uses due dates rather than approval dates", () => {
     { current: 3, longest: 3 },
   );
 });
+
+test("a fully excused away day pauses but does not break or extend a streak", () => {
+  const result = calculateChoreStreak(
+    [
+      instance("2026-07-13"),
+      instance("2026-07-14", "excused"),
+      instance("2026-07-15"),
+    ],
+    childId,
+    today,
+  );
+
+  assert.deepEqual(result, { current: 2, longest: 2 });
+});
+
+test("an excused chore does not cover another unfinished chore that day", () => {
+  const result = calculateChoreStreak(
+    [
+      instance("2026-07-14", "todo"),
+      instance("2026-07-14", "excused"),
+      instance("2026-07-15"),
+    ],
+    childId,
+    today,
+  );
+
+  assert.deepEqual(result, { current: 1, longest: 1 });
+});
+
+test("a skipped chore breaks the streak rather than pausing it", () => {
+  const result = calculateChoreStreak(
+    [
+      instance("2026-07-13"),
+      instance("2026-07-14", "skipped"),
+      instance("2026-07-15"),
+    ],
+    childId,
+    today,
+  );
+
+  assert.deepEqual(result, { current: 1, longest: 1 });
+});
+
+test("a day with completed and excused chores still counts as a success", () => {
+  const result = calculateChoreStreak(
+    [instance("2026-07-15"), instance("2026-07-15", "excused")],
+    childId,
+    today,
+  );
+
+  assert.deepEqual(result, { current: 1, longest: 1 });
+});
