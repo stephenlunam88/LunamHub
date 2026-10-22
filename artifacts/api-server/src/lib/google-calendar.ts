@@ -520,10 +520,15 @@ export async function updateGCalEvent(
     description: event.description ?? "",
     location: event.location ?? "",
     // timeZone is required by Google for recurring timed events and harmless for single events
-    start: allDay ? { date: event.date } : { dateTime: startDt, timeZone: tz },
+    // Google PATCH merges nested EventDateTime objects. Explicitly clear the
+    // mutually-exclusive fields so all-day/timed conversions cannot retain
+    // the old date or dateTime value on the remote event.
+    start: allDay
+      ? { date: event.date, dateTime: null, timeZone: null }
+      : { date: null, dateTime: startDt, timeZone: tz },
     end: allDay
-      ? { date: nextCalendarDay(event.date) }
-      : { dateTime: endDt, timeZone: tz },
+      ? { date: nextCalendarDay(event.date), dateTime: null, timeZone: null }
+      : { date: null, dateTime: endDt, timeZone: tz },
     ...(includeRecurrence ? { recurrence: rrule } : {}),
   };
   const resp = await directGCal(
