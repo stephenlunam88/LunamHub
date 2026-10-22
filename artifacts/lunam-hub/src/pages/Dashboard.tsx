@@ -3,7 +3,10 @@ import {
   useGetFamilyMemberBadges,
   useGetLeaderboard,
   useGetWeeklyLeaderboard,
+  useCreateEvent,
+  useDeleteEvent,
   useUpdateEvent,
+  getListEventsQueryKey,
 } from "@workspace/api-client-react";
 import { format, addDays, parseISO } from "date-fns";
 import { useEffect, useState } from "react";
@@ -24,7 +27,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { eventTimeInMinutes } from "@/lib/calendar";
+import { useToast } from "@/hooks/use-toast";
 import {
   Trophy,
   CheckCircle2,
@@ -45,6 +59,8 @@ import type {
   FamilyMember,
   Event,
   EventUpdate,
+  EventInput,
+  DashboardEvent,
 } from "@workspace/api-client-react";
 
 function fmt12(time: string): string {
@@ -471,16 +487,24 @@ function DashboardEventDialog({
   familyMembers,
   onClose,
 }: {
-  event: Event | null;
+  event: DashboardEvent | null;
   familyMembers: FamilyMember[];
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState("");
+  const [editScope, setEditScope] = useState<"occurrence" | "series">(
+    "occurrence",
+  );
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteScope, setDeleteScope] = useState<"occurrence" | "series">(
+    "occurrence",
+  );
   const [form, setForm] = useState({
     title: event?.title ?? "",
-    date: event?.date ?? "",
+    date: event?.seriesDate ?? event?.date ?? "",
     startTime: event?.startTime ?? "",
     endTime: event?.endTime ?? "",
     location: event?.location ?? "",
@@ -488,24 +512,30 @@ function DashboardEventDialog({
     category: event?.category ?? "other",
     assignedMembers: event?.assignedMembers ?? [],
   });
-  const updateEvent = useUpdateEvent({
-    mutation: {
-      onSuccess: async () => {
-        await queryClient.invalidateQueries({
-          queryKey: ["/api/dashboard/summary"],
-        });
-        onClose();
-      },
-      onError: () => setError("Could not save this event. Please try again."),
-    },
-  });
+  const mutationOptions = {
+    onError: () => setError("Could not save that change. Please try again."),
+  };
+  const updateEvent = useUpdateEvent({ mutation: mutationOptions });
+  const createEvent = useCreateEvent({ mutation: mutationOptions });
+  const deleteEvent = useDeleteEvent({ mutation: mutationOptions });
+
+  async function refreshAndClose(message: string) {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] }),
+      queryClient.invalidateQueries({ queryKey: getListEventsQueryKey() }),
+    ]);
+    toast({ title: message });
+    onClose();
+  }
 
   useEffect(() => {
     setEditing(false);
     setError("");
+    setEditScope("occurrence");
+    setDeleteScope("occurrence");
     setForm({
       title: event?.title ?? "",
-      date: event?.date ?? "",
+      date: event?.seriesDate ?? event?.date ?? "",
       startTime: event?.startTime ?? "",
       endTime: event?.endTime ?? "",
       location: event?.location ?? "",
@@ -519,224 +549,451 @@ function DashboardEventDialog({
     .filter((member) => form.assignedMembers.includes(member.id))
     .map((member) => member.name);
 
+  const isPending =
+    updateEvent.isPending || createEvent.isPending || deleteEvent.isPending;
+
+  async function saveEvent() {
+    if (!event) return;
+    setError("");
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (event.recurrence && editScope === "occurrence") {
+      const data: EventInput = {
+        title: form.title,
+        date: form.date,
+        startTime: form.startTime || undefined,
+        endTime: form.startTime ? form.endTime || undefined : undefined,
+        allDay: !form.startTime,
+        category: form.category as EventInput["category"],
+        description: form.description || undefined,
+        location: form.location || undefined,
+        assignedMembers: form.assignedMembers,
+        timezone,
+      };
+      let override: Event | undefined;
+      try {
+        override = await createEvent.mutateAsync({ data });
+        const exceptions = new Set(
+          event.recurrenceExceptions?.split(",").filter(Boolean) ?? [],
+        );
+        exceptions.add(event.date);
+        await updateEvent.mutateAsync({
+          id: event.id,
+          data: {
+            recurrenceExceptions: [...exceptions].sort().join(","),
+            timezone,
+          },
+        });
+      } catch {
+        if (override) {
+          await deleteEvent
+            .mutateAsync({ id: override.id })
+            .catch(() => undefined);
+        }
+        setError("Could not save this occurrence. Please try again.");
+        return;
+      }
+      await refreshAndClose("Event occurrence updated");
+      return;
+    }
+
+    try {
+      await updateEvent.mutateAsync({
+        id: event.id,
+        data: {
+          title: form.title,
+          date: form.date,
+          startTime: form.startTime || null,
+          endTime: form.startTime ? form.endTime || null : null,
+          allDay: !form.startTime,
+          location: form.location || null,
+          description: form.description || null,
+          category: form.category as EventUpdate["category"],
+          assignedMembers: form.assignedMembers,
+          timezone,
+        },
+      });
+      await refreshAndClose("Event saved");
+    } catch {
+      setError("Could not save that change. Please try again.");
+    }
+  }
+
+  async function confirmDelete() {
+    if (!event) return;
+    setError("");
+    try {
+      if (event.recurrence && deleteScope === "occurrence") {
+        const exceptions = new Set(
+          event.recurrenceExceptions?.split(",").filter(Boolean) ?? [],
+        );
+        exceptions.add(event.date);
+        await updateEvent.mutateAsync({
+          id: event.id,
+          data: {
+            recurrenceExceptions: [...exceptions].sort().join(","),
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          },
+        });
+      } else {
+        await deleteEvent.mutateAsync({ id: event.id });
+      }
+      setDeleteOpen(false);
+      await refreshAndClose(
+        event.recurrence && deleteScope === "occurrence"
+          ? "Event occurrence deleted"
+          : "Event deleted",
+      );
+    } catch {
+      setError("Could not delete that event. Please try again.");
+    }
+  }
+
   return (
-    <Dialog open={Boolean(event)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-3xl">
-        <DialogHeader>
-          <DialogTitle>{editing ? "Edit event" : event?.title}</DialogTitle>
-        </DialogHeader>
-        {event && !editing ? (
-          <div className="space-y-4">
-            <div className="space-y-1 text-sm">
-              <p className="font-semibold">
-                {format(parseISO(event.date), "EEEE, d MMMM yyyy")}
-              </p>
-              <p className="text-muted-foreground">
-                {event.allDay || !event.startTime
-                  ? "All day"
-                  : `${fmt12(event.startTime)}${event.endTime ? ` – ${fmt12(event.endTime)}` : ""}`}
-              </p>
-              {event.location && (
-                <p className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
-                  {event.location}
+    <>
+      <Dialog
+        open={Boolean(event)}
+        onOpenChange={(open) => !open && !isPending && onClose()}
+      >
+        <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>{editing ? "Edit event" : event?.title}</DialogTitle>
+          </DialogHeader>
+          {event && !editing ? (
+            <div className="space-y-4">
+              <div className="space-y-1 text-sm">
+                <p className="font-semibold">
+                  {format(parseISO(event.date), "EEEE, d MMMM yyyy")}
                 </p>
-              )}
-              <p className="text-muted-foreground">
-                {assignedNames.length ? assignedNames.join(", ") : "Unassigned"}
-              </p>
-              {event.category && (
-                <p className="capitalize text-muted-foreground">
-                  {event.category}
-                </p>
-              )}
-              {event.description && (
-                <p className="whitespace-pre-wrap pt-2">{event.description}</p>
-              )}
-              {event.recurrence && (
                 <p className="text-muted-foreground">
-                  Repeats {event.recurrence.toLowerCase()} — edits apply to the
-                  series.
+                  {event.allDay || !event.startTime
+                    ? "All day"
+                    : `${fmt12(event.startTime)}${event.endTime ? ` – ${fmt12(event.endTime)}` : ""}`}
+                </p>
+                {event.location && (
+                  <p className="flex items-center gap-1">
+                    <MapPin className="h-4 w-4" />
+                    {event.location}
+                  </p>
+                )}
+                <p className="text-muted-foreground">
+                  {assignedNames.length
+                    ? assignedNames.join(", ")
+                    : "Unassigned"}
+                </p>
+                {event.category && (
+                  <p className="capitalize text-muted-foreground">
+                    {event.category}
+                  </p>
+                )}
+                {event.description && (
+                  <p className="whitespace-pre-wrap pt-2">
+                    {event.description}
+                  </p>
+                )}
+                {event.recurrence && (
+                  <p className="text-muted-foreground">
+                    Repeats {event.recurrence.toLowerCase()}.
+                  </p>
+                )}
+              </div>
+              <Link
+                href="/calendar"
+                className="block text-center text-sm font-semibold text-primary underline-offset-4 hover:underline"
+              >
+                View in calendar
+              </Link>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {event.recurrence ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="rounded-xl"
+                      onClick={() => {
+                        setEditScope("occurrence");
+                        setForm((current) => ({
+                          ...current,
+                          date: event.date,
+                        }));
+                        setEditing(true);
+                      }}
+                    >
+                      Edit this occurrence
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="rounded-xl"
+                      onClick={() => {
+                        setEditScope("series");
+                        setForm((current) => ({
+                          ...current,
+                          date: event.seriesDate ?? event.date,
+                        }));
+                        setEditing(true);
+                      }}
+                    >
+                      Edit entire series
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    className="rounded-xl"
+                    onClick={() => {
+                      setEditScope("series");
+                      setEditing(true);
+                    }}
+                  >
+                    Edit event
+                  </Button>
+                )}
+                <Button
+                  variant="destructive"
+                  className="rounded-xl"
+                  onClick={() => {
+                    setError("");
+                    setDeleteScope("occurrence");
+                    setDeleteOpen(true);
+                  }}
+                >
+                  Delete event
+                </Button>
+              </div>
+            </div>
+          ) : event ? (
+            <form
+              className="space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void saveEvent();
+              }}
+            >
+              <div>
+                <Label htmlFor="dashboard-event-title">Title</Label>
+                <Input
+                  id="dashboard-event-title"
+                  required
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="dashboard-event-date">Date</Label>
+                {event.recurrence && editScope === "occurrence" && (
+                  <p className="text-xs text-muted-foreground">
+                    Only this occurrence will move; the rest of the series stays
+                    unchanged.
+                  </p>
+                )}
+                {event.recurrence && editScope === "series" && (
+                  <p className="text-xs text-muted-foreground">
+                    Changes apply to the entire series.
+                  </p>
+                )}
+                <Input
+                  id="dashboard-event-date"
+                  type="date"
+                  required
+                  value={form.date}
+                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="dashboard-event-start">Start</Label>
+                  <Input
+                    id="dashboard-event-start"
+                    type="time"
+                    value={form.startTime}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        startTime: e.target.value,
+                        endTime: e.target.value ? form.endTime : "",
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="dashboard-event-end">End</Label>
+                  <Input
+                    id="dashboard-event-end"
+                    type="time"
+                    value={form.endTime}
+                    onChange={(e) =>
+                      setForm({ ...form, endTime: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="dashboard-event-location">Location</Label>
+                <Input
+                  id="dashboard-event-location"
+                  value={form.location}
+                  onChange={(e) =>
+                    setForm({ ...form, location: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label htmlFor="dashboard-event-category">Category</Label>
+                <select
+                  id="dashboard-event-category"
+                  className="h-12 w-full rounded-xl border bg-background px-3"
+                  value={form.category}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      category: e.target.value as Event["category"],
+                    })
+                  }
+                >
+                  {[
+                    "school",
+                    "sport",
+                    "appointment",
+                    "birthday",
+                    "family",
+                    "other",
+                  ].map((category) => (
+                    <option key={category} value={category}>
+                      {category[0]!.toUpperCase() + category.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="dashboard-event-description">Description</Label>
+                <Textarea
+                  id="dashboard-event-description"
+                  rows={3}
+                  value={form.description}
+                  onChange={(e) =>
+                    setForm({ ...form, description: e.target.value })
+                  }
+                />
+              </div>
+              {familyMembers.length > 0 && (
+                <fieldset>
+                  <legend className="mb-2 text-sm font-medium">
+                    Family members
+                  </legend>
+                  <div className="flex flex-wrap gap-2">
+                    {familyMembers.map((member) => {
+                      const selected = form.assignedMembers.includes(member.id);
+                      return (
+                        <button
+                          key={member.id}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() =>
+                            setForm({
+                              ...form,
+                              assignedMembers: selected
+                                ? form.assignedMembers.filter(
+                                    (id) => id !== member.id,
+                                  )
+                                : [...form.assignedMembers, member.id],
+                            })
+                          }
+                          className={`rounded-full border px-3 py-1.5 text-sm ${selected ? "border-primary bg-primary/10" : "border-border"}`}
+                        >
+                          {member.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              )}
+              {error && (
+                <p role="alert" className="text-sm text-destructive">
+                  {error}
                 </p>
               )}
-            </div>
-            <Button
-              className="w-full rounded-xl"
-              onClick={() => setEditing(true)}
-            >
-              Edit event
-            </Button>
-          </div>
-        ) : event ? (
-          <form
-            className="space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setError("");
-              updateEvent.mutate({
-                id: event.id,
-                data: {
-                  title: form.title,
-                  date: form.date,
-                  startTime: form.startTime || null,
-                  endTime: form.endTime || null,
-                  allDay: !form.startTime,
-                  location: form.location || null,
-                  description: form.description || null,
-                  category: form.category as EventUpdate["category"],
-                  assignedMembers: form.assignedMembers,
-                  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                },
-              });
-            }}
-          >
-            <div>
-              <Label htmlFor="dashboard-event-title">Title</Label>
-              <Input
-                id="dashboard-event-title"
-                required
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="dashboard-event-date">Date</Label>
-              <Input
-                id="dashboard-event-date"
-                type="date"
-                required
-                value={form.date}
-                onChange={(e) => setForm({ ...form, date: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="dashboard-event-start">Start</Label>
-                <Input
-                  id="dashboard-event-start"
-                  type="time"
-                  value={form.startTime}
-                  onChange={(e) =>
-                    setForm({ ...form, startTime: e.target.value })
-                  }
-                />
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 rounded-xl"
+                  onClick={() => setEditing(false)}
+                  disabled={isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 rounded-xl"
+                  disabled={isPending}
+                >
+                  {isPending ? "Saving…" : "Save changes"}
+                </Button>
               </div>
-              <div>
-                <Label htmlFor="dashboard-event-end">End</Label>
-                <Input
-                  id="dashboard-event-end"
-                  type="time"
-                  value={form.endTime}
-                  onChange={(e) =>
-                    setForm({ ...form, endTime: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="dashboard-event-location">Location</Label>
-              <Input
-                id="dashboard-event-location"
-                value={form.location}
-                onChange={(e) => setForm({ ...form, location: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="dashboard-event-category">Category</Label>
-              <select
-                id="dashboard-event-category"
-                className="h-12 w-full rounded-xl border bg-background px-3"
-                value={form.category}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    category: e.target.value as Event["category"],
-                  })
-                }
-              >
-                {[
-                  "school",
-                  "sport",
-                  "appointment",
-                  "birthday",
-                  "family",
-                  "other",
-                ].map((category) => (
-                  <option key={category} value={category}>
-                    {category[0]!.toUpperCase() + category.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="dashboard-event-description">Description</Label>
-              <Textarea
-                id="dashboard-event-description"
-                rows={3}
-                value={form.description}
-                onChange={(e) =>
-                  setForm({ ...form, description: e.target.value })
-                }
-              />
-            </div>
-            {familyMembers.length > 0 && (
-              <fieldset>
-                <legend className="mb-2 text-sm font-medium">
-                  Family members
-                </legend>
-                <div className="flex flex-wrap gap-2">
-                  {familyMembers.map((member) => {
-                    const selected = form.assignedMembers.includes(member.id);
-                    return (
-                      <button
-                        key={member.id}
-                        type="button"
-                        aria-pressed={selected}
-                        onClick={() =>
-                          setForm({
-                            ...form,
-                            assignedMembers: selected
-                              ? form.assignedMembers.filter(
-                                  (id) => id !== member.id,
-                                )
-                              : [...form.assignedMembers, member.id],
-                          })
-                        }
-                        className={`rounded-full border px-3 py-1.5 text-sm ${selected ? "border-primary bg-primary/10" : "border-border"}`}
-                      >
-                        {member.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </fieldset>
-            )}
-            {error && (
-              <p role="alert" className="text-sm text-destructive">
-                {error}
-              </p>
-            )}
-            <div className="flex gap-2">
-              <Button
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+      <AlertDialog
+        open={deleteOpen}
+        onOpenChange={(open) => !isPending && setDeleteOpen(open)}
+      >
+        <AlertDialogContent className="rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {event?.recurrence ? "Delete recurring event" : "Delete event"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {event?.recurrence
+                ? `Choose what to delete for “${event.title}”.`
+                : `Delete “${event?.title}”? This cannot be undone.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {event?.recurrence && (
+            <div className="grid gap-2">
+              <button
                 type="button"
-                variant="outline"
-                className="flex-1 rounded-xl"
-                onClick={() => setEditing(false)}
+                aria-pressed={deleteScope === "occurrence"}
+                onClick={() => setDeleteScope("occurrence")}
+                className={`rounded-xl border p-3 text-left ${deleteScope === "occurrence" ? "border-primary bg-primary/10" : "border-border"}`}
               >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                className="flex-1 rounded-xl"
-                disabled={updateEvent.isPending}
+                <span className="block font-semibold">
+                  Only this occurrence
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {format(parseISO(event.date), "EEEE, d MMMM")}
+                </span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={deleteScope === "series"}
+                onClick={() => setDeleteScope("series")}
+                className={`rounded-xl border p-3 text-left ${deleteScope === "series" ? "border-primary bg-primary/10" : "border-border"}`}
               >
-                {updateEvent.isPending ? "Saving…" : "Save changes"}
-              </Button>
+                <span className="block font-semibold">Entire series</span>
+              </button>
             </div>
-          </form>
-        ) : null}
-      </DialogContent>
-    </Dialog>
+          )}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>
+              Keep event
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmDelete();
+              }}
+            >
+              {isPending ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -748,7 +1005,9 @@ export default function Dashboard() {
   const { data: allTimeBoard = [] } = useGetLeaderboard();
   const { data: weeklyBoard = [] } = useGetWeeklyLeaderboard();
   const [now, setNow] = useState(new Date());
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<DashboardEvent | null>(
+    null,
+  );
   const [leaderboardView, setLeaderboardView] = useState<"alltime" | "weekly">(
     "alltime",
   );

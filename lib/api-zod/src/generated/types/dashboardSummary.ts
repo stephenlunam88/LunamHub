@@ -6,15 +6,15 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Chore } from './chore';
-import type { Event } from './event';
+import type { DashboardEvent } from './dashboardEvent';
 import type { FamilyMember } from './familyMember';
 import type { LeaderboardEntry } from './leaderboardEntry';
 import type { MealPlanEntry } from './mealPlanEntry';
 import type { StreakEntry } from './streakEntry';
 
 export interface DashboardSummary {
-  todayEvents: Event[];
-  upcomingEvents: Event[];
+  todayEvents: DashboardEvent[];
+  upcomingEvents: DashboardEvent[];
   todayChores: Chore[];
   pendingApprovals: number;
   familyMembers: FamilyMember[];

@@ -950,9 +950,14 @@ export interface StreakEntry {
   currentStreak: number;
 }
 
+export type DashboardEvent = Event & {
+  /** Original date of the event series, before occurrence expansion. */
+  seriesDate: string;
+};
+
 export interface DashboardSummary {
-  todayEvents: Event[];
-  upcomingEvents: Event[];
+  todayEvents: DashboardEvent[];
+  upcomingEvents: DashboardEvent[];
   todayChores: Chore[];
   pendingApprovals: number;
   familyMembers: FamilyMember[];

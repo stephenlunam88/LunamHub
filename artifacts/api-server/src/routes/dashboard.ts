@@ -18,6 +18,7 @@ import { calculateChoreStreak } from "../lib/choreStreak";
 import { householdDate } from "../lib/householdDate";
 import { occursOn as doesOccurOn } from "../lib/calendarRecurrence";
 import { compareEventsByTime } from "../lib/eventOrdering";
+import { formatDashboardEvent } from "../lib/dashboardEvent";
 
 const router = Router();
 
@@ -66,47 +67,41 @@ router.get("/summary", async (req, res) => {
   const eventIds = allEvents.map((e) => e.id);
   const memberMap: Record<number, number[]> = {};
   if (eventIds.length > 0) {
-    const rows = await db.select().from(eventMembersTable).where(inArray(eventMembersTable.eventId, eventIds));
+    const rows = await db
+      .select()
+      .from(eventMembersTable)
+      .where(inArray(eventMembersTable.eventId, eventIds));
     for (const r of rows) {
       if (!memberMap[r.eventId]) memberMap[r.eventId] = [];
       memberMap[r.eventId]!.push(r.memberId);
     }
   }
 
-  const formatEvent = (e: typeof eventsTable.$inferSelect) => ({
-    id: e.id,
-    title: e.title,
-    description: e.description ?? null,
-    location: e.location ?? null,
-    date: e.date,
-    startTime: e.startTime ?? null,
-    endTime: e.endTime ?? null,
-    allDay: e.allDay,
-    category: e.category,
-    assignedMembers: memberMap[e.id] ?? [],
-    createdAt: e.createdAt.toISOString(),
-  });
+  const formatEvent = (event: typeof eventsTable.$inferSelect) =>
+    formatDashboardEvent(event, memberMap[event.id] ?? []);
 
   // Apply recurrence logic to determine actual occurrences
   const todayEvents = allEvents
     .filter((e) => doesOccurOn(e, todayStr))
-    .map(formatEvent)
+    .map((event) => ({ ...formatEvent(event), date: todayStr }))
     .sort(compareEventsByTime);
 
   // For upcoming, expand each event into its actual occurrence dates within the window
   const upcomingDates: string[] = [];
   for (let i = 1; i <= 7; i++) upcomingDates.push(addDays(todayStr, i));
-  const upcomingEvents = upcomingDates.flatMap((dateStr) =>
-    allEvents
-      .filter((e) => doesOccurOn(e, dateStr))
-      .map((e) => ({ ...formatEvent(e), date: dateStr })),
-  ).sort(
-    (a, b) =>
-      a.date.localeCompare(b.date) || compareEventsByTime(a, b),
-  );
+  const upcomingEvents = upcomingDates
+    .flatMap((dateStr) =>
+      allEvents
+        .filter((e) => doesOccurOn(e, dateStr))
+        .map((e) => ({ ...formatEvent(e), date: dateStr })),
+    )
+    .sort((a, b) => a.date.localeCompare(b.date) || compareEventsByTime(a, b));
 
   // Family members
-  const familyMembers = await db.select().from(familyMembersTable).orderBy(familyMembersTable.id);
+  const familyMembers = await db
+    .select()
+    .from(familyMembersTable)
+    .orderBy(familyMembersTable.id);
   const memberById: Record<number, typeof familyMembersTable.$inferSelect> = {};
   for (const m of familyMembers) memberById[m.id] = m;
 
@@ -126,9 +121,15 @@ router.get("/summary", async (req, res) => {
       assignedTo: i.childId ?? null,
       assignedMember: m
         ? {
-            id: m.id, name: m.name, emoji: m.emoji, color: m.color, role: m.role,
-            pointsBalance: m.pointsBalance, lifetimePoints: m.lifetimePoints,
-            avatarUrl: m.avatarUrl ?? null, hasPin: !!m.pinHash,
+            id: m.id,
+            name: m.name,
+            emoji: m.emoji,
+            color: m.color,
+            role: m.role,
+            pointsBalance: m.pointsBalance,
+            lifetimePoints: m.lifetimePoints,
+            avatarUrl: m.avatarUrl ?? null,
+            hasPin: !!m.pinHash,
             createdAt: m.createdAt.toISOString(),
           }
         : undefined,
@@ -143,7 +144,9 @@ router.get("/summary", async (req, res) => {
     };
   });
 
-  const pendingApprovals = todayInstances.filter((i) => i.status === "pending_approval").length;
+  const pendingApprovals = todayInstances.filter(
+    (i) => i.status === "pending_approval",
+  ).length;
 
   const formattedMembers = familyMembers.map((m) => ({
     id: m.id,
@@ -161,7 +164,11 @@ router.get("/summary", async (req, res) => {
   // Weekly leaderboard — sum chore_earned transactions this week (Mon–Sun)
   const weekStart = new Date();
   weekStart.setHours(0, 0, 0, 0);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + (weekStart.getDay() === 0 ? -6 : 1));
+  weekStart.setDate(
+    weekStart.getDate() -
+      weekStart.getDay() +
+      (weekStart.getDay() === 0 ? -6 : 1),
+  );
   const weeklyTx = await db
     .select()
     .from(pointTransactionsTable)
@@ -170,25 +177,45 @@ router.get("/summary", async (req, res) => {
   const weeklyByMember: Record<number, number> = {};
   for (const tx of weeklyTx) {
     if (tx.type === "chore_earned") {
-      weeklyByMember[tx.memberId] = (weeklyByMember[tx.memberId] ?? 0) + tx.amount;
+      weeklyByMember[tx.memberId] =
+        (weeklyByMember[tx.memberId] ?? 0) + tx.amount;
     }
   }
   const weeklyLeaderboard = familyMembers
     .filter((m) => m.role === "child")
-    .map((m) => ({ memberId: m.id, name: m.name, emoji: m.emoji, color: m.color, avatarUrl: m.avatarUrl ?? null, weeklyPoints: weeklyByMember[m.id] ?? 0 }))
+    .map((m) => ({
+      memberId: m.id,
+      name: m.name,
+      emoji: m.emoji,
+      color: m.color,
+      avatarUrl: m.avatarUrl ?? null,
+      weeklyPoints: weeklyByMember[m.id] ?? 0,
+    }))
     .sort((a, b) => b.weeklyPoints - a.weeklyPoints)
     .map((entry, i) => ({ ...entry, rank: i + 1 }));
 
   // Today's meals from meal plan
-  const todayMealPlan = await db.select().from(mealPlanTable).where(eq(mealPlanTable.date, todayStr));
+  const todayMealPlan = await db
+    .select()
+    .from(mealPlanTable)
+    .where(eq(mealPlanTable.date, todayStr));
   const todayMeals = await Promise.all(
     todayMealPlan.map(async (mp) => {
-      const [meal] = await db.select().from(mealsTable).where(eq(mealsTable.id, mp.mealId));
+      const [meal] = await db
+        .select()
+        .from(mealsTable)
+        .where(eq(mealsTable.id, mp.mealId));
       return {
         id: mp.id,
         mealId: mp.mealId,
         meal: meal
-          ? { id: meal.id, name: meal.name, notes: meal.notes ?? null, ingredients: meal.ingredients ?? null, createdAt: meal.createdAt.toISOString() }
+          ? {
+              id: meal.id,
+              name: meal.name,
+              notes: meal.notes ?? null,
+              ingredients: meal.ingredients ?? null,
+              createdAt: meal.createdAt.toISOString(),
+            }
           : undefined,
         date: mp.date,
         mealType: mp.mealType,
@@ -198,7 +225,9 @@ router.get("/summary", async (req, res) => {
 
   // Pending reward redemptions
   const allRedemptions = await db.select().from(redemptionsTable);
-  const pendingRedemptions = allRedemptions.filter((r) => r.status === "pending").length;
+  const pendingRedemptions = allRedemptions.filter(
+    (r) => r.status === "pending",
+  ).length;
 
   // Per-child chore streaks — computed from all historical chore_instances
   const allInstances = await db.select().from(choreInstancesTable);

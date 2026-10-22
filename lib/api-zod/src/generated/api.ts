@@ -1236,7 +1236,9 @@ export const GetDashboardSummaryResponse = zod.object({
   "googleEventId": zod.string().nullish().describe('Google Calendar event ID for synced events'),
   "assignedMembers": zod.array(zod.number()),
   "createdAt": zod.string()
-})),
+}).and(zod.object({
+  "seriesDate": zod.string().describe('Original date of the event series, before occurrence expansion.')
+}))),
   "upcomingEvents": zod.array(zod.object({
   "id": zod.number(),
   "title": zod.string(),
@@ -1254,7 +1256,9 @@ export const GetDashboardSummaryResponse = zod.object({
   "googleEventId": zod.string().nullish().describe('Google Calendar event ID for synced events'),
   "assignedMembers": zod.array(zod.number()),
   "createdAt": zod.string()
-})),
+}).and(zod.object({
+  "seriesDate": zod.string().describe('Original date of the event series, before occurrence expansion.')
+}))),
   "todayChores": zod.array(zod.object({
   "id": zod.number(),
   "templateId": zod.number().nullish(),

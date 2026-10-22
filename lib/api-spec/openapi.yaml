@@ -3018,11 +3018,11 @@ components:
         todayEvents:
           type: array
           items:
-            $ref: "#/components/schemas/Event"
+            $ref: "#/components/schemas/DashboardEvent"
         upcomingEvents:
           type: array
           items:
-            $ref: "#/components/schemas/Event"
+            $ref: "#/components/schemas/DashboardEvent"
         todayChores:
           type: array
           items:
@@ -3057,6 +3057,17 @@ components:
         - pendingRedemptions
         - weeklyLeaderboard
         - streaks
+
+    DashboardEvent:
+      allOf:
+        - $ref: "#/components/schemas/Event"
+        - type: object
+          properties:
+            seriesDate:
+              type: string
+              description: Original date of the event series, before occurrence expansion.
+          required:
+            - seriesDate
 
     # ── Settings ──────────────────────────────────────────────────────────────
     Settings:
