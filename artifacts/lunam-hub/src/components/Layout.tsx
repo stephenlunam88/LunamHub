@@ -145,7 +145,9 @@ export function Layout({ children }: { children: ReactNode }) {
           <span className="absolute left-1/2 top-3.5 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md">
             <MessageCircle className="h-6 w-6" />
           </span>
-          <span className="text-[10px] font-bold leading-none">Assistant</span>
+          <span className="relative z-10 translate-y-1 text-[10px] font-bold leading-none">
+            Assistant
+          </span>
         </button>
         <MobileLink href="/lists" label="Lists" icon={List} location={path} />
         <button
