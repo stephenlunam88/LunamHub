@@ -128,7 +128,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="Mobile navigation"
-        className="relative z-50 grid h-[calc(64px+env(safe-area-inset-bottom)/2)] shrink-0 grid-cols-5 items-end border-t bg-card px-1 pt-2 pb-[calc(env(safe-area-inset-bottom)/2)] shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden"
+        className="relative z-50 grid h-[calc(64px+env(safe-area-inset-bottom)/4)] shrink-0 grid-cols-5 items-end border-t bg-card px-1 pt-2 pb-[calc(env(safe-area-inset-bottom)/4)] shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden"
       >
         <MobileLink href="/" label="Today" icon={Home} location={path} />
         <MobileLink

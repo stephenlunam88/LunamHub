@@ -151,10 +151,9 @@
   body {
     background-color: #ffffff !important;
   }
-  /* In iOS Home Screen mode the layout viewport can end above the home
-     indicator. Extend the fixed shell by that safe-area amount; the nav's
-     existing bottom padding keeps its controls above the indicator. */
+  /* Extend the fixed shell by the same reduced inset used by the nav, keeping
+     the buttons stationary while trimming the blank area below them. */
   #root {
-    bottom: calc(0px - env(safe-area-inset-bottom) / 2);
+    bottom: calc(0px - env(safe-area-inset-bottom) / 4);
   }
 }
