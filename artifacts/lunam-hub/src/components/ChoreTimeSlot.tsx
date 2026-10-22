@@ -4,22 +4,22 @@ const TIME_SLOT_STYLES = {
   morning: {
     label: "Morning",
     Icon: Sun,
-    className: "border-amber-200 bg-amber-50 text-amber-800",
+    className: "text-amber-700",
   },
   afternoon: {
     label: "Afternoon",
     Icon: Sunset,
-    className: "border-sky-200 bg-sky-50 text-sky-800",
+    className: "text-sky-700",
   },
   evening: {
     label: "Evening",
     Icon: Moon,
-    className: "border-violet-200 bg-violet-50 text-violet-800",
+    className: "text-violet-700",
   },
   anytime: {
     label: "Anytime",
     Icon: Clock3,
-    className: "border-slate-200 bg-slate-50 text-slate-600",
+    className: "text-slate-500",
   },
 } as const;
 
@@ -37,9 +37,9 @@ export function ChoreTimeSlot({
     <span
       aria-label={`Intended time: ${label}`}
       title={`Intended time: ${label}`}
-      className={`inline-flex w-fit shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-4 ${tone} ${className}`}
+      className={`inline-flex w-fit shrink-0 items-center gap-1 text-xs font-medium leading-5 ${tone} ${className}`}
     >
-      <Icon aria-hidden="true" className="h-3 w-3" />
+      <Icon aria-hidden="true" className="h-3.5 w-3.5" />
       {label}
     </span>
   );

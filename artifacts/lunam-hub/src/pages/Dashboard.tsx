@@ -1165,6 +1165,7 @@ export default function Dashboard() {
                       <small className="text-muted-foreground">
                         {chore.assignedMember?.name ?? "Unassigned"}
                       </small>
+                      <span aria-hidden="true" className="text-muted-foreground">·</span>
                       <ChoreTimeSlot period={chore.duePeriod} />
                     </div>
                   </div>

@@ -30,7 +30,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, List, ShoppingCart, School, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
@@ -45,11 +44,11 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  grocery: "bg-green-50 border-green-200",
-  school: "bg-blue-50 border-blue-200",
-  packing: "bg-purple-50 border-purple-200",
-  reminders: "bg-yellow-50 border-yellow-200",
-  other: "bg-gray-50 border-gray-200",
+  grocery: "bg-green-100 text-green-700",
+  school: "bg-blue-100 text-blue-700",
+  packing: "bg-purple-100 text-purple-700",
+  reminders: "bg-amber-100 text-amber-700",
+  other: "bg-slate-100 text-slate-600",
 };
 
 export default function Lists() {
@@ -237,22 +236,26 @@ export default function Lists() {
               key={l.id}
               onClick={() => setSelectedListId(l.id)}
               className={cn(
-                "w-full text-left rounded-2xl border-2 p-4 transition-all touch-manipulation",
-                CATEGORY_COLORS[l.category ?? "other"],
+                "w-full text-left rounded-2xl border bg-card p-4 shadow-sm transition-all touch-manipulation",
                 selectedListId === l.id
-                  ? "ring-2 ring-primary ring-offset-2"
-                  : "hover:shadow-sm",
+                  ? "border-primary/50 bg-primary/5 ring-2 ring-primary/15"
+                  : "border-transparent hover:border-border hover:shadow-md",
               )}
             >
               <div className="flex items-center gap-3">
-                <div className="text-muted-foreground">
+                <div
+                  className={cn(
+                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+                    CATEGORY_COLORS[l.category ?? "other"],
+                  )}
+                >
                   {CATEGORY_ICONS[l.category ?? "other"]}
                 </div>
-                <div className="flex-1">
-                  <div className="font-semibold text-lg">{l.name}</div>
-                  <Badge variant="outline" className="text-xs mt-1">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-semibold">{l.name}</div>
+                  <div className="mt-0.5 text-sm capitalize text-muted-foreground">
                     {l.category}
-                  </Badge>
+                  </div>
                 </div>
               </div>
             </button>
@@ -409,12 +412,15 @@ export default function Lists() {
         )}
 
         {selectedListId === null && lists.length > 0 && (
-          <div className="lg:col-span-2 flex items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <List className="w-16 h-16 mx-auto mb-4 opacity-30" />
-              <p>Select a list to view its items</p>
-            </div>
-          </div>
+          <Card className="min-h-44 rounded-3xl border-0 bg-muted/40 shadow-sm lg:col-span-2 lg:min-h-64">
+            <CardContent className="flex h-full min-h-44 flex-col items-center justify-center p-6 text-center text-muted-foreground lg:min-h-64">
+              <List className="mb-3 h-10 w-10 opacity-35" aria-hidden="true" />
+              <p className="font-medium text-foreground">Choose a list</p>
+              <p className="mt-1 text-sm">
+                Select a list to view and update its items.
+              </p>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>
