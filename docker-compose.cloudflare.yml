@@ -1,0 +1,18 @@
+# Optional Cloudflare Tunnel connector. Keep its token in the ignored
+# .cloudflare-tunnel-token file on the NAS; never commit the token.
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.0
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN_FILE: /run/secrets/cloudflare_tunnel_token
+    secrets:
+      - cloudflare_tunnel_token
+    depends_on:
+      web:
+        condition: service_started
+
+secrets:
+  cloudflare_tunnel_token:
+    file: ./.cloudflare-tunnel-token

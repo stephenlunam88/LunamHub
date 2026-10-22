@@ -31,6 +31,7 @@ node_modules
 .env
 .env.*
 !.env.example
+/.cloudflare-tunnel-token
 /.sass-cache
 /connect.lock
 /coverage
