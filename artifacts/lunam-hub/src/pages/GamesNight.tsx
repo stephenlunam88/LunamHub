@@ -665,7 +665,7 @@ function RecordGameDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-dvh max-h-dvh w-screen max-w-none flex-col overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[88dvh] sm:max-w-4xl sm:rounded-3xl">
+      <DialogContent className="flex h-dvh max-h-dvh w-screen max-w-none flex-col overflow-hidden rounded-none p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] [&>button]:top-[calc(env(safe-area-inset-top)+1rem)] sm:h-auto sm:max-h-[88dvh] sm:max-w-4xl sm:rounded-3xl sm:!p-0">
         <DialogHeader className="border-b px-6 py-5">
           <DialogTitle className="flex items-center gap-3 font-serif text-3xl">
             <Dice5 className="h-7 w-7 text-primary" />{" "}
