@@ -1320,10 +1320,10 @@ export default function Calendar() {
         {/* ── Month calendar ──────────────────────────────────────────────── */}
         <Card
           className={cn(
-            "rounded-3xl border-0 shadow-sm flex flex-col overflow-hidden lg:col-span-3",
+            "rounded-3xl border-0 shadow-sm flex flex-col overflow-hidden",
             view === "month"
-              ? "min-h-[420px] lg:min-h-[550px]"
-              : "min-h-[420px]",
+              ? "min-h-[420px] lg:min-h-[550px] lg:col-span-3"
+              : "min-h-[420px] lg:col-span-4",
           )}
         >
           <CardHeader className="flex-row items-center justify-between pb-3 shrink-0">
@@ -1487,9 +1487,9 @@ export default function Calendar() {
             ) : (
               <div
                 className={cn(
-                  "p-3 gap-3 overflow-y-auto",
+                  "min-w-0 p-3 gap-3 overflow-auto",
                   view === "week"
-                    ? "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-7"
+                    ? "grid grid-flow-col auto-cols-[minmax(13rem,1fr)] snap-x snap-proximity"
                     : "space-y-4",
                 )}
               >
