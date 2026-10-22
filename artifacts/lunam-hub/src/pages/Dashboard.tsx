@@ -3,15 +3,27 @@ import {
   useGetFamilyMemberBadges,
   useGetLeaderboard,
   useGetWeeklyLeaderboard,
+  useUpdateEvent,
 } from "@workspace/api-client-react";
 import { format, addDays, parseISO } from "date-fns";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MemberAvatar } from "@/components/MemberAvatar";
 import { WeatherWidget } from "@/components/WeatherWidget";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { eventTimeInMinutes } from "@/lib/calendar";
 import {
   Trophy,
@@ -28,7 +40,12 @@ import {
   List,
   AlertCircle,
 } from "lucide-react";
-import type { Chore, FamilyMember, Event } from "@workspace/api-client-react";
+import type {
+  Chore,
+  FamilyMember,
+  Event,
+  EventUpdate,
+} from "@workspace/api-client-react";
 
 function fmt12(time: string): string {
   const [hStr, mStr] = time.split(":");
@@ -362,8 +379,7 @@ function NextEventPreview({
 }) {
   const nowMinutes = eventTimeInMinutes(format(now, "HH:mm"));
   const nextToday = todayEvents.find(
-    (e) =>
-      e.startTime && eventTimeInMinutes(e.startTime) > nowMinutes,
+    (e) => e.startTime && eventTimeInMinutes(e.startTime) > nowMinutes,
   );
   const next = nextToday ?? upcomingEvents[0] ?? null;
   if (!next) return null;
@@ -394,12 +410,19 @@ function NextEventPreview({
 function EventRow({
   e,
   memberById,
+  onClick,
 }: {
   e: Event;
   memberById: Record<number, FamilyMember>;
+  onClick: () => void;
 }) {
   return (
-    <div className="bg-card rounded-xl p-3 shadow-sm">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`View ${e.title}`}
+      className="block w-full bg-card rounded-xl p-3 text-left shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    >
       <div className="flex items-start gap-2">
         {(e.assignedMembers ?? []).length > 0 && (
           <div className="flex -space-x-1.5 shrink-0 mt-0.5">
@@ -439,7 +462,281 @@ function EventRow({
           )}
         </div>
       </div>
-    </div>
+    </button>
+  );
+}
+
+function DashboardEventDialog({
+  event,
+  familyMembers,
+  onClose,
+}: {
+  event: Event | null;
+  familyMembers: FamilyMember[];
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({
+    title: event?.title ?? "",
+    date: event?.date ?? "",
+    startTime: event?.startTime ?? "",
+    endTime: event?.endTime ?? "",
+    location: event?.location ?? "",
+    description: event?.description ?? "",
+    category: event?.category ?? "other",
+    assignedMembers: event?.assignedMembers ?? [],
+  });
+  const updateEvent = useUpdateEvent({
+    mutation: {
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({
+          queryKey: ["/api/dashboard/summary"],
+        });
+        onClose();
+      },
+      onError: () => setError("Could not save this event. Please try again."),
+    },
+  });
+
+  useEffect(() => {
+    setEditing(false);
+    setError("");
+    setForm({
+      title: event?.title ?? "",
+      date: event?.date ?? "",
+      startTime: event?.startTime ?? "",
+      endTime: event?.endTime ?? "",
+      location: event?.location ?? "",
+      description: event?.description ?? "",
+      category: event?.category ?? "other",
+      assignedMembers: event?.assignedMembers ?? [],
+    });
+  }, [event]);
+
+  const assignedNames = familyMembers
+    .filter((member) => form.assignedMembers.includes(member.id))
+    .map((member) => member.name);
+
+  return (
+    <Dialog open={Boolean(event)} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-3xl">
+        <DialogHeader>
+          <DialogTitle>{editing ? "Edit event" : event?.title}</DialogTitle>
+        </DialogHeader>
+        {event && !editing ? (
+          <div className="space-y-4">
+            <div className="space-y-1 text-sm">
+              <p className="font-semibold">
+                {format(parseISO(event.date), "EEEE, d MMMM yyyy")}
+              </p>
+              <p className="text-muted-foreground">
+                {event.allDay || !event.startTime
+                  ? "All day"
+                  : `${fmt12(event.startTime)}${event.endTime ? ` – ${fmt12(event.endTime)}` : ""}`}
+              </p>
+              {event.location && (
+                <p className="flex items-center gap-1">
+                  <MapPin className="h-4 w-4" />
+                  {event.location}
+                </p>
+              )}
+              <p className="text-muted-foreground">
+                {assignedNames.length ? assignedNames.join(", ") : "Unassigned"}
+              </p>
+              {event.category && (
+                <p className="capitalize text-muted-foreground">
+                  {event.category}
+                </p>
+              )}
+              {event.description && (
+                <p className="whitespace-pre-wrap pt-2">{event.description}</p>
+              )}
+              {event.recurrence && (
+                <p className="text-muted-foreground">
+                  Repeats {event.recurrence.toLowerCase()} — edits apply to the
+                  series.
+                </p>
+              )}
+            </div>
+            <Button
+              className="w-full rounded-xl"
+              onClick={() => setEditing(true)}
+            >
+              Edit event
+            </Button>
+          </div>
+        ) : event ? (
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setError("");
+              updateEvent.mutate({
+                id: event.id,
+                data: {
+                  title: form.title,
+                  date: form.date,
+                  startTime: form.startTime || null,
+                  endTime: form.endTime || null,
+                  allDay: !form.startTime,
+                  location: form.location || null,
+                  description: form.description || null,
+                  category: form.category as EventUpdate["category"],
+                  assignedMembers: form.assignedMembers,
+                  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                },
+              });
+            }}
+          >
+            <div>
+              <Label htmlFor="dashboard-event-title">Title</Label>
+              <Input
+                id="dashboard-event-title"
+                required
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="dashboard-event-date">Date</Label>
+              <Input
+                id="dashboard-event-date"
+                type="date"
+                required
+                value={form.date}
+                onChange={(e) => setForm({ ...form, date: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="dashboard-event-start">Start</Label>
+                <Input
+                  id="dashboard-event-start"
+                  type="time"
+                  value={form.startTime}
+                  onChange={(e) =>
+                    setForm({ ...form, startTime: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label htmlFor="dashboard-event-end">End</Label>
+                <Input
+                  id="dashboard-event-end"
+                  type="time"
+                  value={form.endTime}
+                  onChange={(e) =>
+                    setForm({ ...form, endTime: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="dashboard-event-location">Location</Label>
+              <Input
+                id="dashboard-event-location"
+                value={form.location}
+                onChange={(e) => setForm({ ...form, location: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="dashboard-event-category">Category</Label>
+              <select
+                id="dashboard-event-category"
+                className="h-12 w-full rounded-xl border bg-background px-3"
+                value={form.category}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    category: e.target.value as Event["category"],
+                  })
+                }
+              >
+                {[
+                  "school",
+                  "sport",
+                  "appointment",
+                  "birthday",
+                  "family",
+                  "other",
+                ].map((category) => (
+                  <option key={category} value={category}>
+                    {category[0]!.toUpperCase() + category.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="dashboard-event-description">Description</Label>
+              <Textarea
+                id="dashboard-event-description"
+                rows={3}
+                value={form.description}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
+              />
+            </div>
+            {familyMembers.length > 0 && (
+              <fieldset>
+                <legend className="mb-2 text-sm font-medium">
+                  Family members
+                </legend>
+                <div className="flex flex-wrap gap-2">
+                  {familyMembers.map((member) => {
+                    const selected = form.assignedMembers.includes(member.id);
+                    return (
+                      <button
+                        key={member.id}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            assignedMembers: selected
+                              ? form.assignedMembers.filter(
+                                  (id) => id !== member.id,
+                                )
+                              : [...form.assignedMembers, member.id],
+                          })
+                        }
+                        className={`rounded-full border px-3 py-1.5 text-sm ${selected ? "border-primary bg-primary/10" : "border-border"}`}
+                      >
+                        {member.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
+            {error && (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 rounded-xl"
+                onClick={() => setEditing(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1 rounded-xl"
+                disabled={updateEvent.isPending}
+              >
+                {updateEvent.isPending ? "Saving…" : "Save changes"}
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -451,6 +748,7 @@ export default function Dashboard() {
   const { data: allTimeBoard = [] } = useGetLeaderboard();
   const { data: weeklyBoard = [] } = useGetWeeklyLeaderboard();
   const [now, setNow] = useState(new Date());
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [leaderboardView, setLeaderboardView] = useState<"alltime" | "weekly">(
     "alltime",
   );
@@ -477,7 +775,9 @@ export default function Dashboard() {
           <CardContent className="flex flex-col items-center gap-3 p-6 text-center">
             <AlertCircle className="h-8 w-8 text-amber-600" />
             <div>
-              <h1 className="font-serif text-2xl font-bold">Dashboard unavailable</h1>
+              <h1 className="font-serif text-2xl font-bold">
+                Dashboard unavailable
+              </h1>
               <p className="mt-1 text-sm text-muted-foreground">
                 LunamHub could not load the latest family information.
               </p>
@@ -514,6 +814,11 @@ export default function Dashboard() {
 
   return (
     <>
+      <DashboardEventDialog
+        event={selectedEvent}
+        familyMembers={summary.familyMembers}
+        onClose={() => setSelectedEvent(null)}
+      />
       <div className="space-y-4 p-4 pb-0 md:hidden">
         <div>
           <p className="text-sm font-semibold text-muted-foreground">
@@ -549,36 +854,56 @@ export default function Dashboard() {
         <Card className="rounded-3xl border-0 bg-emerald-50 shadow-sm">
           <CardHeader className="flex-row items-center justify-between pb-2">
             <CardTitle className="text-base">Today's schedule</CardTitle>
-            <Link href="/calendar" className="text-xs font-bold text-primary">View calendar</Link>
+            <Link href="/calendar" className="text-xs font-bold text-primary">
+              View calendar
+            </Link>
           </CardHeader>
           <CardContent className="space-y-2">
             {summary.todayEvents.length ? (
-              summary.todayEvents.slice(0, 4).map((event) => (
-                <EventRow key={event.id} e={event} memberById={memberById} />
-              ))
+              summary.todayEvents
+                .slice(0, 4)
+                .map((event) => (
+                  <EventRow
+                    key={event.id}
+                    e={event}
+                    memberById={memberById}
+                    onClick={() => setSelectedEvent(event)}
+                  />
+                ))
             ) : (
-              <p className="py-2 text-sm text-muted-foreground">Nothing scheduled today.</p>
+              <p className="py-2 text-sm text-muted-foreground">
+                Nothing scheduled today.
+              </p>
             )}
           </CardContent>
         </Card>
         <Card className="rounded-3xl border-0 bg-blue-50 shadow-sm">
           <CardHeader className="flex-row items-center justify-between pb-2">
             <CardTitle className="text-base">Chores still to do</CardTitle>
-            <Link href="/chores" className="text-xs font-bold text-primary">View chores</Link>
+            <Link href="/chores" className="text-xs font-bold text-primary">
+              View chores
+            </Link>
           </CardHeader>
           <CardContent className="space-y-2">
             {todoChores.length ? (
               todoChores.slice(0, 4).map((chore) => (
-                <div key={chore.id} className="flex items-center gap-3 rounded-2xl bg-card p-3 shadow-sm">
+                <div
+                  key={chore.id}
+                  className="flex items-center gap-3 rounded-2xl bg-card p-3 shadow-sm"
+                >
                   <Clock className="h-4 w-4 shrink-0 text-amber-500" />
                   <div className="min-w-0 flex-1">
                     <b className="block truncate text-sm">{chore.title}</b>
-                    <small className="text-muted-foreground">{chore.assignedMember?.name ?? "Unassigned"}</small>
+                    <small className="text-muted-foreground">
+                      {chore.assignedMember?.name ?? "Unassigned"}
+                    </small>
                   </div>
                 </div>
               ))
             ) : (
-              <p className="py-2 text-sm text-muted-foreground">Everyone is caught up 🎉</p>
+              <p className="py-2 text-sm text-muted-foreground">
+                Everyone is caught up 🎉
+              </p>
             )}
           </CardContent>
         </Card>
@@ -666,7 +991,12 @@ export default function Dashboard() {
                     </p>
                   ) : (
                     summary.todayEvents.map((e) => (
-                      <EventRow key={e.id} e={e} memberById={memberById} />
+                      <EventRow
+                        key={e.id}
+                        e={e}
+                        memberById={memberById}
+                        onClick={() => setSelectedEvent(e)}
+                      />
                     ))
                   )}
 
@@ -677,7 +1007,12 @@ export default function Dashboard() {
                         Tomorrow's Events
                       </div>
                       {tomorrowEvents.slice(0, 5).map((e) => (
-                        <EventRow key={e.id} e={e} memberById={memberById} />
+                        <EventRow
+                          key={e.id}
+                          e={e}
+                          memberById={memberById}
+                          onClick={() => setSelectedEvent(e)}
+                        />
                       ))}
                       {tomorrowEvents.length > 5 && (
                         <div className="text-center py-1">
@@ -821,53 +1156,55 @@ export default function Dashboard() {
                         name: entry.name,
                         avatarUrl: entry.avatarUrl,
                         points:
-                          allTimeBoard.find((item) => item.memberId === entry.memberId)
-                            ?.pointsBalance ?? 0,
+                          allTimeBoard.find(
+                            (item) => item.memberId === entry.memberId,
+                          )?.pointsBalance ?? 0,
                         score: entry.weeklyPoints,
-                      })))
-                  .map((entry, index) => {
-                    const member = summary.familyMembers.find(
-                      (item) => item.id === entry.memberId,
-                    );
-                    return (
-                      <div
-                        key={entry.memberId}
-                        className="bg-card rounded-xl p-3 shadow-sm flex items-center gap-3"
-                      >
-                        <div className="text-xl w-7 text-center font-bold shrink-0">
-                          {rankMedal(index)}
+                      }))
+                ).map((entry, index) => {
+                  const member = summary.familyMembers.find(
+                    (item) => item.id === entry.memberId,
+                  );
+                  return (
+                    <div
+                      key={entry.memberId}
+                      className="bg-card rounded-xl p-3 shadow-sm flex items-center gap-3"
+                    >
+                      <div className="text-xl w-7 text-center font-bold shrink-0">
+                        {rankMedal(index)}
+                      </div>
+                      <MemberAvatar
+                        name={entry.name}
+                        avatarUrl={entry.avatarUrl}
+                        className="h-10 w-10"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-sm flex items-center truncate">
+                          {entry.name}
+                          {member && <ChildBadgeIcons memberId={member.id} />}
                         </div>
-                        <MemberAvatar
-                          name={entry.name}
-                          avatarUrl={entry.avatarUrl}
-                          className="h-10 w-10"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold text-sm flex items-center truncate">
-                            {entry.name}
-                            {member && <ChildBadgeIcons memberId={member.id} />}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            <span className="text-primary font-semibold">
-                              {entry.points} pts
-                            </span>
-                            <span className="mx-1 text-border">·</span>
-                            available
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <div className="font-bold text-base leading-tight">
-                            {leaderboardView === "weekly" ? "+" : ""}
-                            {entry.score}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">
-                            {leaderboardView === "weekly" ? "this wk" : "score"}
-                          </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          <span className="text-primary font-semibold">
+                            {entry.points} pts
+                          </span>
+                          <span className="mx-1 text-border">·</span>
+                          available
                         </div>
                       </div>
-                    );
-                  })}
-                {(leaderboardView === "alltime" ? allTimeBoard : weeklyBoard).length === 0 && (
+                      <div className="text-right shrink-0">
+                        <div className="font-bold text-base leading-tight">
+                          {leaderboardView === "weekly" ? "+" : ""}
+                          {entry.score}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                          {leaderboardView === "weekly" ? "this wk" : "score"}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {(leaderboardView === "alltime" ? allTimeBoard : weeklyBoard)
+                  .length === 0 && (
                   <p className="text-muted-foreground text-sm text-center py-4">
                     No data yet.
                   </p>

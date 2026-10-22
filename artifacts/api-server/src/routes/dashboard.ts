@@ -77,6 +77,7 @@ router.get("/summary", async (req, res) => {
     id: e.id,
     title: e.title,
     description: e.description ?? null,
+    location: e.location ?? null,
     date: e.date,
     startTime: e.startTime ?? null,
     endTime: e.endTime ?? null,
