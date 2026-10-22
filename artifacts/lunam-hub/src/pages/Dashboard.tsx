@@ -464,7 +464,9 @@ function EventRow({
         )}
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-sm truncate">{e.title}</div>
-          {e.startTime && (
+          {e.allDay || !e.startTime ? (
+            <div className="mt-0.5 text-xs text-muted-foreground">All day</div>
+          ) : (
             <div className="text-xs text-muted-foreground mt-0.5">
               {fmt12(e.startTime)}
               {e.endTime ? ` – ${fmt12(e.endTime)}` : ""}
@@ -1110,7 +1112,7 @@ export default function Dashboard() {
             <ChevronRight className="h-5 w-5" />
           </Link>
         )}
-        <Card className="rounded-3xl border-0 bg-emerald-50 shadow-sm">
+        <Card className="rounded-3xl border-0 bg-schedule shadow-sm">
           <CardHeader className="flex-row items-center justify-between pb-2">
             <CardTitle className="text-base">Today's schedule</CardTitle>
             <Link href="/calendar" className="text-xs font-bold text-primary">

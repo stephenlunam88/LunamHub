@@ -14,6 +14,7 @@
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
   --color-card-border: hsl(var(--card-border));
+  --color-schedule: hsl(var(--schedule));
 
   --color-popover: hsl(var(--popover));
   --color-popover-foreground: hsl(var(--popover-foreground));
@@ -55,6 +56,7 @@
   --card: 0 0% 100%;
   --card-foreground: 220 20% 14%;
   --card-border: 214 32% 91%;
+  --schedule: 145 45% 93%;
 
   --popover: 0 0% 100%;
   --popover-foreground: 220 20% 14%;
@@ -90,6 +92,7 @@
   --card: 220 20% 14%;
   --card-foreground: 210 40% 96%;
   --card-border: 220 20% 20%;
+  --schedule: 152 28% 18%;
 
   --popover: 220 20% 14%;
   --popover-foreground: 210 40% 96%;
