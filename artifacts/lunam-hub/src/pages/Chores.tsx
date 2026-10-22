@@ -46,6 +46,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MemberAvatar, MemberOption } from "@/components/MemberAvatar";
+import { ChoreTimeSlot } from "@/components/ChoreTimeSlot";
 import {
   CheckCircle2,
   Plus,
@@ -2315,11 +2316,7 @@ export default function Chores() {
                             {recurrenceSummary(c)}
                           </Badge>
                         )}
-                        {c.duePeriod && (
-                          <Badge variant="outline" className="text-xs capitalize">
-                            {c.duePeriod}
-                          </Badge>
-                        )}
+                        <ChoreTimeSlot period={c.duePeriod} />
                       </div>
                     </div>
                   </div>
@@ -2537,6 +2534,7 @@ export default function Chores() {
                     <div className="font-semibold text-muted-foreground line-through leading-tight">
                       {c.title}
                     </div>
+                    <ChoreTimeSlot period={c.duePeriod} className="mt-1" />
                     <div className="text-xs text-muted-foreground mt-0.5">
                       Not completed by {c.dueDate}
                     </div>
@@ -2572,6 +2570,7 @@ export default function Chores() {
                   <div className="min-w-0 flex-1">
                     {member && <div className="text-sm font-bold text-slate-600">{member.name}</div>}
                     <div className="font-semibold text-slate-700">{c.title}</div>
+                    <ChoreTimeSlot period={c.duePeriod} className="mt-1" />
                     <div className="text-xs text-muted-foreground">
                       Away · {c.dueDate}{parent ? ` · marked by ${parent.name}` : ""}
                     </div>
@@ -2595,6 +2594,7 @@ export default function Chores() {
                   <div className="min-w-0 flex-1">
                     {member && <div className="text-sm font-bold text-amber-800">{member.name}</div>}
                     <div className="font-semibold text-amber-900">{c.title}</div>
+                    <ChoreTimeSlot period={c.duePeriod} className="mt-1" />
                     <div className="text-xs text-muted-foreground">Skipped · {c.dueDate}{parent ? ` · marked by ${parent.name}` : ""}</div>
                   </div>
                   <Badge variant="outline" className="border-amber-300 text-amber-800">Skipped</Badge>

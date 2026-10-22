@@ -16,6 +16,7 @@ import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MemberAvatar } from "@/components/MemberAvatar";
+import { ChoreTimeSlot } from "@/components/ChoreTimeSlot";
 import { WeatherWidget } from "@/components/WeatherWidget";
 import { Button } from "@/components/ui/button";
 import {
@@ -321,9 +322,12 @@ function ChoresWidget({
                       className="bg-card rounded-xl px-3 py-2.5 flex items-center gap-2 shadow-sm"
                     >
                       <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                      <span className="flex-1 text-sm font-medium truncate">
-                        {c.title}
-                      </span>
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">
+                          {c.title}
+                        </span>
+                        <ChoreTimeSlot period={c.duePeriod} className="mt-1" />
+                      </div>
                       <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full shrink-0">
                         {c.pointsValue} pts
                       </span>
@@ -335,9 +339,10 @@ function ChoresWidget({
                       className="bg-card rounded-xl px-3 py-2.5 flex items-center gap-2 shadow-sm"
                     >
                       <Star className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                      <span className="flex-1 text-sm font-medium truncate">
-                        {c.title}
-                      </span>
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">{c.title}</span>
+                        <ChoreTimeSlot period={c.duePeriod} className="mt-1" />
+                      </div>
                       <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full shrink-0">
                         waiting
                       </span>
@@ -349,9 +354,10 @@ function ChoresWidget({
                       className="bg-card/60 rounded-xl px-3 py-2.5 flex items-center gap-2 opacity-60"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
-                      <span className="flex-1 text-sm truncate line-through">
-                        {c.title}
-                      </span>
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate text-sm line-through">{c.title}</span>
+                        <ChoreTimeSlot period={c.duePeriod} className="mt-1" />
+                      </div>
                       <span className="text-xs font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full shrink-0">
                         {c.pointsValue} pts
                       </span>
@@ -1155,9 +1161,12 @@ export default function Dashboard() {
                   <Clock className="h-4 w-4 shrink-0 text-amber-500" />
                   <div className="min-w-0 flex-1">
                     <b className="block truncate text-sm">{chore.title}</b>
-                    <small className="text-muted-foreground">
-                      {chore.assignedMember?.name ?? "Unassigned"}
-                    </small>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <small className="text-muted-foreground">
+                        {chore.assignedMember?.name ?? "Unassigned"}
+                      </small>
+                      <ChoreTimeSlot period={chore.duePeriod} />
+                    </div>
                   </div>
                 </div>
               ))
@@ -1326,6 +1335,7 @@ export default function Dashboard() {
                           <div className="text-sm font-medium truncate">
                             {c.title}
                           </div>
+                          <ChoreTimeSlot period={c.duePeriod} className="mt-1" />
                         </div>
                         <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full shrink-0">
                           {c.pointsValue} pts
@@ -1347,6 +1357,7 @@ export default function Dashboard() {
                           <div className="text-sm font-medium truncate">
                             {c.title}
                           </div>
+                          <ChoreTimeSlot period={c.duePeriod} className="mt-1" />
                         </div>
                         <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full shrink-0">
                           waiting
@@ -1363,6 +1374,7 @@ export default function Dashboard() {
                           <div className="text-sm truncate line-through">
                             {c.title}
                           </div>
+                          <ChoreTimeSlot period={c.duePeriod} className="mt-1" />
                         </div>
                       </div>
                     ))}
