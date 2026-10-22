@@ -1,4 +1,4 @@
-import { Moon, Sun, Sunset } from "lucide-react";
+import { Clock3, Moon, Sun, Sunset } from "lucide-react";
 
 const TIME_SLOT_STYLES = {
   morning: {
@@ -16,6 +16,11 @@ const TIME_SLOT_STYLES = {
     Icon: Moon,
     className: "border-violet-200 bg-violet-50 text-violet-800",
   },
+  anytime: {
+    label: "Anytime",
+    Icon: Clock3,
+    className: "border-slate-200 bg-slate-50 text-slate-600",
+  },
 } as const;
 
 export function ChoreTimeSlot({
@@ -25,8 +30,8 @@ export function ChoreTimeSlot({
   period?: "morning" | "afternoon" | "evening" | null;
   className?: string;
 }) {
-  if (!period) return null;
-  const { label, Icon, className: tone } = TIME_SLOT_STYLES[period];
+  const { label, Icon, className: tone } =
+    TIME_SLOT_STYLES[period ?? "anytime"];
 
   return (
     <span

@@ -135,6 +135,7 @@ router.get("/summary", async (req, res) => {
         : undefined,
       dueDate: i.dueDate,
       repeatType: i.repeatType,
+      duePeriod: i.duePeriod,
       pointsValue: i.pointsValue,
       status: i.status,
       pointsAwarded: i.pointsAwarded,
