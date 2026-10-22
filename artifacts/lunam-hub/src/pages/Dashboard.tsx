@@ -22,6 +22,7 @@ import {
   X,
   ChevronRight,
   CalendarClock,
+  MapPin,
   Dice5,
   CheckSquare,
   List,
@@ -428,6 +429,12 @@ function EventRow({
             <div className="text-xs text-muted-foreground mt-0.5">
               {fmt12(e.startTime)}
               {e.endTime ? ` – ${fmt12(e.endTime)}` : ""}
+            </div>
+          )}
+          {e.location && (
+            <div className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+              <MapPin aria-hidden="true" className="h-3 w-3 shrink-0" />
+              <span className="truncate">{e.location}</span>
             </div>
           )}
         </div>
