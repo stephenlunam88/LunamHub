@@ -1025,7 +1025,7 @@ export default function Calendar() {
           if (!v) setEditingEventId(null);
         }}
       >
-        <DialogContent className="rounded-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="rounded-3xl max-h-[90dvh] overflow-x-hidden overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingOccurrence
@@ -1053,7 +1053,7 @@ export default function Calendar() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, title: e.target.value }))
                 }
-                className="rounded-xl h-12"
+                className="h-12 min-w-0 max-w-full rounded-xl"
                 placeholder="Event name"
               />
             </div>
@@ -1064,7 +1064,7 @@ export default function Calendar() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, description: e.target.value }))
                 }
-                className="rounded-xl resize-none"
+                className="min-w-0 max-w-full rounded-xl resize-none"
                 rows={3}
                 placeholder="Notes or details (optional)"
               />
@@ -1076,7 +1076,7 @@ export default function Calendar() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, location: e.target.value }))
                 }
-                className="rounded-xl h-12"
+                className="h-12 min-w-0 max-w-full rounded-xl"
                 placeholder="Address or place name (optional)"
               />
             </div>
@@ -1088,11 +1088,11 @@ export default function Calendar() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, date: e.target.value }))
                 }
-                className="rounded-xl h-12"
+                className="h-12 min-w-0 max-w-full rounded-xl"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
+              <div className="min-w-0">
                 <Label>Start</Label>
                 <Input
                   type="time"
@@ -1104,10 +1104,10 @@ export default function Calendar() {
                       allDay: !e.target.value,
                     }))
                   }
-                  className="rounded-xl h-12"
+                  className="h-12 w-full min-w-0 max-w-full rounded-xl"
                 />
               </div>
-              <div>
+              <div className="min-w-0">
                 <Label>End</Label>
                 <Input
                   type="time"
@@ -1115,7 +1115,7 @@ export default function Calendar() {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, endTime: e.target.value }))
                   }
-                  className="rounded-xl h-12"
+                  className="h-12 w-full min-w-0 max-w-full rounded-xl"
                 />
               </div>
             </div>

@@ -981,7 +981,7 @@ function RecordGameDialog({
           )}
         </div>
         {step < 4 && (
-          <div className="flex items-center justify-between border-t bg-background px-6 py-4">
+          <div className="flex min-h-16 shrink-0 items-center justify-between border-t bg-background px-6 py-2">
             <Button
               variant="ghost"
               className="h-12 rounded-xl"
