@@ -110,7 +110,68 @@ async function directGCal(
   }
 }
 
-/** Log only structured Google failure codes; never log event bodies or tokens. */
+/** Return a fixed, non-sensitive classification of Google's error message. */
+function safeGoogleMessageHint(message: unknown): string | undefined {
+  if (typeof message !== "string") return undefined;
+  const normalized = message.toLowerCase();
+
+  if (/both .*date.*datetime|date.*and.*datetime/.test(normalized)) {
+    return "date_datetime_conflict";
+  }
+  if (
+    /start.*end.*(together|both|required)|(?:together|both|required).*start.*end/.test(
+      normalized,
+    )
+  ) {
+    return "incomplete_start_end_pair";
+  }
+  if (
+    /(invalid|unsupported|unknown|not valid)/.test(normalized) &&
+    /time.?zone/.test(normalized)
+  ) {
+    return "invalid_time_zone";
+  }
+  if (
+    /(invalid|unsupported|not valid|must|required)/.test(normalized) &&
+    /(recurrence|rrule|until|byday)/.test(normalized)
+  ) {
+    return "invalid_recurrence";
+  }
+
+  // Google sometimes names the rejected field only in `error.message`, rather
+  // than in `errors[].location`. Emit the field name only when it is allowlisted.
+  const safeFields = [
+    "start.dateTime",
+    "start.timeZone",
+    "start.date",
+    "end.dateTime",
+    "end.timeZone",
+    "end.date",
+    "start",
+    "end",
+    "summary",
+    "description",
+    "location",
+    "recurrence",
+    "attendees",
+    "reminders",
+  ];
+  for (const field of safeFields) {
+    if (
+      normalized.includes(field.toLowerCase()) &&
+      /(invalid|must|required|cannot|should|not valid|unsupported)/.test(
+        normalized,
+      )
+    ) {
+      return `invalid_google_field:${field}`;
+    }
+  }
+
+  if (/invalid|bad request/.test(normalized)) return "google_invalid_request";
+  return undefined;
+}
+
+/** Log only structured Google failure codes and fixed hints; never log event bodies or tokens. */
 async function googleFailureDetails(response: Response | null) {
   if (!response) return { httpStatus: null, googleStatus: "NO_RESPONSE" };
   const safeFields = new Set([
@@ -135,6 +196,7 @@ async function googleFailureDetails(response: Response | null) {
     .catch(() => undefined)) as
     | {
         error?: {
+          message?: unknown;
           status?: unknown;
           errors?: Array<{ reason?: unknown; location?: unknown }>;
         };
@@ -151,10 +213,12 @@ async function googleFailureDetails(response: Response | null) {
     typeof rawLocation === "string"
       ? rawLocation.replace(/^(resource|event)\./, "")
       : undefined;
+  const googleMessageHint = safeGoogleMessageHint(payload?.error?.message);
   return {
     httpStatus: response.status,
     ...(typeof googleStatus === "string" ? { googleStatus } : {}),
     ...(typeof googleReason === "string" ? { googleReason } : {}),
+    ...(googleMessageHint ? { googleMessageHint } : {}),
     ...(normalizedLocation && safeFields.has(normalizedLocation)
       ? { googleField: normalizedLocation }
       : {}),
