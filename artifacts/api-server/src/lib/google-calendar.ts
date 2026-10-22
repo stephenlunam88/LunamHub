@@ -110,6 +110,31 @@ async function directGCal(
   }
 }
 
+/** Log only structured Google failure codes; never log event bodies or tokens. */
+async function googleFailureDetails(response: Response | null) {
+  if (!response) return { httpStatus: null, googleStatus: "NO_RESPONSE" };
+  const payload = (await response
+    .clone()
+    .json()
+    .catch(() => undefined)) as
+    | {
+        error?: {
+          status?: unknown;
+          errors?: Array<{ reason?: unknown }>;
+        };
+      }
+    | undefined;
+  const googleStatus = payload?.error?.status;
+  const googleReason = payload?.error?.errors?.find(
+    (item) => typeof item.reason === "string",
+  )?.reason;
+  return {
+    httpStatus: response.status,
+    ...(typeof googleStatus === "string" ? { googleStatus } : {}),
+    ...(typeof googleReason === "string" ? { googleReason } : {}),
+  };
+}
+
 // Legacy no-op — Replit connector discovery is replaced by direct OAuth redirect.
 // Kept so events.ts route signatures don't need to change.
 export async function discoverAndStoreConnectionId(): Promise<string | null> {
@@ -350,7 +375,7 @@ export async function createGCalEvent(event: {
     body,
   });
   if (!resp || resp.status < 200 || resp.status >= 300) {
-    logger.warn({ status: resp?.status }, "gcal: createEvent failed");
+    logger.warn(await googleFailureDetails(resp), "gcal: createEvent failed");
     throw new Error(
       "Google Calendar could not save this event. Please retry or reconnect in Admin.",
     );
@@ -415,10 +440,12 @@ export async function updateGCalEvent(
     `/calendars/primary/events/${encodeURIComponent(googleEventId)}`,
     { method: "PATCH", body },
   );
-  if (!resp?.ok)
+  if (!resp?.ok) {
+    logger.warn(await googleFailureDetails(resp), "gcal: updateEvent failed");
     throw new Error(
       "Google Calendar could not update this event. Your changes have not been saved.",
     );
+  }
 }
 
 /**
@@ -502,6 +529,7 @@ export async function deleteGCalEvent(googleEventId: string): Promise<void> {
     { method: "DELETE" },
   );
   if (!resp || (!resp.ok && resp.status !== 404 && resp.status !== 410)) {
+    logger.warn(await googleFailureDetails(resp), "gcal: deleteEvent failed");
     throw new Error(
       "Google Calendar could not delete this event. Please retry; it has been kept locally.",
     );
