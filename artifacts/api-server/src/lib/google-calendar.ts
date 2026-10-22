@@ -113,6 +113,22 @@ async function directGCal(
 /** Log only structured Google failure codes; never log event bodies or tokens. */
 async function googleFailureDetails(response: Response | null) {
   if (!response) return { httpStatus: null, googleStatus: "NO_RESPONSE" };
+  const safeFields = new Set([
+    "summary",
+    "description",
+    "location",
+    "start",
+    "start.date",
+    "start.dateTime",
+    "start.timeZone",
+    "end",
+    "end.date",
+    "end.dateTime",
+    "end.timeZone",
+    "recurrence",
+    "attendees",
+    "reminders",
+  ]);
   const payload = (await response
     .clone()
     .json()
@@ -120,7 +136,7 @@ async function googleFailureDetails(response: Response | null) {
     | {
         error?: {
           status?: unknown;
-          errors?: Array<{ reason?: unknown }>;
+          errors?: Array<{ reason?: unknown; location?: unknown }>;
         };
       }
     | undefined;
@@ -128,10 +144,20 @@ async function googleFailureDetails(response: Response | null) {
   const googleReason = payload?.error?.errors?.find(
     (item) => typeof item.reason === "string",
   )?.reason;
+  const rawLocation = payload?.error?.errors?.find(
+    (item) => typeof item.location === "string",
+  )?.location;
+  const normalizedLocation =
+    typeof rawLocation === "string"
+      ? rawLocation.replace(/^(resource|event)\./, "")
+      : undefined;
   return {
     httpStatus: response.status,
     ...(typeof googleStatus === "string" ? { googleStatus } : {}),
     ...(typeof googleReason === "string" ? { googleReason } : {}),
+    ...(normalizedLocation && safeFields.has(normalizedLocation)
+      ? { googleField: normalizedLocation }
+      : {}),
   };
 }
 
