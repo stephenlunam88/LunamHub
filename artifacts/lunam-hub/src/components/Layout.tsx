@@ -15,7 +15,6 @@ import {
   MessageCircle,
   MonitorPlay,
   Plus,
-  Repeat2,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -30,7 +29,6 @@ const NAV_ITEMS = [
   { href: "/", label: "Today", icon: Home },
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/chores", label: "Chores", icon: CheckSquare },
-  { href: "/routines", label: "Routines", icon: Repeat2 },
   { href: "/rewards", label: "Rewards", icon: Gift },
   { href: "/lists", label: "Lists", icon: List },
   { href: "/games", label: "Games", icon: Dice5 },

@@ -59,13 +59,17 @@ export default function Display() {
     const themeMeta = document.querySelector('meta[name="theme-color"]');
     const prevHtmlBg = html.style.backgroundColor;
     const prevBodyBg = body.style.backgroundColor;
+    const prevHtmlBgPriority = html.style.getPropertyPriority("background-color");
+    const prevBodyBgPriority = body.style.getPropertyPriority("background-color");
     const prevTheme  = themeMeta?.getAttribute("content") ?? null;
-    html.style.backgroundColor = "black";
-    body.style.backgroundColor = "black";
+    // Standalone iPad navigation sets a white !important document surface.
+    // The screensaver must override it so the bottom safe-area is black too.
+    html.style.setProperty("background-color", "black", "important");
+    body.style.setProperty("background-color", "black", "important");
     themeMeta?.setAttribute("content", "#000000");
     return () => {
-      html.style.backgroundColor = prevHtmlBg;
-      body.style.backgroundColor = prevBodyBg;
+      html.style.setProperty("background-color", prevHtmlBg, prevHtmlBgPriority);
+      body.style.setProperty("background-color", prevBodyBg, prevBodyBgPriority);
       if (prevTheme !== null) themeMeta?.setAttribute("content", prevTheme);
     };
   }, []);
