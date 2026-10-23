@@ -19,6 +19,7 @@ import { MemberAvatar } from "@/components/MemberAvatar";
 import { ChoreTimeSlot } from "@/components/ChoreTimeSlot";
 import { WeatherWidget } from "@/components/WeatherWidget";
 import { Button } from "@/components/ui/button";
+import { EventNavigateButton } from "@/components/EventNavigateButton";
 import {
   Dialog,
   DialogContent,
@@ -704,6 +705,7 @@ function DashboardEventDialog({
                   </p>
                 )}
               </div>
+              <EventNavigateButton location={event.location} />
               <Link
                 href="/calendar"
                 className="block text-center text-sm font-semibold text-primary underline-offset-4 hover:underline"
