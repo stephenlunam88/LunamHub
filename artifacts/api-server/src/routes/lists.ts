@@ -1,10 +1,11 @@
 // Shared lists routes — mounted at /api/lists
 // Handles list CRUD and list item CRUD including assignment and completion
 
-import { Router } from "express";
+import { Router, type ErrorRequestHandler } from "express";
 import { db } from "@workspace/db";
 import { listsTable, listItemsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { z, ZodError } from "zod";
 import {
   CreateListBody,
   UpdateListBody,
@@ -19,6 +20,10 @@ import {
 } from "@workspace/api-zod";
 
 const router = Router();
+const CreateListRequest = CreateListBody.extend({
+  name: z.string().trim().min(1),
+  category: CreateListBody.shape.category.default("other"),
+});
 
 function formatList(l: typeof listsTable.$inferSelect) {
   return {
@@ -49,7 +54,7 @@ router.get("/", async (_req, res) => {
 
 // POST /api/lists
 router.post("/", async (req, res) => {
-  const body = CreateListBody.parse(req.body);
+  const body = CreateListRequest.parse(req.body);
   const [list] = await db.insert(listsTable).values(body).returning();
   res.status(201).json(formatList(list));
 });
@@ -75,8 +80,18 @@ router.patch("/:id", async (req, res) => {
 // DELETE /api/lists/:id
 router.delete("/:id", async (req, res) => {
   const { id } = DeleteListParams.parse({ id: Number(req.params.id) });
-  await db.delete(listsTable).where(eq(listsTable.id, id));
+  const [deleted] = await db.delete(listsTable).where(eq(listsTable.id, id)).returning({ id: listsTable.id });
+  if (!deleted) { res.status(404).json({ error: "List not found" }); return; }
   res.status(204).send();
+});
+
+// GET /api/lists/:listId/items — also used by the ChatGPT connection
+router.get("/:listId/items", async (req, res) => {
+  const { id } = GetListParams.parse({ id: Number(req.params.listId) });
+  const [list] = await db.select({ id: listsTable.id }).from(listsTable).where(eq(listsTable.id, id));
+  if (!list) { res.status(404).json({ error: "List not found" }); return; }
+  const items = await db.select().from(listItemsTable).where(eq(listItemsTable.listId, id)).orderBy(listItemsTable.createdAt);
+  res.json(items.map(formatItem));
 });
 
 // POST /api/lists/:listId/items
@@ -94,7 +109,7 @@ router.patch("/:listId/items/:itemId", async (req, res) => {
     itemId: Number(req.params.itemId),
   });
   const body = UpdateListItemBody.parse(req.body);
-  const [item] = await db.update(listItemsTable).set(body).where(eq(listItemsTable.id, itemId)).returning();
+  const [item] = await db.update(listItemsTable).set(body).where(and(eq(listItemsTable.id, itemId), eq(listItemsTable.listId, listId))).returning();
   if (!item) { res.status(404).json({ error: "Not found" }); return; }
   res.json(formatItem(item));
 });
@@ -105,8 +120,18 @@ router.delete("/:listId/items/:itemId", async (req, res) => {
     listId: Number(req.params.listId),
     itemId: Number(req.params.itemId),
   });
-  await db.delete(listItemsTable).where(eq(listItemsTable.id, itemId));
+  const [deleted] = await db.delete(listItemsTable).where(and(eq(listItemsTable.id, itemId), eq(listItemsTable.listId, listId))).returning({ id: listItemsTable.id });
+  if (!deleted) { res.status(404).json({ error: "List item not found" }); return; }
   res.status(204).send();
 });
+
+const handleValidationError: ErrorRequestHandler = (error, _req, res, next) => {
+  if (error instanceof ZodError) {
+    res.status(400).json({ error: "Invalid list request", issues: error.issues });
+    return;
+  }
+  next(error);
+};
+router.use(handleValidationError);
 
 export { router as listsRouter };

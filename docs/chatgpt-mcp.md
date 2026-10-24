@@ -24,4 +24,15 @@ The general API tools are restricted to household feature routes. Authentication
 
 The API tools execute writes when called; the MCP client may ask for its own approval. The assistant must only delete an identified item after a clear user request, and must clarify whether a recurring calendar event means one occurrence or the entire series.
 
+## Lists
+
+- Read `/lists` to resolve the current list ID. Read `/lists/{id}` for the list and its items, or `/lists/{id}/items` for just the items.
+- Create a list with `POST /lists` and a body such as `{"name":"Shopping","category":"grocery"}`. Category can be `grocery`, `packing`, `school`, `reminders`, or `other`; omitting it defaults to `other`.
+- Add an item with `POST /lists/{id}/items` and `{"text":"Milk"}`.
+- Delete the entire list and all its items with `DELETE /lists/{id}`. Delete one item with `DELETE /lists/{id}/items/{itemId}`. Missing IDs return 404, and item updates/deletions must use the item's actual parent list.
+
+The Lists screen refreshes every 15 seconds while open so changes made through ChatGPT appear without a manual reload.
+
+The list/MCP regression test uses an isolated PostgreSQL database and creates and drops only its own randomly named schema. Run it with `LISTS_TEST_DATABASE_URL` pointing to a disposable test database: `pnpm --filter @workspace/api-server exec node --import tsx --test test/lists.test.ts`.
+
 This is a private household connector, not a publicly submitted ChatGPT app. After deployment, test OAuth discovery, consent, token refresh/revocation, and each tool through the ChatGPT connector or MCP Inspector before relying on it for family scheduling.

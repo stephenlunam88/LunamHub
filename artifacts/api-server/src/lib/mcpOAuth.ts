@@ -1322,7 +1322,7 @@ export function createLunamMcpServer(auth: AuthInfo) {
     {
       title: "Create or update LunamHub data",
       description:
-        "Create or update household data through LunamHub's supported APIs. method must be POST, PATCH, or PUT. Supply a supported API path, optional query, and JSON body. This executes the change when called, so only call it after the user clearly requests that change. Never use it for DELETE; use delete_lunamhub_api instead. Do not use authentication, settings, Google account connection, camera, or file-storage paths.",
+        "Create or update household data through LunamHub's supported APIs. method must be POST, PATCH, or PUT. Supply a supported API path, optional query, and JSON body. Create a list with POST /lists and body {name, category}; category is grocery, packing, school, reminders, or other (default). Add an item with POST /lists/{listId}/items and body {text}. This executes the change when called, so only call it after the user clearly requests that change. Never use it for DELETE; use delete_lunamhub_api instead. Do not use authentication, settings, Google account connection, camera, or file-storage paths.",
       inputSchema: {
         method: z.enum(["POST", "PATCH", "PUT"]),
         path: McpApiPathSchema,
@@ -1347,7 +1347,7 @@ export function createLunamMcpServer(auth: AuthInfo) {
     {
       title: "Delete LunamHub household data",
       description:
-        "Delete a specific household item through LunamHub's supported APIs. Only call after the user clearly asks to delete/remove the identified item; if more than one match exists, ask which one. For a recurring calendar event, clarify whether they mean one occurrence or the entire series. Use a path such as /events/42, /chores/12, /lists/2/items/7, or /meals/4. Deletion happens immediately when called. Do not use authentication, settings, Google account connection, camera, or file-storage paths.",
+        "Delete a specific household item through LunamHub's supported APIs. Only call after the user clearly asks to delete/remove the identified item; if more than one match exists, ask which one. For a recurring calendar event, clarify whether they mean one occurrence or the entire series. Delete an entire list and its items with /lists/{listId}; delete only one item with /lists/{listId}/items/{itemId}. Other examples: /events/42, /chores/12, or /meals/4. Resolve IDs from current read results before deleting. Deletion happens immediately when called. Do not use authentication, settings, Google account connection, camera, or file-storage paths.",
       inputSchema: {
         path: McpApiPathSchema,
         query: McpApiQuerySchema,

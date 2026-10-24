@@ -33,6 +33,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, List, ShoppingCart, School, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
+import { useToast } from "@/hooks/use-toast";
 import type { SharedListInput } from "@workspace/api-client-react";
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -53,14 +54,27 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function Lists() {
   const qc = useQueryClient();
-  const { data: lists = [] } = useListLists();
+  const { toast } = useToast();
+  const listsQuery = useListLists({ query: { queryKey: getListListsQueryKey(), refetchInterval: 15_000 } });
+  const { data: lists = [] } = listsQuery;
   const [selectedListId, setSelectedListId] = useState<number | null>(null);
-  const { data: selectedList } = useGetList(selectedListId ?? 0, {
+  const selectedListQuery = useGetList(selectedListId ?? 0, {
     query: {
       enabled: selectedListId !== null,
       queryKey: getGetListQueryKey(selectedListId ?? 0),
+      refetchInterval: 15_000,
+      retry: (attempt, error) => error.status !== 404 && attempt < 2,
     },
   });
+  const { data: selectedList } = selectedListQuery;
+
+  useEffect(() => {
+    if (selectedListQuery.error?.status !== 404 || selectedListId === null) return;
+    // A different device or ChatGPT may have deleted the open list.
+    qc.removeQueries({ queryKey: getGetListQueryKey(selectedListId), exact: true });
+    setSelectedListId(null);
+    void qc.invalidateQueries({ queryKey: getListListsQueryKey() });
+  }, [selectedListQuery.error, selectedListId, qc]);
   const [listOpen, setListOpen] = useState(
     new URLSearchParams(window.location.search).get("quick") === "add",
   );
@@ -101,9 +115,15 @@ export default function Lists() {
     qc.invalidateQueries({ queryKey: getListListsQueryKey() });
   const invalidateList = (id: number) =>
     qc.invalidateQueries({ queryKey: getGetListQueryKey(id) });
+  const showMutationError = () => toast({
+    title: "Could not update lists",
+    description: "Refresh to check the latest list, then try again.",
+    variant: "destructive",
+  });
 
   const createList = useCreateList({
     mutation: {
+      onError: showMutationError,
       onSuccess: (l) => {
         invalidateLists();
         setListOpen(false);
@@ -114,6 +134,7 @@ export default function Lists() {
   });
   const deleteList = useDeleteList({
     mutation: {
+      onError: showMutationError,
       onSuccess: () => {
         invalidateLists();
         setSelectedListId(null);
@@ -122,6 +143,7 @@ export default function Lists() {
   });
   const createItem = useCreateListItem({
     mutation: {
+      onError: showMutationError,
       onSuccess: () => {
         if (selectedListId) invalidateList(selectedListId);
         setNewItemText("");
@@ -130,6 +152,7 @@ export default function Lists() {
   });
   const updateItem = useUpdateListItem({
     mutation: {
+      onError: showMutationError,
       onSuccess: () => {
         if (selectedListId) invalidateList(selectedListId);
       },
@@ -137,6 +160,7 @@ export default function Lists() {
   });
   const deleteItem = useDeleteListItem({
     mutation: {
+      onError: showMutationError,
       onSuccess: () => {
         if (selectedListId) invalidateList(selectedListId);
       },
@@ -224,9 +248,16 @@ export default function Lists() {
         </Dialog>
       </header>
 
+      {(listsQuery.isError || selectedListQuery.isError) && (
+        <p role="alert" className="text-sm text-destructive">
+          Could not refresh lists. Please try again.
+        </p>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="space-y-3">
-          {lists.length === 0 && (
+          {listsQuery.isPending && <p className="text-muted-foreground">Loading lists…</p>}
+          {listsQuery.isSuccess && lists.length === 0 && (
             <p className="text-muted-foreground text-center py-12">
               No lists yet
             </p>
