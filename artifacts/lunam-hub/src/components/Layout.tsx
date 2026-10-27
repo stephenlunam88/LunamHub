@@ -16,6 +16,7 @@ import {
   MonitorPlay,
   Plus,
   Settings,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -24,6 +25,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 
 const NAV_ITEMS = [
   { href: "/", label: "Today", icon: Home },
@@ -212,12 +220,25 @@ export function Layout({ children }: { children: ReactNode }) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={moreOpen} onOpenChange={setMoreOpen}>
-        <DialogContent className="bottom-0 top-auto translate-y-0 rounded-b-none rounded-t-3xl p-5 sm:top-1/2 sm:max-w-sm sm:-translate-y-1/2 sm:rounded-3xl">
-          <DialogHeader>
-            <DialogTitle className="font-serif text-2xl">More</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-3">
+      <Drawer
+        open={moreOpen}
+        onOpenChange={setMoreOpen}
+        shouldScaleBackground={false}
+      >
+        <DrawerContent className="max-h-[85dvh] rounded-t-3xl">
+          <DrawerHeader className="relative px-5 pb-3 pt-4 text-left">
+            <DrawerTitle className="font-serif text-2xl">More</DrawerTitle>
+            <DrawerClose asChild>
+              <button
+                type="button"
+                className="absolute right-4 top-2 flex min-h-11 min-w-11 items-center justify-center rounded-full text-muted-foreground"
+                aria-label="Close More menu"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </DrawerClose>
+          </DrawerHeader>
+          <div className="grid grid-cols-2 gap-3 overflow-y-auto px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
             <button
               onClick={() => {
                 setMoreOpen(false);
@@ -254,8 +275,8 @@ export function Layout({ children }: { children: ReactNode }) {
               );
             })}
           </div>
-        </DialogContent>
-      </Dialog>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }
