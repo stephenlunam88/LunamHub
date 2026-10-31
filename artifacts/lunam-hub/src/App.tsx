@@ -18,6 +18,7 @@ import Display from "@/pages/Display";
 import GamesNight from "@/pages/GamesNight";
 import Assistant from "@/pages/Assistant";
 import Cameras from "@/pages/Cameras";
+import { About, Privacy, Terms } from "@/pages/PublicInfo";
 import {
   useGetSettings,
   getGetSettingsQueryKey,
@@ -100,14 +101,26 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function AppRoutes() {
+  const [location] = useLocation();
+
+  if (location === "/about") return <About />;
+  if (location === "/privacy") return <Privacy />;
+  if (location === "/terms") return <Terms />;
+
+  return (
+    <AuthGate>
+      <Router />
+    </AuthGate>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <AuthGate>
-            <Router />
-          </AuthGate>
+          <AppRoutes />
         </WouterRouter>
         <Toaster />
       </TooltipProvider>
