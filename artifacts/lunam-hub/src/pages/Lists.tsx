@@ -3,6 +3,7 @@ import {
   useListLists,
   useGetList,
   useCreateList,
+  useUpdateList,
   useDeleteList,
   useCreateListItem,
   useUpdateListItem,
@@ -30,7 +31,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Trash2, List, ShoppingCart, School, Bell } from "lucide-react";
+import {
+  CheckSquare2,
+  List,
+  Pencil,
+  Plus,
+  School,
+  ShoppingCart,
+  Trash2,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -40,7 +50,7 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   grocery: <ShoppingCart className="w-5 h-5" />,
   school: <School className="w-5 h-5" />,
   packing: <span className="text-base">🧳</span>,
-  reminders: <Bell className="w-5 h-5" />,
+  reminders: <CheckSquare2 className="w-5 h-5" />,
   other: <List className="w-5 h-5" />,
 };
 
@@ -55,7 +65,9 @@ const CATEGORY_COLORS: Record<string, string> = {
 export default function Lists() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const listsQuery = useListLists({ query: { queryKey: getListListsQueryKey(), refetchInterval: 15_000 } });
+  const listsQuery = useListLists({
+    query: { queryKey: getListListsQueryKey(), refetchInterval: 15_000 },
+  });
   const { data: lists = [] } = listsQuery;
   const [selectedListId, setSelectedListId] = useState<number | null>(null);
   const selectedListQuery = useGetList(selectedListId ?? 0, {
@@ -69,9 +81,13 @@ export default function Lists() {
   const { data: selectedList } = selectedListQuery;
 
   useEffect(() => {
-    if (selectedListQuery.error?.status !== 404 || selectedListId === null) return;
+    if (selectedListQuery.error?.status !== 404 || selectedListId === null)
+      return;
     // A different device or ChatGPT may have deleted the open list.
-    qc.removeQueries({ queryKey: getGetListQueryKey(selectedListId), exact: true });
+    qc.removeQueries({
+      queryKey: getGetListQueryKey(selectedListId),
+      exact: true,
+    });
     setSelectedListId(null);
     void qc.invalidateQueries({ queryKey: getListListsQueryKey() });
   }, [selectedListQuery.error, selectedListId, qc]);
@@ -80,9 +96,13 @@ export default function Lists() {
   );
   const [listForm, setListForm] = useState<SharedListInput>({
     name: "",
-    category: "other",
+    category: "reminders",
   });
+  const [editingListName, setEditingListName] = useState(false);
+  const [listName, setListName] = useState("");
   const [newItemText, setNewItemText] = useState("");
+  const [editingItemId, setEditingItemId] = useState<number | null>(null);
+  const [editingItemText, setEditingItemText] = useState("");
   const itemInputRef = useRef<HTMLInputElement>(null);
   const quickItem =
     new URLSearchParams(window.location.search).get("quick") === "item";
@@ -108,18 +128,20 @@ export default function Lists() {
       window.setTimeout(() => itemInputRef.current?.focus(), 100);
     };
     window.addEventListener("lunamhub:quick-action", handleQuickAction);
-    return () => window.removeEventListener("lunamhub:quick-action", handleQuickAction);
+    return () =>
+      window.removeEventListener("lunamhub:quick-action", handleQuickAction);
   }, [lists]);
 
   const invalidateLists = () =>
     qc.invalidateQueries({ queryKey: getListListsQueryKey() });
   const invalidateList = (id: number) =>
     qc.invalidateQueries({ queryKey: getGetListQueryKey(id) });
-  const showMutationError = () => toast({
-    title: "Could not update lists",
-    description: "Refresh to check the latest list, then try again.",
-    variant: "destructive",
-  });
+  const showMutationError = () =>
+    toast({
+      title: "Could not update lists",
+      description: "Refresh to check the latest list, then try again.",
+      variant: "destructive",
+    });
 
   const createList = useCreateList({
     mutation: {
@@ -127,7 +149,7 @@ export default function Lists() {
       onSuccess: (l) => {
         invalidateLists();
         setListOpen(false);
-        setListForm({ name: "", category: "other" });
+        setListForm({ name: "", category: "reminders" });
         setSelectedListId(l.id);
       },
     },
@@ -138,6 +160,15 @@ export default function Lists() {
       onSuccess: () => {
         invalidateLists();
         setSelectedListId(null);
+      },
+    },
+  });
+  const updateList = useUpdateList({
+    mutation: {
+      onError: showMutationError,
+      onSuccess: (list) => {
+        invalidateLists();
+        invalidateList(list.id);
       },
     },
   });
@@ -183,6 +214,76 @@ export default function Lists() {
   const listWithItems = selectedList as ListWithItems | undefined;
   const items = listWithItems?.items ?? [];
   const checked = items.filter((i) => i.completed).length;
+  const incomplete = items.length - checked;
+
+  const addItem = () => {
+    const text = newItemText.trim();
+    if (!text || selectedListId === null || createItem.isPending) return;
+    createItem.mutate({ listId: selectedListId, data: { text } });
+  };
+
+  const beginEditingListName = () => {
+    if (!listWithItems) return;
+    setListName(listWithItems.name);
+    setEditingListName(true);
+  };
+
+  const saveListName = () => {
+    const name = listName.trim();
+    if (!name || selectedListId === null) {
+      setEditingListName(false);
+      return;
+    }
+    updateList.mutate(
+      { id: selectedListId, data: { name } },
+      { onSuccess: () => setEditingListName(false) },
+    );
+  };
+
+  const beginEditingItem = (id: number, text: string) => {
+    setEditingItemId(id);
+    setEditingItemText(text);
+  };
+
+  const stopEditingItem = () => {
+    setEditingItemId(null);
+    setEditingItemText("");
+  };
+
+  const saveEditedItem = () => {
+    const text = editingItemText.trim();
+    if (!text || editingItemId === null || selectedListId === null) {
+      stopEditingItem();
+      return;
+    }
+    updateItem.mutate(
+      { listId: selectedListId, itemId: editingItemId, data: { text } },
+      { onSuccess: stopEditingItem },
+    );
+  };
+
+  const clearCompleted = async () => {
+    if (selectedListId === null || checked === 0) return;
+    try {
+      await Promise.all(
+        items
+          .filter((item) => item.completed)
+          .map((item) =>
+            deleteItem.mutateAsync({
+              listId: selectedListId,
+              itemId: item.id,
+            }),
+          ),
+      );
+      await invalidateList(selectedListId);
+      toast({
+        title: "Completed tasks cleared",
+        description: `${checked} completed ${checked === 1 ? "task" : "tasks"} removed.`,
+      });
+    } catch {
+      // The mutation's shared error handler supplies the actionable message.
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -191,13 +292,13 @@ export default function Lists() {
         <Dialog open={listOpen} onOpenChange={setListOpen}>
           <DialogTrigger asChild>
             <Button className="h-14 px-6 rounded-2xl text-lg gap-2">
-              <Plus className="w-5 h-5" /> New List
+              <Plus className="w-5 h-5" /> New Todo List
             </Button>
           </DialogTrigger>
           <DialogContent className="rounded-3xl">
             <DialogHeader>
               <DialogTitle className="text-xl font-serif">
-                Create List
+                Create Todo List
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
@@ -226,22 +327,26 @@ export default function Lists() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {["grocery", "school", "packing", "reminders", "other"].map(
-                      (c) => (
-                        <SelectItem key={c} value={c}>
-                          {c.charAt(0).toUpperCase() + c.slice(1)}
-                        </SelectItem>
-                      ),
-                    )}
+                    {[
+                      { value: "reminders", label: "To-do" },
+                      { value: "grocery", label: "Grocery" },
+                      { value: "school", label: "School" },
+                      { value: "packing", label: "Packing" },
+                      { value: "other", label: "Other" },
+                    ].map((category) => (
+                      <SelectItem key={category.value} value={category.value}>
+                        {category.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <Button
                 className="w-full h-14 rounded-xl"
                 onClick={() => createList.mutate({ data: listForm })}
-                disabled={!listForm.name || createList.isPending}
+                disabled={!listForm.name.trim() || createList.isPending}
               >
-                {createList.isPending ? "Creating…" : "Create"}
+                {createList.isPending ? "Creating…" : "Create todo list"}
               </Button>
             </div>
           </DialogContent>
@@ -256,7 +361,9 @@ export default function Lists() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="space-y-3">
-          {listsQuery.isPending && <p className="text-muted-foreground">Loading lists…</p>}
+          {listsQuery.isPending && (
+            <p className="text-muted-foreground">Loading lists…</p>
+          )}
           {listsQuery.isSuccess && lists.length === 0 && (
             <p className="text-muted-foreground text-center py-12">
               No lists yet
@@ -285,7 +392,7 @@ export default function Lists() {
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-semibold">{l.name}</div>
                   <div className="mt-0.5 text-sm capitalize text-muted-foreground">
-                    {l.category}
+                    {l.category === "reminders" ? "To-do" : l.category}
                   </div>
                 </div>
               </div>
@@ -297,12 +404,38 @@ export default function Lists() {
           <div className="lg:col-span-2 space-y-4">
             <Card className="rounded-3xl border-0 shadow-sm">
               <CardHeader className="flex-row items-center justify-between pb-3">
-                <div>
-                  <CardTitle className="text-2xl font-serif">
-                    {listWithItems.name}
-                  </CardTitle>
+                <div className="min-w-0 flex-1">
+                  {editingListName ? (
+                    <Input
+                      autoFocus
+                      aria-label="Edit list name"
+                      value={listName}
+                      onChange={(event) => setListName(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") event.currentTarget.blur();
+                        if (event.key === "Escape") setEditingListName(false);
+                      }}
+                      onBlur={saveListName}
+                      className="h-11 max-w-md rounded-xl text-lg font-semibold"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="truncate text-2xl font-serif">
+                        {listWithItems.name}
+                      </CardTitle>
+                      <button
+                        className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-foreground"
+                        onClick={beginEditingListName}
+                        aria-label={`Rename ${listWithItems.name}`}
+                      >
+                        <Pencil className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </div>
+                  )}
                   <p className="text-muted-foreground text-sm mt-1">
-                    {checked}/{items.length} completed
+                    {items.length === 0
+                      ? "No tasks yet"
+                      : `${incomplete} ${incomplete === 1 ? "task" : "tasks"} remaining`}
                   </p>
                 </div>
                 <ConfirmDeleteDialog
@@ -326,25 +459,14 @@ export default function Lists() {
                     placeholder="Add an item…"
                     value={newItemText}
                     onChange={(e) => setNewItemText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && newItemText.trim())
-                        createItem.mutate({
-                          listId: selectedListId,
-                          data: { text: newItemText.trim() },
-                        });
-                    }}
+                    onKeyDown={(e) => e.key === "Enter" && addItem()}
                     className="rounded-xl h-14 flex-1"
                   />
                   <Button
                     aria-label="Add list item"
                     className="h-14 px-5 rounded-xl"
-                    onClick={() => {
-                      if (newItemText.trim())
-                        createItem.mutate({
-                          listId: selectedListId,
-                          data: { text: newItemText.trim() },
-                        });
-                    }}
+                    onClick={addItem}
+                    disabled={!newItemText.trim() || createItem.isPending}
                   >
                     <Plus className="w-5 h-5" />
                   </Button>
@@ -368,7 +490,43 @@ export default function Lists() {
                         }
                         className="h-6 w-6 rounded-lg"
                       />
-                      <span className="flex-1 text-base">{item.text}</span>
+                      {editingItemId === item.id ? (
+                        <Input
+                          autoFocus
+                          aria-label="Edit task"
+                          value={editingItemText}
+                          onChange={(event) =>
+                            setEditingItemText(event.target.value)
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter")
+                              event.currentTarget.blur();
+                            if (event.key === "Escape") stopEditingItem();
+                          }}
+                          onBlur={saveEditedItem}
+                          className="h-10 flex-1 rounded-xl bg-background"
+                        />
+                      ) : (
+                        <span className="flex-1 text-base">{item.text}</span>
+                      )}
+                      {editingItemId === item.id ? (
+                        <button
+                          className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-foreground"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={stopEditingItem}
+                          aria-label="Cancel editing task"
+                        >
+                          <X className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      ) : (
+                        <button
+                          className="min-h-11 min-w-11 p-2 text-muted-foreground hover:text-foreground"
+                          onClick={() => beginEditingItem(item.id, item.text)}
+                          aria-label={`Edit ${item.text}`}
+                        >
+                          <Pencil className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      )}
                       <ConfirmDeleteDialog
                         title={`Delete “${item.text}”?`}
                         description="This item will be permanently removed from the list."
@@ -436,6 +594,17 @@ export default function Lists() {
                   <p className="text-center text-muted-foreground py-8">
                     Empty list — add some items!
                   </p>
+                )}
+
+                {checked > 0 && (
+                  <Button
+                    variant="ghost"
+                    className="w-full rounded-xl text-muted-foreground"
+                    onClick={() => void clearCompleted()}
+                    disabled={deleteItem.isPending}
+                  >
+                    Clear {checked} completed {checked === 1 ? "task" : "tasks"}
+                  </Button>
                 )}
               </CardContent>
             </Card>

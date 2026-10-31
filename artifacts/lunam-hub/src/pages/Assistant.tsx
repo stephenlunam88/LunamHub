@@ -73,9 +73,9 @@ function formatApiAction(action: PendingAction) {
   const path = String(args.path ?? "");
   if (action.summary) return action.summary;
 
-  const body = (args.body && typeof args.body === "object"
-    ? args.body
-    : {}) as Record<string, unknown>;
+  const body = (
+    args.body && typeof args.body === "object" ? args.body : {}
+  ) as Record<string, unknown>;
   const label =
     readableValue(body.title) ??
     readableValue(body.name) ??
@@ -95,21 +95,25 @@ function formatApiAction(action: PendingAction) {
 
   if (/^\/lists\/\d+\/items$/.test(target)) {
     const item = readableValue(body.text) ?? readableValue(body.name);
-    if (isCreate && item) return `Add “${item}” to the shopping list`;
-    if (isRemove) return item ? `Remove “${item}” from the shopping list` : "Remove an item from the shopping list";
-    if (method === "PATCH" || method === "PUT") return item ? `Update “${item}” on the shopping list` : "Update a shopping-list item";
-    return "Update the shopping list";
+    if (isCreate && item) return `Add “${item}” to the list`;
+    if (isRemove)
+      return item
+        ? `Remove “${item}” from the list`
+        : "Remove an item from the list";
+    if (method === "PATCH" || method === "PUT")
+      return item ? `Update “${item}” on the list` : "Update a list item";
+    return "Update the list";
   }
 
   if (/^\/lists(?:\/\d+)?$/.test(target)) {
-    return isCreate
-      ? `Create shopping list${quoted}`
-      : `${verb} the shopping list`;
+    return isCreate ? `Create list${quoted}` : `${verb} the list`;
   }
   if (/^\/events(?:\/\d+)?$/.test(target)) {
     const event = quoted || " a calendar event";
     const when = detail ? ` for ${detail}` : "";
-    return isCreate ? `Add${event}${when}${people}` : `${verb}${event}${people}`;
+    return isCreate
+      ? `Add${event}${when}${people}`
+      : `${verb}${event}${people}`;
   }
   if (/^\/chores(?:\/\d+)?$/.test(target)) {
     return `${verb}${quoted || " a chore"}${people}${readableValue(body.dueDate) ? `, due ${String(body.dueDate)}` : ""}`;
@@ -135,12 +139,19 @@ function formatApiAction(action: PendingAction) {
       ? "Add meal ingredients to the shopping list"
       : `${isCreate ? "Add to" : isRemove ? "Remove from" : "Update"} the meal plan`;
   }
-  if (/^\/routines(?:\/\d+)?(?:\/items(?:\/\d+)?)?(?:\/complete)?$/.test(target)) {
+  if (
+    /^\/routines(?:\/\d+)?(?:\/items(?:\/\d+)?)?(?:\/complete)?$/.test(target)
+  ) {
     if (target.endsWith("/complete")) return "Mark a routine as complete";
-    if (target.includes("/items")) return `${isCreate ? "Add" : isRemove ? "Remove" : "Update"} routine step${quoted}`;
+    if (target.includes("/items"))
+      return `${isCreate ? "Add" : isRemove ? "Remove" : "Update"} routine step${quoted}`;
     return `${isCreate ? "Create" : isRemove ? "Remove" : "Update"} routine${quoted}`;
   }
-  if (/^\/(?:badges|point-milestones|chore-milestones|streak-milestones)(?:\/\d+)?$/.test(target)) {
+  if (
+    /^\/(?:badges|point-milestones|chore-milestones|streak-milestones)(?:\/\d+)?$/.test(
+      target,
+    )
+  ) {
     const noun = target.startsWith("/badges")
       ? "badge"
       : target.includes("point-milestones")
@@ -151,12 +162,20 @@ function formatApiAction(action: PendingAction) {
     return `${isCreate ? "Create" : isRemove ? "Remove" : "Update"} ${noun}${quoted}`;
   }
   if (/^\/point-transactions$/.test(target)) {
-    const points = typeof body.amount === "number" ? ` (${body.amount > 0 ? "+" : ""}${body.amount} points)` : "";
+    const points =
+      typeof body.amount === "number"
+        ? ` (${body.amount > 0 ? "+" : ""}${body.amount} points)`
+        : "";
     return `Adjust household points${points}`;
   }
   if (/^\/games-night\/(guests|games|results)(?:\/\d+)?$/.test(target)) {
     const section = target.split("/")[2];
-    const noun = section === "guests" ? "guest" : section === "games" ? "game" : "game-night result";
+    const noun =
+      section === "guests"
+        ? "guest"
+        : section === "games"
+          ? "game"
+          : "game-night result";
     return `${isCreate ? "Add" : isRemove ? "Remove" : "Update"} ${noun}${quoted}`;
   }
 

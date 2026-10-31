@@ -28,7 +28,7 @@ export function summarizeAssistantApiAction(
     /^\/lists\/\d+\/items$/.test(path) &&
     typeof normalizedBody?.text === "string"
   ) {
-    return `Add “${normalizedBody.text}” to the shopping list`;
+    return `Add “${normalizedBody.text}” to the selected list`;
   }
   return undefined;
 }

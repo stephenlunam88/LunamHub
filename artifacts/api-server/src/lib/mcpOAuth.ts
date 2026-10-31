@@ -1250,7 +1250,10 @@ export function createLunamMcpServer(auth: AuthInfo) {
         repeatType: z.enum(["once", "daily", "weekly"]),
         pointsValue: z.number().int().min(0).max(10000).default(10),
         daysOfWeek: z.array(z.number().int().min(0).max(6)).max(7).optional(),
-        duePeriod: z.enum(["morning", "afternoon", "evening"]).nullable().optional(),
+        duePeriod: z
+          .enum(["morning", "afternoon", "evening"])
+          .nullable()
+          .optional(),
       },
       annotations: {
         readOnlyHint: false,
@@ -1322,7 +1325,7 @@ export function createLunamMcpServer(auth: AuthInfo) {
     {
       title: "Create or update LunamHub data",
       description:
-        "Create or update household data through LunamHub's supported APIs. method must be POST, PATCH, or PUT. Supply a supported API path, optional query, and JSON body. Create a list with POST /lists and body {name, category}; category is grocery, packing, school, reminders, or other (default). Add an item with POST /lists/{listId}/items and body {text}. This executes the change when called, so only call it after the user clearly requests that change. Never use it for DELETE; use delete_lunamhub_api instead. Do not use authentication, settings, Google account connection, camera, or file-storage paths.",
+        'Create or update household data through LunamHub\'s supported APIs. method must be POST, PATCH, or PUT. Supply a supported API path, optional query, and JSON body. Create a todo or reminders list with POST /lists and body {name, category: "reminders"}; other categories are grocery, packing, school, and other (default). Add a task or item with POST /lists/{listId}/items and body {text}; complete it with PATCH /lists/{listId}/items/{itemId} and body {completed: true}. This executes the change when called, so only call it after the user clearly requests that change. Never use it for DELETE; use delete_lunamhub_api instead. Do not use authentication, settings, Google account connection, camera, or file-storage paths.',
       inputSchema: {
         method: z.enum(["POST", "PATCH", "PUT"]),
         path: McpApiPathSchema,

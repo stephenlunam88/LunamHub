@@ -27,6 +27,6 @@ test("does not alter other API requests or explicit text values", () => {
 test("summarizes list writes without exposing endpoint IDs", () => {
   assert.equal(
     summarizeAssistantApiAction("POST", "/lists/1/items", { name: "Milk" }),
-    "Add “Milk” to the shopping list",
+    "Add “Milk” to the selected list",
   );
 });
