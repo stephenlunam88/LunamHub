@@ -19,6 +19,7 @@ import { householdDate } from "../lib/householdDate";
 import { occursOn as doesOccurOn } from "../lib/calendarRecurrence";
 import { compareEventsByTime } from "../lib/eventOrdering";
 import { formatDashboardEvent } from "../lib/dashboardEvent";
+import { ensureChoreInstancesForDate } from "./chores";
 
 const router = Router();
 
@@ -37,6 +38,11 @@ function addDays(dateStr: string, days: number) {
 router.get("/summary", async (req, res) => {
   const todayStr = today(req.query["date"] as string | undefined);
   const upcomingEnd = addDays(todayStr, 7);
+
+  // The dashboard may be the first endpoint opened after midnight. Generate
+  // recurring chore instances here instead of relying on the Chores page to
+  // have been visited first.
+  await ensureChoreInstancesForDate(todayStr);
 
   // Fetch events that could appear today or in the upcoming week.
   // Non-recurring: date falls within [today, upcomingEnd].

@@ -319,21 +319,27 @@ async function generateInstancesForDate(targetDate: string) {
   }
 }
 
-async function generateTodayInstances() {
+export async function ensureChoreInstancesForDate(targetDate: string) {
   await runMigrationIfNeeded();
 
   const today = todayStr();
-  await db
-    .update(choreInstancesTable)
-    .set({ status: "missed", missedAt: new Date() })
-    .where(
-      and(
-        eq(choreInstancesTable.status, "todo"),
-        lt(choreInstancesTable.dueDate, today),
-      ),
-    );
+  if (targetDate === today) {
+    await db
+      .update(choreInstancesTable)
+      .set({ status: "missed", missedAt: new Date() })
+      .where(
+        and(
+          eq(choreInstancesTable.status, "todo"),
+          lt(choreInstancesTable.dueDate, today),
+        ),
+      );
+  }
 
-  await generateInstancesForDate(today);
+  await generateInstancesForDate(targetDate);
+}
+
+async function generateTodayInstances() {
+  await ensureChoreInstancesForDate(todayStr());
 }
 
 function addDays(date: string, amount: number): string {
