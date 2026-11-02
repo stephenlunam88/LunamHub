@@ -5,6 +5,7 @@
  * LunamHub Family Command Centre API
  * OpenAPI spec version: 0.1.0
  */
+import type { ChoreInputAssignmentMode } from './choreInputAssignmentMode';
 import type { ChoreInputDuePeriod } from './choreInputDuePeriod';
 import type { ChoreInputRepeatType } from './choreInputRepeatType';
 
@@ -14,6 +15,8 @@ export interface ChoreInput {
   assignedTo?: number;
   /** Assign to multiple children at once (creates one chore per child) */
   assignedToMany?: number[];
+  /** Claimable creates one shared occurrence that one or two children can claim on completion. */
+  assignmentMode?: ChoreInputAssignmentMode;
   /** Required recurrence anchor when repeatType is fortnightly. */
   dueDate?: string;
   repeatType: ChoreInputRepeatType;

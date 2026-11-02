@@ -5,6 +5,7 @@
  * LunamHub Family Command Centre API
  * OpenAPI spec version: 0.1.0
  */
+import type { ChoreAssignmentMode } from './choreAssignmentMode';
 import type { ChoreDuePeriod } from './choreDuePeriod';
 import type { ChoreRepeatType } from './choreRepeatType';
 import type { ChoreStatus } from './choreStatus';
@@ -20,6 +21,8 @@ export interface Chore {
   /** @nullable */
   assignedTo?: number | null;
   assignedMember?: FamilyMember;
+  assignmentMode: ChoreAssignmentMode;
+  claimants: FamilyMember[];
   /** @nullable */
   dueDate?: string | null;
   repeatType: ChoreRepeatType;

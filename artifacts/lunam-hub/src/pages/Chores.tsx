@@ -1314,6 +1314,7 @@ type EditFormState = Pick<
   | "daysOfWeek"
   | "duePeriod"
   | "startDate"
+  | "assignmentMode"
 > & { assignedTo?: number | null };
 
 function PinEditDialog({
@@ -1336,6 +1337,7 @@ function PinEditDialog({
     daysOfWeek: chore.daysOfWeek ?? [],
     duePeriod: chore.duePeriod ?? null,
     startDate: chore.startDate ?? chore.dueDate ?? null,
+    assignmentMode: chore.assignmentMode,
   });
   const [selected, setSelected] = useState<string>(
     parents[0] ? String(parents[0].id) : ADMIN_OPTION,
@@ -1408,6 +1410,7 @@ function PinEditDialog({
             daysOfWeek: chore.daysOfWeek ?? [],
             duePeriod: chore.duePeriod ?? null,
             startDate: chore.startDate ?? chore.dueDate ?? null,
+            assignmentMode: chore.assignmentMode,
           });
         }
         reset();
@@ -1443,11 +1446,16 @@ function PinEditDialog({
             <Label>Assign to</Label>
             <Select
               value={
-                form.assignedTo != null ? String(form.assignedTo) : "__none__"
+                form.assignmentMode === "claimable"
+                  ? "__none__"
+                  : form.assignedTo != null
+                    ? String(form.assignedTo)
+                    : "__none__"
               }
               onValueChange={(v) =>
                 setForm((f) => ({
                   ...f,
+                  assignmentMode: v === "__none__" ? "claimable" : "assigned",
                   assignedTo: v === "__none__" ? null : Number(v),
                 }))
               }
@@ -1456,7 +1464,7 @@ function PinEditDialog({
                 <SelectValue placeholder="Unassigned" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">Unassigned</SelectItem>
+                <SelectItem value="__none__">Anyone can do it</SelectItem>
                 {children.map((m) => (
                   <SelectItem key={m.id} value={String(m.id)}>
                     <MemberOption name={m.name} avatarUrl={m.avatarUrl} />
@@ -1616,6 +1624,7 @@ function PinEditDialog({
               !pin ||
               !form.title ||
               isPending ||
+              (form.assignmentMode === "assigned" && !form.assignedTo) ||
               (form.repeatType === "weekly" && !form.daysOfWeek?.length) ||
               (form.repeatType === "fortnightly" && !form.startDate)
             }
@@ -1646,6 +1655,7 @@ export default function Chores() {
     title: "",
     pointsValue: 10,
     repeatType: "once",
+    assignmentMode: "assigned",
     duePeriod: null,
   });
   const pendingAddRef = useRef<ChoreFormState | null>(null);
@@ -1653,12 +1663,15 @@ export default function Chores() {
   const [addPin, setAddPin] = useState("");
   const [addPinError, setAddPinError] = useState<string | null>(null);
   const [filterChildId, setFilterChildId] = useState<number | null>(null);
+  const [claimingChore, setClaimingChore] = useState<Chore | null>(null);
+  const [claimantIds, setClaimantIds] = useState<number[]>([]);
 
   const resetAddDialog = () => {
     setForm({
       title: "",
       pointsValue: 10,
       repeatType: "once",
+      assignmentMode: "assigned",
       assignedToMany: [],
       daysOfWeek: [],
       duePeriod: null,
@@ -1724,7 +1737,13 @@ export default function Chores() {
     },
   });
   const completeChore = useCompleteChore({
-    mutation: { onSuccess: invalidate },
+    mutation: {
+      onSuccess: () => {
+        invalidate();
+        setClaimingChore(null);
+        setClaimantIds([]);
+      },
+    },
   });
   const approveChore = useApproveChore({ mutation: { onSuccess: invalidate } });
 
@@ -1811,18 +1830,75 @@ export default function Chores() {
     },
   ];
 
-  const summarySlice = filterChildId
-    ? summary.filter((s) => s.memberId === filterChildId)
-    : summary;
   const tabCounts = {
-    todo: summarySlice.reduce((a, s) => a + s.todoPending, 0),
-    approval: summarySlice.reduce((a, s) => a + s.pendingApproval, 0),
-    done: summarySlice.reduce((a, s) => a + s.doneToday, 0),
-    missed: summarySlice.reduce((a, s) => a + s.missedToday, 0),
+    todo: todo.length,
+    approval: needsApproval.length,
+    done: done.length,
+    missed: missed.length,
   };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
+      <Dialog
+        open={claimingChore !== null}
+        onOpenChange={(value) => {
+          if (!value) {
+            setClaimingChore(null);
+            setClaimantIds([]);
+          }
+        }}
+      >
+        <DialogContent className="rounded-3xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Who completed this chore?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Select one or two children for “{claimingChore?.title}”. Each will
+            receive {claimingChore?.pointsValue ?? 0} points after approval.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {children.map((child) => {
+              const selected = claimantIds.includes(child.id);
+              return (
+                <button
+                  key={child.id}
+                  type="button"
+                  onClick={() =>
+                    setClaimantIds((current) =>
+                      selected
+                        ? current.filter((id) => id !== child.id)
+                        : current.length < 2
+                          ? [...current, child.id]
+                          : current,
+                    )
+                  }
+                  className={`flex items-center gap-2 rounded-xl border-2 p-3 text-left ${selected ? "border-primary bg-primary/10" : "border-border"}`}
+                >
+                  <MemberAvatar
+                    name={child.name}
+                    avatarUrl={child.avatarUrl}
+                    className="h-8 w-8"
+                  />
+                  <span className="font-medium">{child.name}</span>
+                </button>
+              );
+            })}
+          </div>
+          <Button
+            className="h-12 rounded-xl"
+            disabled={claimantIds.length === 0 || completeChore.isPending}
+            onClick={() => {
+              if (claimingChore)
+                completeChore.mutate({
+                  id: claimingChore.id,
+                  data: { claimantIds },
+                });
+            }}
+          >
+            {completeChore.isPending ? "Submitting…" : "Submit for approval"}
+          </Button>
+        </DialogContent>
+      </Dialog>
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-serif text-3xl font-bold md:text-4xl">Chores</h1>
         <Dialog
@@ -1859,6 +1935,20 @@ export default function Chores() {
                   <div>
                     <Label>Assign to</Label>
                     <div className="flex flex-wrap gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm((current) => ({
+                            ...current,
+                            assignmentMode: "claimable",
+                            assignedTo: undefined,
+                            assignedToMany: [],
+                          }))
+                        }
+                        className={`px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all ${form.assignmentMode === "claimable" ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground hover:border-primary/40"}`}
+                      >
+                        Anyone can do it
+                      </button>
                       {children.map((m) => {
                         const many = form.assignedToMany ?? [];
                         const sel = many.includes(m.id);
@@ -1872,6 +1962,7 @@ export default function Chores() {
                                 : [...many, m.id];
                               setForm((f) => ({
                                 ...f,
+                                assignmentMode: "assigned",
                                 assignedToMany: next,
                                 assignedTo:
                                   next.length === 1 ? next[0] : undefined,
@@ -2003,6 +2094,8 @@ export default function Chores() {
                     onClick={() => setAddStep("pin")}
                     disabled={
                       !form.title ||
+                      (form.assignmentMode === "assigned" &&
+                        !form.assignedToMany?.length) ||
                       (form.repeatType === "weekly" &&
                         !form.daysOfWeek?.length) ||
                       (form.repeatType === "fortnightly" && !form.dueDate)
@@ -2497,6 +2590,11 @@ export default function Chores() {
                       <div className="break-words text-lg font-semibold leading-tight">
                         {c.title}
                       </div>
+                      {c.assignmentMode === "claimable" && (
+                        <div className="text-sm font-medium text-primary">
+                          Available to anyone
+                        </div>
+                      )}
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                         {c.dueDate && (
                           <span className="flex items-center gap-1">
@@ -2521,7 +2619,14 @@ export default function Chores() {
                       size="icon"
                       variant="ghost"
                       className="h-12 w-12 rounded-xl text-green-600 hover:bg-green-50 hover:text-green-700 md:h-14 md:w-14"
-                      onClick={() => completeChore.mutate({ id: c.id })}
+                      onClick={() => {
+                        if (c.assignmentMode === "claimable") {
+                          setClaimingChore(c);
+                          setClaimantIds([]);
+                        } else {
+                          completeChore.mutate({ id: c.id, data: {} });
+                        }
+                      }}
                     >
                       <CheckCircle2 className="w-6 h-6" />
                     </Button>
@@ -2533,9 +2638,7 @@ export default function Chores() {
                     />
                     <PinDeleteDialog
                       choreId={c.id}
-                      templateId={
-                        c.repeatType === "once" ? null : c.templateId
-                      }
+                      templateId={c.repeatType === "once" ? null : c.templateId}
                       choreTitle={c.title}
                       parents={parents}
                       onSuccess={invalidate}
@@ -2556,6 +2659,7 @@ export default function Chores() {
           {needsApproval.map((c) => {
             const member =
               c.assignedMember ?? members.find((m) => m.id === c.assignedTo);
+            const claimantNames = c.claimants.map((claimant) => claimant.name);
             return (
               <Card
                 key={c.id}
@@ -2573,6 +2677,11 @@ export default function Chores() {
                     {member && (
                       <div className="font-bold text-base text-primary">
                         {member.name}
+                      </div>
+                    )}
+                    {claimantNames.length > 0 && (
+                      <div className="font-bold text-base text-primary">
+                        {claimantNames.join(" & ")}
                       </div>
                     )}
                     <div className="font-semibold text-lg leading-tight">
@@ -2627,6 +2736,7 @@ export default function Chores() {
             const approver = c.approvedByParentId
               ? members.find((m) => m.id === c.approvedByParentId)
               : null;
+            const claimantNames = c.claimants.map((claimant) => claimant.name);
             return (
               <Card
                 key={c.id}
@@ -2647,6 +2757,11 @@ export default function Chores() {
                         {member.name}
                       </div>
                     )}
+                    {claimantNames.length > 0 && (
+                      <div className="font-bold text-base text-green-700">
+                        {claimantNames.join(" & ")}
+                      </div>
+                    )}
                     <div className="font-semibold text-foreground leading-tight">
                       {c.title}
                     </div>
@@ -2664,6 +2779,7 @@ export default function Chores() {
                   </div>
                   <div className="text-green-700 font-bold shrink-0">
                     +{c.pointsValue} pts
+                    {claimantNames.length > 1 ? " each" : ""}
                   </div>
                   {member && parents.length > 0 && (
                     <RedeemDialog

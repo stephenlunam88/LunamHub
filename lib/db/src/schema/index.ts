@@ -10,9 +10,11 @@ import {
   timestamp,
   pgEnum,
   unique,
+  uniqueIndex,
   jsonb,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
+import { sql } from "drizzle-orm";
 import { z } from "zod/v4";
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
@@ -40,6 +42,10 @@ export const choreInstanceStatusEnum = pgEnum("chore_instance_status", [
   "rejected",
   "excused",
   "skipped",
+]);
+export const choreAssignmentModeEnum = pgEnum("chore_assignment_mode", [
+  "assigned",
+  "claimable",
 ]);
 export const eventCategoryEnum = pgEnum("event_category", [
   "school",
@@ -190,6 +196,9 @@ export const choreTemplatesTable = pgTable("chore_templates", {
   description: text("description"),
   pointsValue: integer("points_value").notNull().default(10),
   repeatType: repeatTypeEnum("repeat_type").notNull().default("once"),
+  assignmentMode: choreAssignmentModeEnum("assignment_mode")
+    .notNull()
+    .default("assigned"),
   // JSON array of day-of-week numbers (0=Sun … 6=Sat) for weekly chores, e.g. "[1,3]"
   daysOfWeek: text("days_of_week"),
   // YYYY-MM-DD anchor used only by fortnightly chores.
@@ -239,6 +248,9 @@ export const choreInstancesTable = pgTable(
     title: text("title").notNull(),
     pointsValue: integer("points_value").notNull().default(10),
     repeatType: repeatTypeEnum("repeat_type").notNull().default("once"),
+    assignmentMode: choreAssignmentModeEnum("assignment_mode")
+      .notNull()
+      .default("assigned"),
     daysOfWeek: text("days_of_week"),
     startDate: text("start_date"),
     duePeriod: text("due_period"),
@@ -270,6 +282,9 @@ export const choreInstancesTable = pgTable(
       t.childId,
       t.dueDate,
     ),
+    uniqueIndex("unique_claimable_chore_instance_per_day")
+      .on(t.templateId, t.dueDate)
+      .where(sql`${t.assignmentMode} = 'claimable' AND ${t.childId} IS NULL`),
   ],
 );
 
@@ -278,6 +293,21 @@ export const insertChoreInstanceSchema = createInsertSchema(
 ).omit({ id: true, createdAt: true });
 export type InsertChoreInstance = z.infer<typeof insertChoreInstanceSchema>;
 export type ChoreInstance = typeof choreInstancesTable.$inferSelect;
+
+export const choreInstanceClaimantsTable = pgTable(
+  "chore_instance_claimants",
+  {
+    id: serial("id").primaryKey(),
+    instanceId: integer("instance_id")
+      .notNull()
+      .references(() => choreInstancesTable.id, { onDelete: "cascade" }),
+    childId: integer("child_id")
+      .notNull()
+      .references(() => familyMembersTable.id, { onDelete: "cascade" }),
+    claimedAt: timestamp("claimed_at").notNull().defaultNow(),
+  },
+  (t) => [unique("unique_chore_instance_claimant").on(t.instanceId, t.childId)],
+);
 
 // ── Rewards ───────────────────────────────────────────────────────────────────
 

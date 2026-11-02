@@ -14,6 +14,7 @@ import {
   choreTemplatesTable,
   choreTemplateChildrenTable,
   choreInstancesTable,
+  choreInstanceClaimantsTable,
   choresTable,
   familyMembersTable,
   pointTransactionsTable,
@@ -40,6 +41,10 @@ import {
 const ChoreApproveBodySchema = z.object({
   parentId: z.number().int().positive().optional(),
   pin: z.string().optional(),
+});
+
+export const ChoreCompleteBodySchema = z.object({
+  claimantIds: z.array(z.number().int().positive()).min(1).max(2).optional(),
 });
 
 const ChoreRejectBodySchema = z.object({
@@ -71,12 +76,13 @@ const CalendarDateSchema = z
   .string()
   .refine(isCalendarDate, "Use a real date in YYYY-MM-DD format.");
 
-const CreateChoreSchema = z
+export const CreateChoreSchema = z
   .object({
     title: z.string(),
     description: z.string().optional(),
     assignedTo: z.number().int().positive().optional(),
     assignedToMany: z.array(z.number().int().positive()).optional(),
+    assignmentMode: z.enum(["assigned", "claimable"]).default("assigned"),
     dueDate: CalendarDateSchema.optional(),
     repeatType: z.enum(["once", "daily", "weekly", "fortnightly"]),
     pointsValue: z.number().int(),
@@ -90,6 +96,27 @@ const CreateChoreSchema = z
         code: "custom",
         path: ["dueDate"],
         message: "A start date is required for a fortnightly chore.",
+      });
+    }
+    if (
+      body.assignmentMode === "claimable" &&
+      (body.assignedTo || body.assignedToMany?.length)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["assignmentMode"],
+        message: "A claimable chore cannot also have assigned children.",
+      });
+    }
+    if (
+      body.assignmentMode === "assigned" &&
+      !body.assignedTo &&
+      !body.assignedToMany?.length
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["assignedTo"],
+        message: "Choose a child or make the chore claimable.",
       });
     }
   });
@@ -132,6 +159,7 @@ function formatMember(m: typeof familyMembersTable.$inferSelect) {
 function formatInstance(
   inst: typeof choreInstancesTable.$inferSelect,
   member?: object,
+  claimants: object[] = [],
 ) {
   return {
     id: inst.id,
@@ -140,6 +168,8 @@ function formatInstance(
     description: null as string | null,
     assignedTo: inst.childId ?? null,
     assignedMember: member,
+    assignmentMode: inst.assignmentMode,
+    claimants,
     dueDate: inst.dueDate,
     repeatType: inst.repeatType,
     daysOfWeek: parseDaysOfWeek(inst.daysOfWeek),
@@ -158,6 +188,28 @@ function formatInstance(
     skippedByParentId: inst.skippedByParentId ?? null,
     createdAt: inst.createdAt.toISOString(),
   };
+}
+
+async function getClaimantsForInstance(instanceId: number) {
+  const rows = await db
+    .select({ member: familyMembersTable })
+    .from(choreInstanceClaimantsTable)
+    .innerJoin(
+      familyMembersTable,
+      eq(choreInstanceClaimantsTable.childId, familyMembersTable.id),
+    )
+    .where(eq(choreInstanceClaimantsTable.instanceId, instanceId));
+  return rows.map(({ member }) => formatMember(member));
+}
+
+async function formatInstanceWithRelations(
+  inst: typeof choreInstancesTable.$inferSelect,
+) {
+  return formatInstance(
+    inst,
+    await getMemberById(inst.childId),
+    await getClaimantsForInstance(inst.id),
+  );
 }
 
 function parseDaysOfWeek(value: string | null): number[] {
@@ -287,19 +339,21 @@ async function generateInstancesForDate(targetDate: string) {
     const children = assignments
       .filter((a) => a.templateId === template.id)
       .map((a) => a.childId);
-
-    if (children.length === 0) continue;
+    const recipients: Array<number | null> =
+      template.assignmentMode === "claimable" ? [null] : children;
+    if (recipients.length === 0) continue;
 
     if (template.repeatType === "daily") {
       await db
         .insert(choreInstancesTable)
         .values(
-          children.map((childId) => ({
+          recipients.map((childId) => ({
             templateId: template.id,
             childId,
             title: template.title,
             pointsValue: template.pointsValue,
             repeatType: "daily" as const,
+            assignmentMode: template.assignmentMode,
             daysOfWeek: template.daysOfWeek,
             duePeriod: template.duePeriod,
             dueDate: targetDate,
@@ -320,12 +374,13 @@ async function generateInstancesForDate(targetDate: string) {
       await db
         .insert(choreInstancesTable)
         .values(
-          children.map((childId) => ({
+          recipients.map((childId) => ({
             templateId: template.id,
             childId,
             title: template.title,
             pointsValue: template.pointsValue,
             repeatType: "weekly" as const,
+            assignmentMode: template.assignmentMode,
             daysOfWeek: template.daysOfWeek,
             duePeriod: template.duePeriod,
             dueDate: targetDate,
@@ -344,12 +399,13 @@ async function generateInstancesForDate(targetDate: string) {
       await db
         .insert(choreInstancesTable)
         .values(
-          children.map((childId) => ({
+          recipients.map((childId) => ({
             templateId: template.id,
             childId,
             title: template.title,
             pointsValue: template.pointsValue,
             repeatType: "fortnightly" as const,
+            assignmentMode: template.assignmentMode,
             daysOfWeek: null,
             startDate: template.startDate,
             duePeriod: template.duePeriod,
@@ -450,9 +506,17 @@ router.get("/summary", async (_req, res) => {
   const today = todayStr();
   const members = await db.select().from(familyMembersTable);
   const allInstances = await db.select().from(choreInstancesTable);
+  const allClaims = await db.select().from(choreInstanceClaimantsTable);
 
   const summary = members.map((m) => {
-    const mine = allInstances.filter((i) => i.childId === m.id);
+    const claimedInstanceIds = new Set(
+      allClaims
+        .filter((claim) => claim.childId === m.id)
+        .map((claim) => claim.instanceId),
+    );
+    const mine = allInstances.filter(
+      (i) => i.childId === m.id || claimedInstanceIds.has(i.id),
+    );
     const todayInstances = mine.filter((i) => i.dueDate === today);
     return {
       memberId: m.id,
@@ -507,15 +571,13 @@ router.get("/", async (req, res) => {
     .orderBy(choreInstancesTable.createdAt);
 
   if (assignedTo != null)
-    instances = instances.filter((i) => i.childId === assignedTo);
+    instances = instances.filter(
+      (i) => i.childId === assignedTo || i.assignmentMode === "claimable",
+    );
   if (statusFilter)
     instances = instances.filter((i) => i.status === statusFilter);
 
-  const result = await Promise.all(
-    instances.map(async (i) =>
-      formatInstance(i, await getMemberById(i.childId)),
-    ),
-  );
+  const result = await Promise.all(instances.map(formatInstanceWithRelations));
   res.json(result);
 });
 
@@ -543,6 +605,7 @@ export async function createChoreRecords(input: unknown) {
       description: body.description,
       pointsValue: body.pointsValue,
       repeatType: body.repeatType,
+      assignmentMode: body.assignmentMode,
       daysOfWeek: daysOfWeekJson,
       startDate,
       duePeriod: body.duePeriod ?? null,
@@ -557,9 +620,9 @@ export async function createChoreRecords(input: unknown) {
 
   // Collect assigned children
   const childIds: number[] = [];
-  if (body.assignedToMany && body.assignedToMany.length > 0) {
-    childIds.push(...body.assignedToMany);
-  } else if (body.assignedTo) {
+  if (body.assignmentMode === "assigned" && body.assignedToMany?.length) {
+    childIds.push(...new Set(body.assignedToMany));
+  } else if (body.assignmentMode === "assigned" && body.assignedTo) {
     childIds.push(body.assignedTo);
   }
 
@@ -587,16 +650,19 @@ export async function createChoreRecords(input: unknown) {
     shouldSeedToday = normalizedDaysOfWeek.includes(todayDow);
   }
 
-  if (childIds.length > 0 && shouldSeedToday) {
+  const initialRecipients: Array<number | null> =
+    body.assignmentMode === "claimable" ? [null] : childIds;
+  if (initialRecipients.length > 0 && shouldSeedToday) {
     await db
       .insert(choreInstancesTable)
       .values(
-        childIds.map((childId) => ({
+        initialRecipients.map((childId) => ({
           templateId: template.id,
           childId,
           title: template.title,
           pointsValue: template.pointsValue,
           repeatType: template.repeatType,
+          assignmentMode: template.assignmentMode,
           daysOfWeek: daysOfWeekJson,
           startDate,
           duePeriod: template.duePeriod,
@@ -614,9 +680,7 @@ export async function createChoreRecords(input: unknown) {
     .where(eq(choreInstancesTable.templateId, template.id));
 
   const formatted = await Promise.all(
-    instances.map(async (i) =>
-      formatInstance(i, await getMemberById(i.childId)),
-    ),
+    instances.map(formatInstanceWithRelations),
   );
 
   return {
@@ -677,7 +741,9 @@ router.get("/schedule", async (req, res) => {
     );
   if (parsed.data.assignedTo !== undefined) {
     instances = instances.filter(
-      (row) => row.childId === parsed.data.assignedTo,
+      (row) =>
+        row.childId === parsed.data.assignedTo ||
+        row.assignmentMode === "claimable",
     );
   }
 
@@ -690,13 +756,7 @@ router.get("/schedule", async (req, res) => {
     return periodA - periodB || a.createdAt.getTime() - b.createdAt.getTime();
   });
 
-  res.json(
-    await Promise.all(
-      instances.map(async (instance) =>
-        formatInstance(instance, await getMemberById(instance.childId)),
-      ),
-    ),
-  );
+  res.json(await Promise.all(instances.map(formatInstanceWithRelations)));
 });
 
 // ── PATCH /api/chores/:id — update instance fields; propagates to template ─────
@@ -706,6 +766,8 @@ const UpdateChoreSchema = z.object({
   description: z.string().nullable().optional(),
   dueDate: z.string().nullable().optional(),
   repeatType: z.enum(["once", "daily", "weekly", "fortnightly"]).optional(),
+  assignmentMode: z.enum(["assigned", "claimable"]).optional(),
+  assignedTo: z.number().int().positive().nullable().optional(),
   daysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
   startDate: CalendarDateSchema.nullable().optional(),
   duePeriod: ChoreDuePeriodSchema.nullable().optional(),
@@ -737,6 +799,15 @@ router.patch("/:id", async (req, res) => {
     instanceUpdates.dueDate = body.dueDate ?? inst.dueDate;
   if (body.repeatType !== undefined)
     instanceUpdates.repeatType = body.repeatType;
+  if (body.assignmentMode !== undefined) {
+    instanceUpdates.assignmentMode = body.assignmentMode;
+    instanceUpdates.childId =
+      body.assignmentMode === "claimable"
+        ? null
+        : (body.assignedTo ?? inst.childId);
+  } else if (body.assignedTo !== undefined) {
+    instanceUpdates.childId = body.assignedTo;
+  }
   const nextRepeatType = body.repeatType ?? inst.repeatType;
   if (body.startDate !== undefined || body.repeatType !== undefined) {
     instanceUpdates.startDate =
@@ -763,6 +834,8 @@ router.patch("/:id", async (req, res) => {
       body.description !== undefined ||
       body.pointsValue !== undefined ||
       body.repeatType !== undefined ||
+      body.assignmentMode !== undefined ||
+      body.assignedTo !== undefined ||
       body.daysOfWeek !== undefined ||
       body.startDate !== undefined ||
       body.duePeriod !== undefined)
@@ -776,6 +849,8 @@ router.patch("/:id", async (req, res) => {
       templateUpdates.pointsValue = body.pointsValue;
     if (body.repeatType !== undefined)
       templateUpdates.repeatType = body.repeatType;
+    if (body.assignmentMode !== undefined)
+      templateUpdates.assignmentMode = body.assignmentMode;
     if (body.startDate !== undefined || body.repeatType !== undefined) {
       templateUpdates.startDate =
         nextRepeatType === "fortnightly"
@@ -793,8 +868,26 @@ router.patch("/:id", async (req, res) => {
       .set(templateUpdates)
       .where(eq(choreTemplatesTable.id, inst.templateId));
 
+    if (body.assignmentMode !== undefined || body.assignedTo !== undefined) {
+      await db
+        .delete(choreTemplateChildrenTable)
+        .where(eq(choreTemplateChildrenTable.templateId, inst.templateId));
+      const assignedChild =
+        (body.assignmentMode ?? inst.assignmentMode) === "assigned"
+          ? (body.assignedTo ?? inst.childId)
+          : null;
+      if (assignedChild) {
+        await db.insert(choreTemplateChildrenTable).values({
+          templateId: inst.templateId,
+          childId: assignedChild,
+        });
+      }
+    }
+
     const scheduleChanged =
       body.repeatType !== undefined ||
+      body.assignmentMode !== undefined ||
+      body.assignedTo !== undefined ||
       body.daysOfWeek !== undefined ||
       body.startDate !== undefined;
     if (scheduleChanged) {
@@ -834,7 +927,7 @@ router.patch("/:id", async (req, res) => {
     }
   }
 
-  res.json(formatInstance(updated!, await getMemberById(updated!.childId)));
+  res.json(await formatInstanceWithRelations(updated!));
 });
 
 // ── GET /api/chores/:id ────────────────────────────────────────────────────────
@@ -849,7 +942,7 @@ router.get("/:id", async (req, res) => {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  res.json(formatInstance(inst, await getMemberById(inst.childId)));
+  res.json(await formatInstanceWithRelations(inst));
 });
 
 // ── DELETE /api/chores/:id — delete one generated instance ────────────────────
@@ -913,31 +1006,65 @@ choreTemplatesRouter.delete("/:id", async (req, res) => {
 
 router.post("/:id/complete", async (req, res) => {
   const id = Number(req.params.id);
-  const [inst] = await db
-    .update(choreInstancesTable)
-    .set({ status: "pending_approval", completedAt: new Date() })
-    .where(
-      and(
-        eq(choreInstancesTable.id, id),
-        eq(choreInstancesTable.status, "todo"),
-      ),
-    )
-    .returning();
-
-  if (!inst) {
-    // Either not found or wrong state — return current
-    const [current] = await db
-      .select()
-      .from(choreInstancesTable)
-      .where(eq(choreInstancesTable.id, id));
-    if (!current) {
-      res.status(404).json({ error: "Not found" });
-      return;
-    }
-    res.json(formatInstance(current, await getMemberById(current.childId)));
+  const parsed = ChoreCompleteBodySchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Select one or two children." });
     return;
   }
-  res.json(formatInstance(inst, await getMemberById(inst.childId)));
+  const claimantIds = [...new Set(parsed.data.claimantIds ?? [])];
+  const [current] = await db
+    .select()
+    .from(choreInstancesTable)
+    .where(eq(choreInstancesTable.id, id));
+  if (!current) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  if (current.assignmentMode === "claimable" && claimantIds.length === 0) {
+    res.status(400).json({ error: "Select who completed this chore." });
+    return;
+  }
+  if (current.assignmentMode === "claimable") {
+    const children = await db
+      .select({ id: familyMembersTable.id })
+      .from(familyMembersTable)
+      .where(
+        and(
+          inArray(familyMembersTable.id, claimantIds),
+          eq(familyMembersTable.role, "child"),
+        ),
+      );
+    if (children.length !== claimantIds.length) {
+      res.status(400).json({ error: "Invalid chore claimant." });
+      return;
+    }
+  }
+
+  const inst = await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(choreInstancesTable)
+      .set({ status: "pending_approval", completedAt: new Date() })
+      .where(
+        and(
+          eq(choreInstancesTable.id, id),
+          eq(choreInstancesTable.status, "todo"),
+        ),
+      )
+      .returning();
+    if (!updated) return undefined;
+    if (updated.assignmentMode === "claimable") {
+      await tx
+        .insert(choreInstanceClaimantsTable)
+        .values(claimantIds.map((childId) => ({ instanceId: id, childId })));
+    }
+    return updated;
+  });
+
+  if (!inst) {
+    res.status(409).json({ error: "This chore has already been completed." });
+    return;
+  }
+  res.json(await formatInstanceWithRelations(inst));
 });
 
 // ── POST /api/chores/:id/approve — parent approves; points awarded exactly once ─
@@ -954,7 +1081,7 @@ router.post("/:id/approve", async (req, res) => {
   const now = new Date();
 
   // Atomic state gate: only update when status='pending_approval' AND pointsAwarded=false
-  const updated = await db.transaction(async (tx) => {
+  const approval = await db.transaction(async (tx) => {
     const [instance] = await tx
       .update(choreInstancesTable)
       .set({
@@ -971,27 +1098,40 @@ router.post("/:id/approve", async (req, res) => {
         ),
       )
       .returning();
-    if (!instance || !instance.childId) return instance;
+    if (!instance) return undefined;
+    const recipientIds =
+      instance.assignmentMode === "claimable"
+        ? (
+            await tx
+              .select({ childId: choreInstanceClaimantsTable.childId })
+              .from(choreInstanceClaimantsTable)
+              .where(eq(choreInstanceClaimantsTable.instanceId, instance.id))
+          ).map((row) => row.childId)
+        : instance.childId
+          ? [instance.childId]
+          : [];
 
-    await tx
-      .update(familyMembersTable)
-      .set({
-        pointsBalance: sql`${familyMembersTable.pointsBalance} + ${instance.pointsValue}`,
-        lifetimePoints: sql`${familyMembersTable.lifetimePoints} + ${instance.pointsValue}`,
-      })
-      .where(eq(familyMembersTable.id, instance.childId));
-    await tx.insert(pointTransactionsTable).values({
-      memberId: instance.childId,
-      amount: instance.pointsValue,
-      type: "chore_earned",
-      description: `Earned for: ${instance.title}`,
-      choreInstanceId: instance.id,
-      approvedByParentId: parentId,
-    });
-    return instance;
+    for (const recipientId of recipientIds) {
+      await tx
+        .update(familyMembersTable)
+        .set({
+          pointsBalance: sql`${familyMembersTable.pointsBalance} + ${instance.pointsValue}`,
+          lifetimePoints: sql`${familyMembersTable.lifetimePoints} + ${instance.pointsValue}`,
+        })
+        .where(eq(familyMembersTable.id, recipientId));
+      await tx.insert(pointTransactionsTable).values({
+        memberId: recipientId,
+        amount: instance.pointsValue,
+        type: "chore_earned",
+        description: `Earned for: ${instance.title}`,
+        choreInstanceId: instance.id,
+        approvedByParentId: parentId,
+      });
+    }
+    return { instance, recipientIds };
   });
 
-  if (!updated) {
+  if (!approval) {
     // Wrong state or already approved — return current state as a no-op (idempotent)
     const [current] = await db
       .select()
@@ -1006,17 +1146,17 @@ router.post("/:id/approve", async (req, res) => {
   }
 
   // Core accounting is committed atomically above; badge evaluation can follow.
-  if (updated.childId) {
+  for (const recipientId of approval.recipientIds) {
     const [member] = await db
       .select()
       .from(familyMembersTable)
-      .where(eq(familyMembersTable.id, updated.childId));
+      .where(eq(familyMembersTable.id, recipientId));
     if (member) {
       await checkAndAwardBadges(member.id, member.lifetimePoints);
     }
   }
 
-  res.json(formatInstance(updated, await getMemberById(updated.childId)));
+  res.json(await formatInstanceWithRelations(approval.instance));
 });
 
 // ── POST /api/chores/:id/reject — parent rejects, resets to todo or missed ─────
@@ -1070,7 +1210,12 @@ router.post("/:id/reject", async (req, res) => {
     res.json(formatInstance(current, await getMemberById(current.childId)));
     return;
   }
-  res.json(formatInstance(inst, await getMemberById(inst.childId)));
+  if (inst.assignmentMode === "claimable") {
+    await db
+      .delete(choreInstanceClaimantsTable)
+      .where(eq(choreInstanceClaimantsTable.instanceId, inst.id));
+  }
+  res.json(await formatInstanceWithRelations(inst));
 });
 
 // ── POST /api/chores/:id/excuse — parent marks one missed occurrence as away ──
@@ -1324,9 +1469,12 @@ async function checkAndAwardBadges(memberId: number, lifetimePoints: number) {
 
   const [{ value: choreCount }] = await db
     .select({ value: count() })
-    .from(choreInstancesTable)
+    .from(pointTransactionsTable)
     .where(
-      sql`${choreInstancesTable.childId} = ${memberId} AND ${choreInstancesTable.status} = 'done'`,
+      and(
+        eq(pointTransactionsTable.memberId, memberId),
+        eq(pointTransactionsTable.type, "chore_earned"),
+      ),
     );
   const approvedCount = Number(choreCount ?? 0);
 
@@ -1351,8 +1499,16 @@ async function checkAndAwardBadges(memberId: number, lifetimePoints: number) {
   }));
 
   const allInstances = await db.select().from(choreInstancesTable);
+  const memberClaims = await db
+    .select({ instanceId: choreInstanceClaimantsTable.instanceId })
+    .from(choreInstanceClaimantsTable)
+    .where(eq(choreInstanceClaimantsTable.childId, memberId));
+  const claimedIds = new Set(memberClaims.map((claim) => claim.instanceId));
+  const streakInstances = allInstances.map((instance) =>
+    claimedIds.has(instance.id) ? { ...instance, childId: memberId } : instance,
+  );
   const longestStreak = calculateChoreStreak(
-    allInstances,
+    streakInstances,
     memberId,
     todayStr(),
   ).longest;

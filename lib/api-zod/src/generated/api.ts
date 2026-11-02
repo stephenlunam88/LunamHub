@@ -306,6 +306,19 @@ export const ListChoresResponseItem = zod.object({
   "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
+  "assignmentMode": zod.enum(['assigned', 'claimable']),
+  "claimants": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "role": zod.enum(['parent', 'child']),
+  "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
+  "createdAt": zod.string()
+})),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
@@ -330,11 +343,14 @@ export const ListChoresResponse = zod.array(ListChoresResponseItem)
 /**
  * @summary Create a chore
  */
+export const createChoreBodyAssignmentModeDefault = `assigned`;
+
 export const CreateChoreBody = zod.object({
   "title": zod.string(),
   "description": zod.string().optional(),
   "assignedTo": zod.number().optional(),
   "assignedToMany": zod.array(zod.number()).optional().describe('Assign to multiple children at once (creates one chore per child)'),
+  "assignmentMode": zod.enum(['assigned', 'claimable']).default(createChoreBodyAssignmentModeDefault).describe('Claimable creates one shared occurrence that one or two children can claim on completion.'),
   "dueDate": zod.string().optional().describe('Required recurrence anchor when repeatType is fortnightly.'),
   "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "pointsValue": zod.number(),
@@ -375,6 +391,19 @@ export const GetChoreScheduleResponseItem = zod.object({
   "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
+  "assignmentMode": zod.enum(['assigned', 'claimable']),
+  "claimants": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "role": zod.enum(['parent', 'child']),
+  "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
+  "createdAt": zod.string()
+})),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
@@ -421,6 +450,19 @@ export const GetChoreResponse = zod.object({
   "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
+  "assignmentMode": zod.enum(['assigned', 'claimable']),
+  "claimants": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "role": zod.enum(['parent', 'child']),
+  "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
+  "createdAt": zod.string()
+})),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
@@ -452,6 +494,7 @@ export const UpdateChoreBody = zod.object({
   "title": zod.string().optional(),
   "description": zod.string().optional(),
   "assignedTo": zod.number().nullish(),
+  "assignmentMode": zod.enum(['assigned', 'claimable']).optional(),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']).optional(),
   "pointsValue": zod.number().optional(),
@@ -479,6 +522,19 @@ export const UpdateChoreResponse = zod.object({
   "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
+  "assignmentMode": zod.enum(['assigned', 'claimable']),
+  "claimants": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "role": zod.enum(['parent', 'child']),
+  "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
+  "createdAt": zod.string()
+})),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
@@ -544,6 +600,19 @@ export const ExcuseChoresForAwayDayResponseItem = zod.object({
   "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
+  "assignmentMode": zod.enum(['assigned', 'claimable']),
+  "claimants": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "role": zod.enum(['parent', 'child']),
+  "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
+  "createdAt": zod.string()
+})),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
@@ -572,6 +641,14 @@ export const CompleteChoreParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const completeChoreBodyClaimantIdsMax = 2;
+
+
+
+export const CompleteChoreBody = zod.object({
+  "claimantIds": zod.array(zod.number()).min(1).max(completeChoreBodyClaimantIdsMax).optional().describe('Required for claimable chores; identifies one or two children who completed this occurrence.')
+})
+
 export const CompleteChoreResponse = zod.object({
   "id": zod.number(),
   "templateId": zod.number().nullish(),
@@ -590,6 +667,19 @@ export const CompleteChoreResponse = zod.object({
   "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
+  "assignmentMode": zod.enum(['assigned', 'claimable']),
+  "claimants": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "role": zod.enum(['parent', 'child']),
+  "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
+  "createdAt": zod.string()
+})),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
@@ -640,6 +730,19 @@ export const ApproveChoreResponse = zod.object({
   "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
+  "assignmentMode": zod.enum(['assigned', 'claimable']),
+  "claimants": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "role": zod.enum(['parent', 'child']),
+  "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
+  "createdAt": zod.string()
+})),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
@@ -691,6 +794,19 @@ export const RejectChoreResponse = zod.object({
   "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
+  "assignmentMode": zod.enum(['assigned', 'claimable']),
+  "claimants": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "role": zod.enum(['parent', 'child']),
+  "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
+  "createdAt": zod.string()
+})),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
@@ -741,6 +857,19 @@ export const ExcuseChoreResponse = zod.object({
   "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
+  "assignmentMode": zod.enum(['assigned', 'claimable']),
+  "claimants": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "role": zod.enum(['parent', 'child']),
+  "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
+  "createdAt": zod.string()
+})),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
@@ -791,6 +920,19 @@ export const SkipMissedChoreResponse = zod.object({
   "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
+  "assignmentMode": zod.enum(['assigned', 'claimable']),
+  "claimants": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "role": zod.enum(['parent', 'child']),
+  "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
+  "createdAt": zod.string()
+})),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
@@ -1534,6 +1676,19 @@ export const GetDashboardSummaryResponse = zod.object({
   "hasPin": zod.boolean(),
   "createdAt": zod.string()
 }).optional(),
+  "assignmentMode": zod.enum(['assigned', 'claimable']),
+  "claimants": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "color": zod.string(),
+  "role": zod.enum(['parent', 'child']),
+  "pointsBalance": zod.number(),
+  "lifetimePoints": zod.number(),
+  "avatarUrl": zod.string().nullish(),
+  "hasPin": zod.boolean(),
+  "createdAt": zod.string()
+})),
   "dueDate": zod.string().nullish(),
   "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),

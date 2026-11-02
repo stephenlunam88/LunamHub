@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { getTableConfig } from "drizzle-orm/pg-core";
-import { choreInstancesTable } from "../../../lib/db/src/schema/index.js";
+import {
+  choreInstanceClaimantsTable,
+  choreInstancesTable,
+} from "../../../lib/db/src/schema/index.js";
 import {
   fortnightlyOccurrences,
   isCalendarDate,
@@ -14,6 +17,24 @@ test("fortnightly chores stay anchored across month boundaries", () => {
   assert.equal(isFortnightlyOccurrence("2026-11-03", "2026-12-01"), true);
   assert.equal(isFortnightlyOccurrence("2026-11-03", "2026-11-10"), false);
   assert.equal(isFortnightlyOccurrence("2026-11-03", "2026-10-20"), false);
+});
+
+test("claimable occurrences and their claimants have duplicate guards", () => {
+  const instanceConfig = getTableConfig(choreInstancesTable);
+  const sharedIndex = instanceConfig.indexes.find(
+    (index) => index.config.name === "unique_claimable_chore_instance_per_day",
+  );
+  assert.ok(sharedIndex?.config.unique);
+
+  const claimantConfig = getTableConfig(choreInstanceClaimantsTable);
+  const claimantConstraint = claimantConfig.uniqueConstraints.find(
+    (constraint) => constraint.name === "unique_chore_instance_claimant",
+  );
+  assert.ok(claimantConstraint);
+  assert.deepEqual(
+    claimantConstraint.columns.map((column) => column.name),
+    ["instance_id", "child_id"],
+  );
 });
 
 test("fortnightly chores stay anchored across year boundaries", () => {

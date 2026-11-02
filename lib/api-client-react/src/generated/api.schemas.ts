@@ -288,6 +288,14 @@ export interface EventUpdate {
   assignedMembers?: number[];
 }
 
+export type ChoreAssignmentMode = typeof ChoreAssignmentMode[keyof typeof ChoreAssignmentMode];
+
+
+export const ChoreAssignmentMode = {
+  assigned: 'assigned',
+  claimable: 'claimable',
+} as const;
+
 export type ChoreRepeatType = typeof ChoreRepeatType[keyof typeof ChoreRepeatType];
 
 
@@ -333,6 +341,8 @@ export interface Chore {
   /** @nullable */
   assignedTo?: number | null;
   assignedMember?: FamilyMember;
+  assignmentMode: ChoreAssignmentMode;
+  claimants: FamilyMember[];
   /** @nullable */
   dueDate?: string | null;
   repeatType: ChoreRepeatType;
@@ -371,6 +381,15 @@ export interface ChoreApproveBody {
   pin?: string;
 }
 
+export interface ChoreCompleteBody {
+  /**
+     * Required for claimable chores; identifies one or two children who completed this occurrence.
+     * @minItems 1
+     * @maxItems 2
+     */
+  claimantIds?: number[];
+}
+
 export interface ChoreExcuseBody {
   parentId?: number;
   pin?: string;
@@ -395,6 +414,17 @@ export interface ChoreRejectBody {
   /** When true, sends the chore to missed instead of back to todo */
   markAsMissed?: boolean;
 }
+
+/**
+ * Claimable creates one shared occurrence that one or two children can claim on completion.
+ */
+export type ChoreInputAssignmentMode = typeof ChoreInputAssignmentMode[keyof typeof ChoreInputAssignmentMode];
+
+
+export const ChoreInputAssignmentMode = {
+  assigned: 'assigned',
+  claimable: 'claimable',
+} as const;
 
 export type ChoreInputRepeatType = typeof ChoreInputRepeatType[keyof typeof ChoreInputRepeatType];
 
@@ -424,6 +454,8 @@ export interface ChoreInput {
   assignedTo?: number;
   /** Assign to multiple children at once (creates one chore per child) */
   assignedToMany?: number[];
+  /** Claimable creates one shared occurrence that one or two children can claim on completion. */
+  assignmentMode?: ChoreInputAssignmentMode;
   /** Required recurrence anchor when repeatType is fortnightly. */
   dueDate?: string;
   repeatType: ChoreInputRepeatType;
@@ -433,6 +465,14 @@ export interface ChoreInput {
   /** @nullable */
   duePeriod?: ChoreInputDuePeriod;
 }
+
+export type ChoreUpdateAssignmentMode = typeof ChoreUpdateAssignmentMode[keyof typeof ChoreUpdateAssignmentMode];
+
+
+export const ChoreUpdateAssignmentMode = {
+  assigned: 'assigned',
+  claimable: 'claimable',
+} as const;
 
 export type ChoreUpdateRepeatType = typeof ChoreUpdateRepeatType[keyof typeof ChoreUpdateRepeatType];
 
@@ -472,6 +512,7 @@ export interface ChoreUpdate {
   description?: string;
   /** @nullable */
   assignedTo?: number | null;
+  assignmentMode?: ChoreUpdateAssignmentMode;
   /** @nullable */
   dueDate?: string | null;
   repeatType?: ChoreUpdateRepeatType;

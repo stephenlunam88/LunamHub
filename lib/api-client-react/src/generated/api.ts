@@ -29,6 +29,7 @@ import type {
   Chore,
   ChoreApproveBody,
   ChoreAwayDayBody,
+  ChoreCompleteBody,
   ChoreExcuseBody,
   ChoreInput,
   ChoreMilestone,
@@ -1831,14 +1832,16 @@ export const getCompleteChoreUrl = (id: number,) => {
 /**
  * @summary Mark a chore as completed (child action)
  */
-export const completeChore = async (id: number, options?: RequestInit): Promise<Chore> => {
+export const completeChore = async (id: number,
+    choreCompleteBody?: ChoreCompleteBody, options?: RequestInit): Promise<Chore> => {
 
   return customFetch<Chore>(getCompleteChoreUrl(id),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      choreCompleteBody,)
   }
 );}
 
@@ -1846,8 +1849,8 @@ export const completeChore = async (id: number, options?: RequestInit): Promise<
 
 
 export const getCompleteChoreMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeChore>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof completeChore>>, TError,{id: number}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeChore>>, TError,{id: number;data?: BodyType<ChoreCompleteBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeChore>>, TError,{id: number;data?: BodyType<ChoreCompleteBody>}, TContext> => {
 
 const mutationKey = ['completeChore'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1859,10 +1862,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeChore>>, {id: number}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeChore>>, {id: number;data?: BodyType<ChoreCompleteBody>}> = (props) => {
+          const {id,data} = props ?? {};
 
-          return  completeChore(id,requestOptions)
+          return  completeChore(id,data,requestOptions)
         }
 
 
@@ -1873,18 +1876,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type CompleteChoreMutationResult = NonNullable<Awaited<ReturnType<typeof completeChore>>>
-
+    export type CompleteChoreMutationBody = BodyType<ChoreCompleteBody> | undefined
     export type CompleteChoreMutationError = ErrorType<unknown>
 
     /**
  * @summary Mark a chore as completed (child action)
  */
 export const useCompleteChore = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeChore>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeChore>>, TError,{id: number;data?: BodyType<ChoreCompleteBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof completeChore>>,
         TError,
-        {id: number},
+        {id: number;data?: BodyType<ChoreCompleteBody>},
         TContext
       > => {
       return useMutation(getCompleteChoreMutationOptions(options));

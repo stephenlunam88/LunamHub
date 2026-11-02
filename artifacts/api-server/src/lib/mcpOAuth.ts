@@ -1204,6 +1204,7 @@ export function createLunamMcpServer(auth: AuthInfo) {
           description: choreTemplatesTable.description,
           pointsValue: choreTemplatesTable.pointsValue,
           repeatType: choreTemplatesTable.repeatType,
+          assignmentMode: choreTemplatesTable.assignmentMode,
           daysOfWeek: choreTemplatesTable.daysOfWeek,
           startDate: choreTemplatesTable.startDate,
           duePeriod: choreTemplatesTable.duePeriod,
@@ -1242,12 +1243,13 @@ export function createLunamMcpServer(auth: AuthInfo) {
     {
       title: "Add a chore",
       description:
-        "Create a family chore. Use a family member ID to assign it. repeatType is once, daily, weekly, or fortnightly. A fortnightly chore requires dueDate as its fixed 14-day recurrence anchor. daysOfWeek applies only to weekly chores and uses 0=Sunday through 6=Saturday; duePeriod is an optional morning, afternoon, or evening bucket (not a clock-time deadline). Ask for missing or ambiguous details before creating.",
+        "Create a family chore. Use assignmentMode=claimable with no assigned children when anyone may complete each individual occurrence; one or two children can then claim that occurrence. Use assignmentMode=assigned with a family member ID for normal assigned chores. repeatType is once, daily, weekly, or fortnightly. A fortnightly chore requires dueDate as its fixed 14-day recurrence anchor. daysOfWeek applies only to weekly chores and uses 0=Sunday through 6=Saturday; duePeriod is an optional morning, afternoon, or evening bucket. Ask for missing or ambiguous details before creating.",
       inputSchema: {
         title: z.string().min(1).max(200),
         description: z.string().max(2000).optional(),
         assignedTo: z.number().int().positive().optional(),
         assignedToMany: z.array(z.number().int().positive()).max(20).optional(),
+        assignmentMode: z.enum(["assigned", "claimable"]).default("assigned"),
         dueDate: z
           .string()
           .refine(isCalendarDate, "Use a real date in YYYY-MM-DD format.")
@@ -1280,6 +1282,12 @@ export function createLunamMcpServer(auth: AuthInfo) {
       ];
       if (input.assignedTo && input.assignedToMany?.length)
         throw new Error("Choose assignedTo or assignedToMany, not both.");
+      if (input.assignmentMode === "claimable" && assignedIds.length)
+        throw new Error("A claimable chore cannot have assigned children.");
+      if (input.assignmentMode === "assigned" && assignedIds.length === 0)
+        throw new Error(
+          "Choose an assigned child or use assignmentMode=claimable.",
+        );
       if (assignedIds.length) {
         const members = await db
           .select({ id: familyMembersTable.id })

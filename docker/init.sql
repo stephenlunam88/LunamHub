@@ -8,6 +8,7 @@ CREATE TYPE role AS ENUM ('parent', 'child');
 CREATE TYPE repeat_type AS ENUM ('once', 'daily', 'weekly', 'fortnightly');
 CREATE TYPE chore_status AS ENUM ('pending', 'completed', 'approved', 'missed');
 CREATE TYPE chore_instance_status AS ENUM ('todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped');
+CREATE TYPE chore_assignment_mode AS ENUM ('assigned', 'claimable');
 CREATE TYPE event_category AS ENUM ('school', 'sport', 'appointment', 'birthday', 'family', 'other');
 CREATE TYPE redemption_status AS ENUM ('pending', 'approved', 'rejected', 'fulfilled');
 CREATE TYPE list_category AS ENUM ('grocery', 'packing', 'school', 'reminders', 'other');
@@ -82,6 +83,7 @@ CREATE TABLE chore_templates (
     description TEXT,
     points_value INTEGER NOT NULL DEFAULT 10,
     repeat_type repeat_type NOT NULL DEFAULT 'once',
+    assignment_mode chore_assignment_mode NOT NULL DEFAULT 'assigned',
     days_of_week TEXT,
     start_date TEXT,
     due_period TEXT,
@@ -107,6 +109,7 @@ CREATE TABLE chore_instances (
     title TEXT NOT NULL,
     points_value INTEGER NOT NULL DEFAULT 10,
     repeat_type repeat_type NOT NULL DEFAULT 'once',
+    assignment_mode chore_assignment_mode NOT NULL DEFAULT 'assigned',
     days_of_week TEXT,
     start_date TEXT,
     due_period TEXT,
@@ -123,6 +126,18 @@ CREATE TABLE chore_instances (
     skipped_by_parent_id INTEGER REFERENCES family_members(id) ON DELETE SET NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     CONSTRAINT unique_chore_instance_per_day UNIQUE (template_id, child_id, due_date)
+);
+
+CREATE UNIQUE INDEX unique_claimable_chore_instance_per_day
+    ON chore_instances(template_id, due_date)
+    WHERE assignment_mode = 'claimable' AND child_id IS NULL;
+
+CREATE TABLE chore_instance_claimants (
+    id SERIAL PRIMARY KEY,
+    instance_id INTEGER NOT NULL REFERENCES chore_instances(id) ON DELETE CASCADE,
+    child_id INTEGER NOT NULL REFERENCES family_members(id) ON DELETE CASCADE,
+    claimed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    CONSTRAINT unique_chore_instance_claimant UNIQUE(instance_id, child_id)
 );
 
 -- ── Rewards ───────────────────────────────────────────────────────────────────

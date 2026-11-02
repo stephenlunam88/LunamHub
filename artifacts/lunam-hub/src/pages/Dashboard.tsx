@@ -256,12 +256,17 @@ function ChoresWidget({
   const approvalForChild = (memberId: number) =>
     chores.filter(
       (c) =>
-        c.assignedMember?.id === memberId && c.status === "pending_approval",
+        (c.assignedMember?.id === memberId ||
+          c.claimants.some((claimant) => claimant.id === memberId)) &&
+        c.status === "pending_approval",
     );
 
   const doneForChild = (memberId: number) =>
     chores.filter(
-      (c) => c.assignedMember?.id === memberId && c.status === "done",
+      (c) =>
+        (c.assignedMember?.id === memberId ||
+          c.claimants.some((claimant) => claimant.id === memberId)) &&
+        c.status === "done",
     );
 
   const selectedChild =
@@ -341,7 +346,9 @@ function ChoresWidget({
                     >
                       <Star className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">{c.title}</span>
+                        <span className="block truncate text-sm font-medium">
+                          {c.title}
+                        </span>
                         <ChoreTimeSlot period={c.duePeriod} className="mt-1" />
                       </div>
                       <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full shrink-0">
@@ -356,7 +363,9 @@ function ChoresWidget({
                     >
                       <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <span className="block truncate text-sm line-through">{c.title}</span>
+                        <span className="block truncate text-sm line-through">
+                          {c.title}
+                        </span>
                         <ChoreTimeSlot period={c.duePeriod} className="mt-1" />
                       </div>
                       <span className="text-xs font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full shrink-0">
@@ -1165,9 +1174,17 @@ export default function Dashboard() {
                     <b className="block truncate text-sm">{chore.title}</b>
                     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
                       <small className="text-muted-foreground">
-                        {chore.assignedMember?.name ?? "Unassigned"}
+                        {chore.assignedMember?.name ??
+                          (chore.assignmentMode === "claimable"
+                            ? "Anyone can do it"
+                            : "Unassigned")}
                       </small>
-                      <span aria-hidden="true" className="text-muted-foreground">·</span>
+                      <span
+                        aria-hidden="true"
+                        className="text-muted-foreground"
+                      >
+                        ·
+                      </span>
                       <ChoreTimeSlot period={chore.duePeriod} />
                     </div>
                   </div>
@@ -1335,10 +1352,18 @@ export default function Dashboard() {
                               {c.assignedMember.name}
                             </div>
                           )}
+                          {c.assignmentMode === "claimable" && (
+                            <div className="text-xs font-semibold text-primary">
+                              Anyone can do it
+                            </div>
+                          )}
                           <div className="text-sm font-medium truncate">
                             {c.title}
                           </div>
-                          <ChoreTimeSlot period={c.duePeriod} className="mt-1" />
+                          <ChoreTimeSlot
+                            period={c.duePeriod}
+                            className="mt-1"
+                          />
                         </div>
                         <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full shrink-0">
                           {c.pointsValue} pts
@@ -1357,10 +1382,20 @@ export default function Dashboard() {
                               {c.assignedMember.name}
                             </div>
                           )}
+                          {c.claimants.length > 0 && (
+                            <div className="text-xs font-semibold text-primary">
+                              {c.claimants
+                                .map((claimant) => claimant.name)
+                                .join(" & ")}
+                            </div>
+                          )}
                           <div className="text-sm font-medium truncate">
                             {c.title}
                           </div>
-                          <ChoreTimeSlot period={c.duePeriod} className="mt-1" />
+                          <ChoreTimeSlot
+                            period={c.duePeriod}
+                            className="mt-1"
+                          />
                         </div>
                         <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full shrink-0">
                           waiting
@@ -1377,7 +1412,10 @@ export default function Dashboard() {
                           <div className="text-sm truncate line-through">
                             {c.title}
                           </div>
-                          <ChoreTimeSlot period={c.duePeriod} className="mt-1" />
+                          <ChoreTimeSlot
+                            period={c.duePeriod}
+                            className="mt-1"
+                          />
                         </div>
                       </div>
                     ))}

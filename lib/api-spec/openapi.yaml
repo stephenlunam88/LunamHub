@@ -485,6 +485,12 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChoreCompleteBody"
       responses:
         "200":
           description: Updated
@@ -2211,6 +2217,13 @@ components:
           type: ["integer", "null"]
         assignedMember:
           $ref: "#/components/schemas/FamilyMember"
+        assignmentMode:
+          type: string
+          enum: [assigned, claimable]
+        claimants:
+          type: array
+          items:
+            $ref: "#/components/schemas/FamilyMember"
         dueDate:
           type: ["string", "null"]
         repeatType:
@@ -2258,6 +2271,8 @@ components:
         - id
         - title
         - repeatType
+        - assignmentMode
+        - claimants
         - pointsValue
         - status
         - pointsAwarded
@@ -2270,6 +2285,18 @@ components:
           type: integer
         pin:
           type: string
+
+    ChoreCompleteBody:
+      type: object
+      properties:
+        claimantIds:
+          type: array
+          minItems: 1
+          maxItems: 2
+          uniqueItems: true
+          items:
+            type: integer
+          description: Required for claimable chores; identifies one or two children who completed this occurrence.
 
     ChoreExcuseBody:
       type: object
@@ -2327,6 +2354,11 @@ components:
           items:
             type: integer
           description: Assign to multiple children at once (creates one chore per child)
+        assignmentMode:
+          type: string
+          enum: [assigned, claimable]
+          default: assigned
+          description: Claimable creates one shared occurrence that one or two children can claim on completion.
         dueDate:
           type: string
           description: Required recurrence anchor when repeatType is fortnightly.
@@ -2357,6 +2389,9 @@ components:
           type: string
         assignedTo:
           type: ["integer", "null"]
+        assignmentMode:
+          type: string
+          enum: [assigned, claimable]
         dueDate:
           type: ["string", "null"]
         repeatType:

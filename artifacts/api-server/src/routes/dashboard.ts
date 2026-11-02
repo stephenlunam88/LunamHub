@@ -7,6 +7,7 @@ import {
   eventsTable,
   eventMembersTable,
   choreInstancesTable,
+  choreInstanceClaimantsTable,
   familyMembersTable,
   mealPlanTable,
   mealsTable,
@@ -116,6 +117,17 @@ router.get("/summary", async (req, res) => {
     .select()
     .from(choreInstancesTable)
     .where(eq(choreInstancesTable.dueDate, todayStr));
+  const claimantRows = todayInstances.length
+    ? await db
+        .select()
+        .from(choreInstanceClaimantsTable)
+        .where(
+          inArray(
+            choreInstanceClaimantsTable.instanceId,
+            todayInstances.map((instance) => instance.id),
+          ),
+        )
+    : [];
 
   const todayChores = todayInstances.map((i) => {
     const m = i.childId ? memberById[i.childId] : undefined;
@@ -125,6 +137,28 @@ router.get("/summary", async (req, res) => {
       title: i.title,
       description: null as string | null,
       assignedTo: i.childId ?? null,
+      assignmentMode: i.assignmentMode,
+      claimants: claimantRows
+        .filter((claim) => claim.instanceId === i.id)
+        .flatMap((claim) => {
+          const claimant = memberById[claim.childId];
+          return claimant
+            ? [
+                {
+                  id: claimant.id,
+                  name: claimant.name,
+                  emoji: claimant.emoji,
+                  color: claimant.color,
+                  role: claimant.role,
+                  pointsBalance: claimant.pointsBalance,
+                  lifetimePoints: claimant.lifetimePoints,
+                  avatarUrl: claimant.avatarUrl ?? null,
+                  hasPin: !!claimant.pinHash,
+                  createdAt: claimant.createdAt.toISOString(),
+                },
+              ]
+            : [];
+        }),
       assignedMember: m
         ? {
             id: m.id,
