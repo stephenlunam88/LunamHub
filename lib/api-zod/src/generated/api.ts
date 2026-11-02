@@ -307,8 +307,9 @@ export const ListChoresResponseItem = zod.object({
   "createdAt": zod.string()
 }).optional(),
   "dueDate": zod.string().nullish(),
-  "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
+  "startDate": zod.coerce.date().nullish().describe('Original due-date anchor for fortnightly recurrence.'),
   "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "pointsValue": zod.number(),
   "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
@@ -334,8 +335,8 @@ export const CreateChoreBody = zod.object({
   "description": zod.string().optional(),
   "assignedTo": zod.number().optional(),
   "assignedToMany": zod.array(zod.number()).optional().describe('Assign to multiple children at once (creates one chore per child)'),
-  "dueDate": zod.string().optional(),
-  "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "dueDate": zod.string().optional().describe('Required recurrence anchor when repeatType is fortnightly.'),
+  "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "pointsValue": zod.number(),
   "daysOfWeek": zod.array(zod.number()).optional().describe('For weekly chores — selected days to repeat (0=Sun, 1=Mon … 6=Sat).'),
   "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish()
@@ -375,8 +376,9 @@ export const GetChoreScheduleResponseItem = zod.object({
   "createdAt": zod.string()
 }).optional(),
   "dueDate": zod.string().nullish(),
-  "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
+  "startDate": zod.coerce.date().nullish().describe('Original due-date anchor for fortnightly recurrence.'),
   "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "pointsValue": zod.number(),
   "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
@@ -420,8 +422,9 @@ export const GetChoreResponse = zod.object({
   "createdAt": zod.string()
 }).optional(),
   "dueDate": zod.string().nullish(),
-  "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
+  "startDate": zod.coerce.date().nullish().describe('Original due-date anchor for fortnightly recurrence.'),
   "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "pointsValue": zod.number(),
   "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
@@ -450,9 +453,10 @@ export const UpdateChoreBody = zod.object({
   "description": zod.string().optional(),
   "assignedTo": zod.number().nullish(),
   "dueDate": zod.string().nullish(),
-  "repeatType": zod.enum(['once', 'daily', 'weekly']).optional(),
+  "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']).optional(),
   "pointsValue": zod.number().optional(),
   "daysOfWeek": zod.array(zod.number()).optional(),
+  "startDate": zod.coerce.date().nullish().describe('Update the recurrence anchor for a fortnightly chore.'),
   "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected']).optional()
 })
@@ -476,8 +480,9 @@ export const UpdateChoreResponse = zod.object({
   "createdAt": zod.string()
 }).optional(),
   "dueDate": zod.string().nullish(),
-  "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
+  "startDate": zod.coerce.date().nullish().describe('Original due-date anchor for fortnightly recurrence.'),
   "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "pointsValue": zod.number(),
   "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
@@ -498,6 +503,15 @@ export const UpdateChoreResponse = zod.object({
  * @summary Delete a chore
  */
 export const DeleteChoreParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * Preserves completed and other historical instances.
+ * @summary Deactivate a recurring chore template and remove untouched instances
+ */
+export const DeleteChoreTemplateParams = zod.object({
   "id": zod.coerce.number()
 })
 
@@ -531,8 +545,9 @@ export const ExcuseChoresForAwayDayResponseItem = zod.object({
   "createdAt": zod.string()
 }).optional(),
   "dueDate": zod.string().nullish(),
-  "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
+  "startDate": zod.coerce.date().nullish().describe('Original due-date anchor for fortnightly recurrence.'),
   "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "pointsValue": zod.number(),
   "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
@@ -576,8 +591,9 @@ export const CompleteChoreResponse = zod.object({
   "createdAt": zod.string()
 }).optional(),
   "dueDate": zod.string().nullish(),
-  "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
+  "startDate": zod.coerce.date().nullish().describe('Original due-date anchor for fortnightly recurrence.'),
   "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "pointsValue": zod.number(),
   "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
@@ -625,8 +641,9 @@ export const ApproveChoreResponse = zod.object({
   "createdAt": zod.string()
 }).optional(),
   "dueDate": zod.string().nullish(),
-  "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
+  "startDate": zod.coerce.date().nullish().describe('Original due-date anchor for fortnightly recurrence.'),
   "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "pointsValue": zod.number(),
   "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
@@ -675,8 +692,9 @@ export const RejectChoreResponse = zod.object({
   "createdAt": zod.string()
 }).optional(),
   "dueDate": zod.string().nullish(),
-  "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
+  "startDate": zod.coerce.date().nullish().describe('Original due-date anchor for fortnightly recurrence.'),
   "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "pointsValue": zod.number(),
   "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
@@ -724,8 +742,9 @@ export const ExcuseChoreResponse = zod.object({
   "createdAt": zod.string()
 }).optional(),
   "dueDate": zod.string().nullish(),
-  "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
+  "startDate": zod.coerce.date().nullish().describe('Original due-date anchor for fortnightly recurrence.'),
   "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "pointsValue": zod.number(),
   "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
@@ -773,8 +792,9 @@ export const SkipMissedChoreResponse = zod.object({
   "createdAt": zod.string()
 }).optional(),
   "dueDate": zod.string().nullish(),
-  "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
+  "startDate": zod.coerce.date().nullish().describe('Original due-date anchor for fortnightly recurrence.'),
   "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "pointsValue": zod.number(),
   "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),
@@ -1515,8 +1535,9 @@ export const GetDashboardSummaryResponse = zod.object({
   "createdAt": zod.string()
 }).optional(),
   "dueDate": zod.string().nullish(),
-  "repeatType": zod.enum(['once', 'daily', 'weekly']),
+  "repeatType": zod.enum(['once', 'daily', 'weekly', 'fortnightly']),
   "daysOfWeek": zod.array(zod.number()).optional(),
+  "startDate": zod.coerce.date().nullish().describe('Original due-date anchor for fortnightly recurrence.'),
   "duePeriod": zod.enum(['morning', 'afternoon', 'evening']).nullish(),
   "pointsValue": zod.number(),
   "status": zod.enum(['todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped']),

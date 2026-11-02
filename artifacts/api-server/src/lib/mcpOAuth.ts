@@ -49,7 +49,10 @@ import {
 } from "@workspace/db";
 import { pool } from "@workspace/db";
 import { createCalendarEvent } from "../routes/events.js";
-import { createChoreRecords } from "../routes/chores.js";
+import {
+  createChoreRecords,
+  deactivateChoreTemplate,
+} from "../routes/chores.js";
 import { normalizeAssistantApiRequest } from "./assistantApiRequest.js";
 import {
   isLoginBlocked,
@@ -72,6 +75,7 @@ const HOUSEHOLD_API_PREFIXES = [
   "/family",
   "/events",
   "/chores",
+  "/chore-templates",
   "/rewards",
   "/redemptions",
   "/lists",
@@ -1201,6 +1205,7 @@ export function createLunamMcpServer(auth: AuthInfo) {
           pointsValue: choreTemplatesTable.pointsValue,
           repeatType: choreTemplatesTable.repeatType,
           daysOfWeek: choreTemplatesTable.daysOfWeek,
+          startDate: choreTemplatesTable.startDate,
           duePeriod: choreTemplatesTable.duePeriod,
           active: choreTemplatesTable.active,
         })
@@ -1237,7 +1242,7 @@ export function createLunamMcpServer(auth: AuthInfo) {
     {
       title: "Add a chore",
       description:
-        "Create a family chore. Use a family member ID to assign it. repeatType is once, daily, or weekly; daysOfWeek uses 0=Sunday through 6=Saturday; duePeriod is an optional morning, afternoon, or evening bucket (not a clock-time deadline). Ask for missing or ambiguous details before creating.",
+        "Create a family chore. Use a family member ID to assign it. repeatType is once, daily, weekly, or fortnightly. A fortnightly chore requires dueDate as its fixed 14-day recurrence anchor. daysOfWeek applies only to weekly chores and uses 0=Sunday through 6=Saturday; duePeriod is an optional morning, afternoon, or evening bucket (not a clock-time deadline). Ask for missing or ambiguous details before creating.",
       inputSchema: {
         title: z.string().min(1).max(200),
         description: z.string().max(2000).optional(),
@@ -1247,7 +1252,7 @@ export function createLunamMcpServer(auth: AuthInfo) {
           .string()
           .refine(isCalendarDate, "Use a real date in YYYY-MM-DD format.")
           .optional(),
-        repeatType: z.enum(["once", "daily", "weekly"]),
+        repeatType: z.enum(["once", "daily", "weekly", "fortnightly"]),
         pointsValue: z.number().int().min(0).max(10000).default(10),
         daysOfWeek: z.array(z.number().int().min(0).max(6)).max(7).optional(),
         duePeriod: z
@@ -1295,6 +1300,43 @@ export function createLunamMcpServer(auth: AuthInfo) {
           : undefined,
       });
       return { content: [{ type: "text", text: JSON.stringify(chore) }] };
+    },
+  );
+
+  server.registerTool(
+    "delete_chore_template",
+    {
+      title: "Delete a recurring chore",
+      description:
+        "Deactivate one recurring chore template by its template ID and remove its untouched generated instances. Completed and other historical instances are preserved. Resolve the template ID with list_chores first and only call after the user clearly asks to delete the entire recurring chore series.",
+      inputSchema: {
+        templateId: z.number().int().positive(),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ templateId }) => {
+      if (!auth.scopes.includes("chores:write"))
+        return needsScope("chores:write");
+      const deactivated = await deactivateChoreTemplate(templateId);
+      if (!deactivated) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: "Chore template not found." }],
+        };
+      }
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ templateId, active: false }),
+          },
+        ],
+      };
     },
   );
 
@@ -1350,7 +1392,7 @@ export function createLunamMcpServer(auth: AuthInfo) {
     {
       title: "Delete LunamHub household data",
       description:
-        "Delete a specific household item through LunamHub's supported APIs. Only call after the user clearly asks to delete/remove the identified item; if more than one match exists, ask which one. For a recurring calendar event, clarify whether they mean one occurrence or the entire series. Delete an entire list and its items with /lists/{listId}; delete only one item with /lists/{listId}/items/{itemId}. Other examples: /events/42, /chores/12, or /meals/4. Resolve IDs from current read results before deleting. Deletion happens immediately when called. Do not use authentication, settings, Google account connection, camera, or file-storage paths.",
+        "Delete a specific household item through LunamHub's supported APIs. Only call after the user clearly asks to delete/remove the identified item; if more than one match exists, ask which one. Use /chore-templates/{templateId} to stop an entire recurring chore series and preserve its history; /chores/{instanceId} deletes only one generated occurrence. For a recurring calendar event, clarify whether they mean one occurrence or the entire series. Delete an entire list and its items with /lists/{listId}; delete only one item with /lists/{listId}/items/{itemId}. Resolve IDs from current read results before deleting. Deletion happens immediately when called. Do not use authentication, settings, Google account connection, camera, or file-storage paths.",
       inputSchema: {
         path: McpApiPathSchema,
         query: McpApiQuerySchema,
@@ -1392,6 +1434,7 @@ export function createLunamMcpServer(auth: AuthInfo) {
           create_calendar_event: ["household:read", "calendar:write"],
           list_chores: ["chores:read"],
           create_chore: ["household:read", "chores:write"],
+          delete_chore_template: ["chores:write"],
           read_lunamhub_api: ["api:read"],
           write_lunamhub_api: ["api:write"],
           delete_lunamhub_api: ["api:delete"],

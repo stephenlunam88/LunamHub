@@ -24,6 +24,11 @@ export interface Chore {
   dueDate?: string | null;
   repeatType: ChoreRepeatType;
   daysOfWeek?: number[];
+  /**
+     * Original due-date anchor for fortnightly recurrence.
+     * @nullable
+     */
+  startDate?: Date | null;
   /** @nullable */
   duePeriod?: ChoreDuePeriod;
   pointsValue: number;

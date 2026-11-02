@@ -22,6 +22,7 @@ export const repeatTypeEnum = pgEnum("repeat_type", [
   "once",
   "daily",
   "weekly",
+  "fortnightly",
 ]);
 // Legacy enum kept for the old chores table (do not remove — FK exists via point_transactions)
 export const choreStatusEnum = pgEnum("chore_status", [
@@ -191,6 +192,8 @@ export const choreTemplatesTable = pgTable("chore_templates", {
   repeatType: repeatTypeEnum("repeat_type").notNull().default("once"),
   // JSON array of day-of-week numbers (0=Sun … 6=Sat) for weekly chores, e.g. "[1,3]"
   daysOfWeek: text("days_of_week"),
+  // YYYY-MM-DD anchor used only by fortnightly chores.
+  startDate: text("start_date"),
   // Optional part-of-day bucket (not a clock-time deadline).
   duePeriod: text("due_period"),
   requiresApproval: boolean("requires_approval").notNull().default(true),
@@ -237,6 +240,7 @@ export const choreInstancesTable = pgTable(
     pointsValue: integer("points_value").notNull().default(10),
     repeatType: repeatTypeEnum("repeat_type").notNull().default("once"),
     daysOfWeek: text("days_of_week"),
+    startDate: text("start_date"),
     duePeriod: text("due_period"),
     dueDate: text("due_date").notNull(), // YYYY-MM-DD
     status: choreInstanceStatusEnum("status").notNull().default("todo"),

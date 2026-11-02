@@ -19,6 +19,11 @@ export interface ChoreUpdate {
   repeatType?: ChoreUpdateRepeatType;
   pointsValue?: number;
   daysOfWeek?: number[];
+  /**
+     * Update the recurrence anchor for a fortnightly chore.
+     * @nullable
+     */
+  startDate?: Date | null;
   /** @nullable */
   duePeriod?: ChoreUpdateDuePeriod;
   status?: ChoreUpdateStatus;

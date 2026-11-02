@@ -14,6 +14,7 @@ export interface ChoreInput {
   assignedTo?: number;
   /** Assign to multiple children at once (creates one chore per child) */
   assignedToMany?: number[];
+  /** Required recurrence anchor when repeatType is fortnightly. */
   dueDate?: string;
   repeatType: ChoreInputRepeatType;
   pointsValue: number;

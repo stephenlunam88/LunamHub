@@ -1633,7 +1633,7 @@ export const deleteChore = async (id: number, options?: RequestInit): Promise<vo
 
 
 
-export const getDeleteChoreMutationOptions = <TError = ErrorType<unknown>,
+export const getDeleteChoreMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteChore>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof deleteChore>>, TError,{id: number}, TContext> => {
 
@@ -1662,12 +1662,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type DeleteChoreMutationResult = NonNullable<Awaited<ReturnType<typeof deleteChore>>>
 
-    export type DeleteChoreMutationError = ErrorType<unknown>
+    export type DeleteChoreMutationError = ErrorType<void>
 
     /**
  * @summary Delete a chore
  */
-export const useDeleteChore = <TError = ErrorType<unknown>,
+export const useDeleteChore = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteChore>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteChore>>,
@@ -1676,6 +1676,77 @@ export const useDeleteChore = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteChoreMutationOptions(options));
+    }
+
+export const getDeleteChoreTemplateUrl = (id: number,) => {
+
+
+
+
+  return `/api/chore-templates/${id}`
+}
+
+/**
+ * Preserves completed and other historical instances.
+ * @summary Deactivate a recurring chore template and remove untouched instances
+ */
+export const deleteChoreTemplate = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteChoreTemplateUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteChoreTemplateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteChoreTemplate>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteChoreTemplate>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteChoreTemplate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteChoreTemplate>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteChoreTemplate(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteChoreTemplateMutationResult = NonNullable<Awaited<ReturnType<typeof deleteChoreTemplate>>>
+
+    export type DeleteChoreTemplateMutationError = ErrorType<void>
+
+    /**
+ * @summary Deactivate a recurring chore template and remove untouched instances
+ */
+export const useDeleteChoreTemplate = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteChoreTemplate>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteChoreTemplate>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteChoreTemplateMutationOptions(options));
     }
 
 export const getExcuseChoresForAwayDayUrl = () => {

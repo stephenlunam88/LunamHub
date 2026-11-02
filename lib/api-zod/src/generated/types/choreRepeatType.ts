@@ -13,4 +13,5 @@ export const ChoreRepeatType = {
   once: 'once',
   daily: 'daily',
   weekly: 'weekly',
+  fortnightly: 'fortnightly',
 } as const;

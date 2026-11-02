@@ -6,6 +6,9 @@ export async function ensureChoreSchema(): Promise<void> {
   // Keep the enum change in its own statement: PostgreSQL only makes a newly
   // added enum value available after the ALTER TYPE statement commits.
   await pool.query(
+    `ALTER TYPE repeat_type ADD VALUE IF NOT EXISTS 'fortnightly'`,
+  );
+  await pool.query(
     `ALTER TYPE chore_instance_status ADD VALUE IF NOT EXISTS 'excused'`,
   );
   await pool.query(
@@ -13,10 +16,12 @@ export async function ensureChoreSchema(): Promise<void> {
   );
   await pool.query(`
     ALTER TABLE chore_templates
-      ADD COLUMN IF NOT EXISTS due_period text;
+      ADD COLUMN IF NOT EXISTS due_period text,
+      ADD COLUMN IF NOT EXISTS start_date text;
 
     ALTER TABLE chore_instances
       ADD COLUMN IF NOT EXISTS days_of_week text,
+      ADD COLUMN IF NOT EXISTS start_date text,
       ADD COLUMN IF NOT EXISTS due_period text,
       ADD COLUMN IF NOT EXISTS excused_at timestamp,
       ADD COLUMN IF NOT EXISTS excused_by_parent_id integer REFERENCES family_members(id) ON DELETE SET NULL,

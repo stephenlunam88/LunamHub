@@ -5,7 +5,7 @@
 -- ── Enums ─────────────────────────────────────────────────────────────────────
 
 CREATE TYPE role AS ENUM ('parent', 'child');
-CREATE TYPE repeat_type AS ENUM ('once', 'daily', 'weekly');
+CREATE TYPE repeat_type AS ENUM ('once', 'daily', 'weekly', 'fortnightly');
 CREATE TYPE chore_status AS ENUM ('pending', 'completed', 'approved', 'missed');
 CREATE TYPE chore_instance_status AS ENUM ('todo', 'pending_approval', 'done', 'missed', 'rejected', 'excused', 'skipped');
 CREATE TYPE event_category AS ENUM ('school', 'sport', 'appointment', 'birthday', 'family', 'other');
@@ -83,6 +83,7 @@ CREATE TABLE chore_templates (
     points_value INTEGER NOT NULL DEFAULT 10,
     repeat_type repeat_type NOT NULL DEFAULT 'once',
     days_of_week TEXT,
+    start_date TEXT,
     due_period TEXT,
     requires_approval BOOLEAN NOT NULL DEFAULT TRUE,
     active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -107,6 +108,7 @@ CREATE TABLE chore_instances (
     points_value INTEGER NOT NULL DEFAULT 10,
     repeat_type repeat_type NOT NULL DEFAULT 'once',
     days_of_week TEXT,
+    start_date TEXT,
     due_period TEXT,
     due_date TEXT NOT NULL,
     status chore_instance_status NOT NULL DEFAULT 'todo',

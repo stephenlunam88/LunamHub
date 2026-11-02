@@ -7,6 +7,7 @@ import {
   useApproveChore,
   useRejectChore,
   useDeleteChore,
+  useDeleteChoreTemplate,
   useUpdateChore,
   useGetChoresSummary,
   useGetChoreSchedule,
@@ -127,13 +128,19 @@ function mondayOf(date: Date): string {
   return dateKey(monday);
 }
 
-function formatChoreDate(date: string, options: Intl.DateTimeFormatOptions): string {
-  return new Intl.DateTimeFormat(undefined, options).format(new Date(`${date}T12:00:00`));
+function formatChoreDate(
+  date: string,
+  options: Intl.DateTimeFormatOptions,
+): string {
+  return new Intl.DateTimeFormat(undefined, options).format(
+    new Date(`${date}T12:00:00`),
+  );
 }
 
 function recurrenceSummary(chore: Chore): string | null {
   if (chore.repeatType === "once") return null;
   if (chore.repeatType === "daily") return "Every day";
+  if (chore.repeatType === "fortnightly") return "Every 2 weeks";
   const days = (chore.daysOfWeek ?? []).flatMap((value) => {
     const day = WEEKDAYS.find((candidate) => candidate.value === value);
     return day ? [day.label] : [];
@@ -149,7 +156,11 @@ function WeekdayPicker({
   onChange: (days: number[]) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-2" role="group" aria-label="Repeat on weekdays">
+    <div
+      className="flex flex-wrap gap-2"
+      role="group"
+      aria-label="Repeat on weekdays"
+    >
       {WEEKDAYS.map((day) => {
         const selected = selectedDays.includes(day.value);
         return (
@@ -401,7 +412,9 @@ function PinExcuseDialog({
       },
     },
   });
-  const selectedParent = parents.find((parent) => parent.id === selectedParentId);
+  const selectedParent = parents.find(
+    (parent) => parent.id === selectedParentId,
+  );
 
   const confirm = () =>
     excuseChore.mutate({
@@ -434,11 +447,14 @@ function PinExcuseDialog({
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Excuse “{chore.title}” for {formatChoreDate(chore.dueDate ?? "", {
+            Excuse “{chore.title}” for{" "}
+            {formatChoreDate(chore.dueDate ?? "", {
               weekday: "long",
               day: "numeric",
               month: "short",
-            })}. This occurrence won’t earn points, and an away-only day pauses the streak rather than breaking it.
+            })}
+            . This occurrence won’t earn points, and an away-only day pauses the
+            streak rather than breaking it.
           </p>
           {parents.length > 1 && (
             <div>
@@ -518,7 +534,9 @@ function ParentPinFields({
   error: string | null;
   setError: (error: string | null) => void;
 }) {
-  const selectedParent = parents.find((parent) => parent.id === selectedParentId);
+  const selectedParent = parents.find(
+    (parent) => parent.id === selectedParentId,
+  );
   return (
     <>
       {parents.length > 1 && (
@@ -532,11 +550,16 @@ function ParentPinFields({
               setError(null);
             }}
           >
-            <SelectTrigger className="mt-1 h-12 rounded-xl"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="mt-1 h-12 rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               {parents.map((parent) => (
                 <SelectItem key={parent.id} value={String(parent.id)}>
-                  <MemberOption name={parent.name} avatarUrl={parent.avatarUrl} />
+                  <MemberOption
+                    name={parent.name}
+                    avatarUrl={parent.avatarUrl}
+                  />
                 </SelectItem>
               ))}
             </SelectContent>
@@ -550,7 +573,10 @@ function ParentPinFields({
             type="password"
             inputMode="numeric"
             value={pin}
-            onChange={(event) => { setPin(event.target.value); setError(null); }}
+            onChange={(event) => {
+              setPin(event.target.value);
+              setError(null);
+            }}
             placeholder="••••"
             className="mt-1 h-12 rounded-xl text-center text-xl tracking-[0.4em]"
             autoFocus
@@ -577,30 +603,70 @@ function PinSkipDialog({
   const [error, setError] = useState<string | null>(null);
   const mutation = useSkipMissedChore({
     mutation: {
-      onSuccess: () => { setOpen(false); setPin(""); setError(null); onSuccess(); },
+      onSuccess: () => {
+        setOpen(false);
+        setPin("");
+        setError(null);
+        onSuccess();
+      },
       onError: (err: unknown) => {
-        const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-        setError(message?.includes("PIN") || message?.includes("Invalid") ? "Incorrect PIN — try again" : message ?? "Couldn’t skip this chore.");
+        const message = (err as { response?: { data?: { error?: string } } })
+          ?.response?.data?.error;
+        setError(
+          message?.includes("PIN") || message?.includes("Invalid")
+            ? "Incorrect PIN — try again"
+            : (message ?? "Couldn’t skip this chore."),
+        );
         setPin("");
       },
     },
   });
   const selectedParent = parents.find((parent) => parent.id === parentId);
-  const confirm = () => mutation.mutate({
-    id: chore.id,
-    data: { parentId: selectedParent ? parentId : undefined, pin: selectedParent?.hasPin ? pin : undefined },
-  });
+  const confirm = () =>
+    mutation.mutate({
+      id: chore.id,
+      data: {
+        parentId: selectedParent ? parentId : undefined,
+        pin: selectedParent?.hasPin ? pin : undefined,
+      },
+    });
   return (
-    <Dialog open={open} onOpenChange={(value) => { setOpen(value); setPin(""); setError(null); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        setOpen(value);
+        setPin("");
+        setError(null);
+      }}
+    >
       <DialogTrigger asChild>
-        <Button variant="outline" className="h-12 rounded-xl px-4">Skip</Button>
+        <Button variant="outline" className="h-12 rounded-xl px-4">
+          Skip
+        </Button>
       </DialogTrigger>
       <DialogContent className="max-w-sm rounded-3xl">
-        <DialogHeader><DialogTitle>Skip this chore?</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Skip this chore?</DialogTitle>
+        </DialogHeader>
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">“{chore.title}” will stay in history as skipped. Unlike Away, skipping does not pause a streak.</p>
-          <ParentPinFields parents={parents} selectedParentId={parentId} setSelectedParentId={setParentId} pin={pin} setPin={setPin} error={error} setError={setError} />
-          <Button className="h-12 w-full rounded-xl" onClick={confirm} disabled={(selectedParent?.hasPin && !pin) || mutation.isPending}>
+          <p className="text-sm text-muted-foreground">
+            “{chore.title}” will stay in history as skipped. Unlike Away,
+            skipping does not pause a streak.
+          </p>
+          <ParentPinFields
+            parents={parents}
+            selectedParentId={parentId}
+            setSelectedParentId={setParentId}
+            pin={pin}
+            setPin={setPin}
+            error={error}
+            setError={setError}
+          />
+          <Button
+            className="h-12 w-full rounded-xl"
+            onClick={confirm}
+            disabled={(selectedParent?.hasPin && !pin) || mutation.isPending}
+          >
             {mutation.isPending ? "Saving…" : "Confirm skip"}
           </Button>
         </div>
@@ -628,33 +694,80 @@ function PinAwayDayDialog({
   const [error, setError] = useState<string | null>(null);
   const mutation = useExcuseChoresForAwayDay({
     mutation: {
-      onSuccess: () => { setOpen(false); setPin(""); setError(null); onSuccess(); },
+      onSuccess: () => {
+        setOpen(false);
+        setPin("");
+        setError(null);
+        onSuccess();
+      },
       onError: (err: unknown) => {
-        const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-        setError(message?.includes("PIN") || message?.includes("Invalid") ? "Incorrect PIN — try again" : message ?? "Couldn’t mark this day as away.");
+        const message = (err as { response?: { data?: { error?: string } } })
+          ?.response?.data?.error;
+        setError(
+          message?.includes("PIN") || message?.includes("Invalid")
+            ? "Incorrect PIN — try again"
+            : (message ?? "Couldn’t mark this day as away."),
+        );
         setPin("");
       },
     },
   });
   const selectedParent = parents.find((parent) => parent.id === parentId);
-  const confirm = () => mutation.mutate({ data: {
-    dueDate,
-    ...(childId !== undefined ? { childId } : {}),
-    ...(selectedParent ? { parentId } : {}),
-    pin: selectedParent?.hasPin ? pin : undefined,
-  } });
+  const confirm = () =>
+    mutation.mutate({
+      data: {
+        dueDate,
+        ...(childId !== undefined ? { childId } : {}),
+        ...(selectedParent ? { parentId } : {}),
+        pin: selectedParent?.hasPin ? pin : undefined,
+      },
+    });
   return (
-    <Dialog open={open} onOpenChange={(value) => { setOpen(value); setPin(""); setError(null); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        setOpen(value);
+        setPin("");
+        setError(null);
+      }}
+    >
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="h-10 rounded-xl"><Plane className="mr-2 h-4 w-4" /> Mark day away</Button>
+        <Button variant="outline" size="sm" className="h-10 rounded-xl">
+          <Plane className="mr-2 h-4 w-4" /> Mark day away
+        </Button>
       </DialogTrigger>
       <DialogContent className="max-w-sm rounded-3xl">
-        <DialogHeader><DialogTitle>Mark this day away?</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Mark this day away?</DialogTitle>
+        </DialogHeader>
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">This will excuse {count} missed chore{count === 1 ? "" : "s"} on {formatChoreDate(dueDate, { weekday: "long", day: "numeric", month: "short" })}. No points are awarded; if these are the only chores that day, the streak pauses.</p>
-          <ParentPinFields parents={parents} selectedParentId={parentId} setSelectedParentId={setParentId} pin={pin} setPin={setPin} error={error} setError={setError} />
-          <Button className="h-12 w-full rounded-xl" onClick={confirm} disabled={(selectedParent?.hasPin && !pin) || mutation.isPending}>
-            {mutation.isPending ? "Saving…" : `Excuse ${count} chore${count === 1 ? "" : "s"}`}
+          <p className="text-sm text-muted-foreground">
+            This will excuse {count} missed chore{count === 1 ? "" : "s"} on{" "}
+            {formatChoreDate(dueDate, {
+              weekday: "long",
+              day: "numeric",
+              month: "short",
+            })}
+            . No points are awarded; if these are the only chores that day, the
+            streak pauses.
+          </p>
+          <ParentPinFields
+            parents={parents}
+            selectedParentId={parentId}
+            setSelectedParentId={setParentId}
+            pin={pin}
+            setPin={setPin}
+            error={error}
+            setError={setError}
+          />
+          <Button
+            className="h-12 w-full rounded-xl"
+            onClick={confirm}
+            disabled={(selectedParent?.hasPin && !pin) || mutation.isPending}
+          >
+            {mutation.isPending
+              ? "Saving…"
+              : `Excuse ${count} chore${count === 1 ? "" : "s"}`}
           </Button>
         </div>
       </DialogContent>
@@ -1027,11 +1140,13 @@ const ADMIN_OPTION = "__admin__";
 
 function PinDeleteDialog({
   choreId,
+  templateId,
   choreTitle,
   parents,
   onSuccess,
 }: {
   choreId: number;
+  templateId?: number | null;
   choreTitle: string;
   parents: ParentInfo[];
   onSuccess: () => void;
@@ -1058,7 +1173,20 @@ function PinDeleteDialog({
     },
   });
 
-  const onVerifySuccess = () => deleteChore.mutate({ id: choreId });
+  const deleteTemplate = useDeleteChoreTemplate({
+    mutation: {
+      onSuccess: () => {
+        setOpen(false);
+        reset();
+        onSuccess();
+      },
+    },
+  });
+
+  const onVerifySuccess = () => {
+    if (templateId) deleteTemplate.mutate({ id: templateId });
+    else deleteChore.mutate({ id: choreId });
+  };
   const onVerifyError = () => {
     setError("Incorrect PIN — try again");
     setPin("");
@@ -1073,7 +1201,10 @@ function PinDeleteDialog({
   });
 
   const isPending =
-    verifyAdmin.isPending || verifyParent.isPending || deleteChore.isPending;
+    verifyAdmin.isPending ||
+    verifyParent.isPending ||
+    deleteChore.isPending ||
+    deleteTemplate.isPending;
 
   const handleConfirm = () => {
     if (selected === ADMIN_OPTION) {
@@ -1113,7 +1244,9 @@ function PinDeleteDialog({
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-muted-foreground text-sm">
-            Delete "{choreTitle}"?
+            {templateId
+              ? `Delete “${choreTitle}” and stop all future occurrences? Completed history will be kept.`
+              : `Delete “${choreTitle}”?`}
           </p>
           {options.length > 1 && (
             <div>
@@ -1175,7 +1308,12 @@ function PinDeleteDialog({
 
 type EditFormState = Pick<
   ChoreUpdate,
-  "title" | "pointsValue" | "repeatType" | "daysOfWeek" | "duePeriod"
+  | "title"
+  | "pointsValue"
+  | "repeatType"
+  | "daysOfWeek"
+  | "duePeriod"
+  | "startDate"
 > & { assignedTo?: number | null };
 
 function PinEditDialog({
@@ -1197,6 +1335,7 @@ function PinEditDialog({
     repeatType: chore.repeatType as ChoreUpdate["repeatType"],
     daysOfWeek: chore.daysOfWeek ?? [],
     duePeriod: chore.duePeriod ?? null,
+    startDate: chore.startDate ?? chore.dueDate ?? null,
   });
   const [selected, setSelected] = useState<string>(
     parents[0] ? String(parents[0].id) : ADMIN_OPTION,
@@ -1268,6 +1407,7 @@ function PinEditDialog({
             repeatType: chore.repeatType as ChoreUpdate["repeatType"],
             daysOfWeek: chore.daysOfWeek ?? [],
             duePeriod: chore.duePeriod ?? null,
+            startDate: chore.startDate ?? chore.dueDate ?? null,
           });
         }
         reset();
@@ -1352,7 +1492,16 @@ function PinEditDialog({
                     daysOfWeek:
                       repeatType === "weekly" && !f.daysOfWeek?.length
                         ? [new Date().getDay()]
-                        : f.daysOfWeek,
+                        : repeatType === "weekly"
+                          ? f.daysOfWeek
+                          : [],
+                    startDate:
+                      repeatType === "fortnightly"
+                        ? (f.startDate ??
+                          chore.startDate ??
+                          chore.dueDate ??
+                          dateKey(new Date()))
+                        : null,
                   }));
                 }}
               >
@@ -1363,6 +1512,7 @@ function PinEditDialog({
                   <SelectItem value="once">Once</SelectItem>
                   <SelectItem value="daily">Daily</SelectItem>
                   <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="fortnightly">Fortnightly</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1381,6 +1531,25 @@ function PinEditDialog({
                   Select at least one day for a weekly chore.
                 </p>
               )}
+            </div>
+          )}
+          {form.repeatType === "fortnightly" && (
+            <div>
+              <Label>Start date</Label>
+              <Input
+                type="date"
+                value={form.startDate ?? ""}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    startDate: event.target.value || null,
+                  }))
+                }
+                className="rounded-xl h-12 mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Repeats every 14 days from this date.
+              </p>
             </div>
           )}
           <DuePeriodSelect
@@ -1447,7 +1616,8 @@ function PinEditDialog({
               !pin ||
               !form.title ||
               isPending ||
-              (form.repeatType === "weekly" && !form.daysOfWeek?.length)
+              (form.repeatType === "weekly" && !form.daysOfWeek?.length) ||
+              (form.repeatType === "fortnightly" && !form.startDate)
             }
           >
             {isPending ? "Saving…" : "Save Changes"}
@@ -1509,7 +1679,8 @@ export default function Chores() {
       }
     };
     window.addEventListener("lunamhub:quick-action", handleQuickAction);
-    return () => window.removeEventListener("lunamhub:quick-action", handleQuickAction);
+    return () =>
+      window.removeEventListener("lunamhub:quick-action", handleQuickAction);
   }, []);
 
   const invalidate = () => {
@@ -1729,7 +1900,9 @@ export default function Chores() {
                       </p>
                     )}
                   </div>
-                  <div className={`grid gap-3 ${form.repeatType === "once" ? "grid-cols-2" : "grid-cols-1"}`}>
+                  <div
+                    className={`grid gap-3 ${form.repeatType === "once" || form.repeatType === "fortnightly" ? "grid-cols-2" : "grid-cols-1"}`}
+                  >
                     <div>
                       <Label>Points</Label>
                       <Input
@@ -1744,9 +1917,14 @@ export default function Chores() {
                         className="rounded-xl h-12"
                       />
                     </div>
-                    {form.repeatType === "once" && (
+                    {(form.repeatType === "once" ||
+                      form.repeatType === "fortnightly") && (
                       <div>
-                        <Label>Due date</Label>
+                        <Label>
+                          {form.repeatType === "fortnightly"
+                            ? "Start date"
+                            : "Due date"}
+                        </Label>
                         <Input
                           type="date"
                           value={form.dueDate ?? ""}
@@ -1766,21 +1944,25 @@ export default function Chores() {
                     <Select
                       value={form.repeatType ?? "once"}
                       onValueChange={(v) =>
-                          setForm((f) => {
-                            const repeatType = v as ChoreInput["repeatType"];
-                            return {
-                              ...f,
-                              repeatType,
-                              daysOfWeek:
-                                repeatType === "weekly"
-                                  ? f.daysOfWeek?.length
-                                    ? f.daysOfWeek
-                                    : [new Date().getDay()]
-                                  : [],
-                              dueDate:
-                                repeatType === "once" ? f.dueDate : undefined,
-                            };
-                          })
+                        setForm((f) => {
+                          const repeatType = v as ChoreInput["repeatType"];
+                          return {
+                            ...f,
+                            repeatType,
+                            daysOfWeek:
+                              repeatType === "weekly"
+                                ? f.daysOfWeek?.length
+                                  ? f.daysOfWeek
+                                  : [new Date().getDay()]
+                                : [],
+                            dueDate:
+                              repeatType === "once"
+                                ? f.dueDate
+                                : repeatType === "fortnightly"
+                                  ? (f.dueDate ?? dateKey(new Date()))
+                                  : undefined,
+                          };
+                        })
                       }
                     >
                       <SelectTrigger className="rounded-xl h-12">
@@ -1790,6 +1972,7 @@ export default function Chores() {
                         <SelectItem value="once">Once</SelectItem>
                         <SelectItem value="daily">Daily</SelectItem>
                         <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="fortnightly">Fortnightly</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1820,7 +2003,9 @@ export default function Chores() {
                     onClick={() => setAddStep("pin")}
                     disabled={
                       !form.title ||
-                      (form.repeatType === "weekly" && !form.daysOfWeek?.length)
+                      (form.repeatType === "weekly" &&
+                        !form.daysOfWeek?.length) ||
+                      (form.repeatType === "fortnightly" && !form.dueDate)
                     }
                   >
                     Continue →
@@ -2138,7 +2323,8 @@ export default function Chores() {
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
               <div>
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <CalendarDays className="h-5 w-5 text-primary" /> Chore schedule
+                  <CalendarDays className="h-5 w-5 text-primary" /> Chore
+                  schedule
                 </CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Weekly plan · morning, afternoon and evening
@@ -2195,7 +2381,9 @@ export default function Chores() {
                         {formatChoreDate(date, { day: "numeric" })}
                       </span>
                       <span className="text-[10px] opacity-75">
-                        {choresCount ? `${choresCount} chore${choresCount === 1 ? "" : "s"}` : "—"}
+                        {choresCount
+                          ? `${choresCount} chore${choresCount === 1 ? "" : "s"}`
+                          : "—"}
                       </span>
                     </button>
                   );
@@ -2225,7 +2413,9 @@ export default function Chores() {
                           {group.chores.map((chore) => {
                             const member =
                               chore.assignedMember ??
-                              members.find((person) => person.id === chore.assignedTo);
+                              members.find(
+                                (person) => person.id === chore.assignedTo,
+                              );
                             return (
                               <div
                                 key={chore.id}
@@ -2239,9 +2429,12 @@ export default function Chores() {
                                   />
                                 )}
                                 <div className="min-w-0 flex-1">
-                                  <p className="truncate font-semibold">{chore.title}</p>
+                                  <p className="truncate font-semibold">
+                                    {chore.title}
+                                  </p>
                                   <p className="text-xs text-muted-foreground">
-                                    {member?.name ?? "Unassigned"} · {chore.pointsValue} pts
+                                    {member?.name ?? "Unassigned"} ·{" "}
+                                    {chore.pointsValue} pts
                                   </p>
                                 </div>
                                 <Badge
@@ -2340,6 +2533,9 @@ export default function Chores() {
                     />
                     <PinDeleteDialog
                       choreId={c.id}
+                      templateId={
+                        c.repeatType === "once" ? null : c.templateId
+                      }
                       choreTitle={c.title}
                       parents={parents}
                       onSuccess={invalidate}
@@ -2487,27 +2683,50 @@ export default function Chores() {
         <TabsContent value="missed" className="space-y-3 mt-4">
           <Card className="rounded-2xl border-0 bg-blue-50 shadow-sm">
             <CardContent className="p-4 text-sm text-slate-700">
-              <strong>Away</strong> excuses chores without points. If it’s the only scheduled work that day, the streak pauses. <strong>Skip</strong> records a skip and does not protect the streak.
+              <strong>Away</strong> excuses chores without points. If it’s the
+              only scheduled work that day, the streak pauses.{" "}
+              <strong>Skip</strong> records a skip and does not protect the
+              streak.
             </CardContent>
           </Card>
           {missedDates.length > 0 && (
             <div className="space-y-2">
               {missedDates.map((date) => {
-                const count = missed.filter((chore) => chore.dueDate === date).length;
+                const count = missed.filter(
+                  (chore) => chore.dueDate === date,
+                ).length;
                 return (
-                  <div key={date} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-muted/50 px-4 py-3">
-                    <span className="text-sm font-semibold">{formatChoreDate(date, { weekday: "long", day: "numeric", month: "short" })} · {count} missed</span>
-                    <PinAwayDayDialog dueDate={date} childId={filterChildId ?? undefined} count={count} parents={parents} onSuccess={invalidate} />
+                  <div
+                    key={date}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-muted/50 px-4 py-3"
+                  >
+                    <span className="text-sm font-semibold">
+                      {formatChoreDate(date, {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "short",
+                      })}{" "}
+                      · {count} missed
+                    </span>
+                    <PinAwayDayDialog
+                      dueDate={date}
+                      childId={filterChildId ?? undefined}
+                      count={count}
+                      parents={parents}
+                      onSuccess={invalidate}
+                    />
                   </div>
                 );
               })}
             </div>
           )}
-          {missed.length === 0 && excused.length === 0 && skipped.length === 0 && (
-            <p className="text-center text-muted-foreground py-12">
-              No missed chores 🎉
-            </p>
-          )}
+          {missed.length === 0 &&
+            excused.length === 0 &&
+            skipped.length === 0 && (
+              <p className="text-center text-muted-foreground py-12">
+                No missed chores 🎉
+              </p>
+            )}
           {missed.map((c) => {
             const member =
               c.assignedMember ?? members.find((m) => m.id === c.assignedTo);
@@ -2543,8 +2762,16 @@ export default function Chores() {
                     {c.pointsValue} pts
                   </div>
                   <div className="ml-auto flex shrink-0 gap-2">
-                    <PinExcuseDialog chore={c} parents={parents} onSuccess={invalidate} />
-                    <PinSkipDialog chore={c} parents={parents} onSuccess={invalidate} />
+                    <PinExcuseDialog
+                      chore={c}
+                      parents={parents}
+                      onSuccess={invalidate}
+                    />
+                    <PinSkipDialog
+                      chore={c}
+                      parents={parents}
+                      onSuccess={invalidate}
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -2557,7 +2784,10 @@ export default function Chores() {
               ? members.find((m) => m.id === c.excusedByParentId)
               : null;
             return (
-              <Card key={c.id} className="rounded-2xl border-0 bg-slate-50 shadow-sm">
+              <Card
+                key={c.id}
+                className="rounded-2xl border-0 bg-slate-50 shadow-sm"
+              >
                 <CardContent className="flex items-center gap-4 p-5">
                   <Plane className="h-6 w-6 shrink-0 text-slate-500" />
                   {member && (
@@ -2568,14 +2798,26 @@ export default function Chores() {
                     />
                   )}
                   <div className="min-w-0 flex-1">
-                    {member && <div className="text-sm font-bold text-slate-600">{member.name}</div>}
-                    <div className="font-semibold text-slate-700">{c.title}</div>
+                    {member && (
+                      <div className="text-sm font-bold text-slate-600">
+                        {member.name}
+                      </div>
+                    )}
+                    <div className="font-semibold text-slate-700">
+                      {c.title}
+                    </div>
                     <ChoreTimeSlot period={c.duePeriod} className="mt-1" />
                     <div className="text-xs text-muted-foreground">
-                      Away · {c.dueDate}{parent ? ` · marked by ${parent.name}` : ""}
+                      Away · {c.dueDate}
+                      {parent ? ` · marked by ${parent.name}` : ""}
                     </div>
                   </div>
-                  <Badge variant="outline" className="border-slate-300 text-slate-600">Excused</Badge>
+                  <Badge
+                    variant="outline"
+                    className="border-slate-300 text-slate-600"
+                  >
+                    Excused
+                  </Badge>
                 </CardContent>
               </Card>
             );
@@ -2587,17 +2829,40 @@ export default function Chores() {
               ? members.find((m) => m.id === c.skippedByParentId)
               : null;
             return (
-              <Card key={c.id} className="rounded-2xl border-0 bg-amber-50 shadow-sm">
+              <Card
+                key={c.id}
+                className="rounded-2xl border-0 bg-amber-50 shadow-sm"
+              >
                 <CardContent className="flex items-center gap-4 p-5">
                   <XCircle className="h-6 w-6 shrink-0 text-amber-600" />
-                  {member && <MemberAvatar avatarUrl={member.avatarUrl} name={member.name} className="h-10 w-10" />}
+                  {member && (
+                    <MemberAvatar
+                      avatarUrl={member.avatarUrl}
+                      name={member.name}
+                      className="h-10 w-10"
+                    />
+                  )}
                   <div className="min-w-0 flex-1">
-                    {member && <div className="text-sm font-bold text-amber-800">{member.name}</div>}
-                    <div className="font-semibold text-amber-900">{c.title}</div>
+                    {member && (
+                      <div className="text-sm font-bold text-amber-800">
+                        {member.name}
+                      </div>
+                    )}
+                    <div className="font-semibold text-amber-900">
+                      {c.title}
+                    </div>
                     <ChoreTimeSlot period={c.duePeriod} className="mt-1" />
-                    <div className="text-xs text-muted-foreground">Skipped · {c.dueDate}{parent ? ` · marked by ${parent.name}` : ""}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Skipped · {c.dueDate}
+                      {parent ? ` · marked by ${parent.name}` : ""}
+                    </div>
                   </div>
-                  <Badge variant="outline" className="border-amber-300 text-amber-800">Skipped</Badge>
+                  <Badge
+                    variant="outline"
+                    className="border-amber-300 text-amber-800"
+                  >
+                    Skipped
+                  </Badge>
                 </CardContent>
               </Card>
             );

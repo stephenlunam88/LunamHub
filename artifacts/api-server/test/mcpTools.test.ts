@@ -44,6 +44,7 @@ test("MCP exposes the household calendar and chore tools with scoped OAuth metad
     [
       "create_calendar_event",
       "create_chore",
+      "delete_chore_template",
       "get_profile",
       "list_calendar_events",
       "list_chores",
@@ -59,6 +60,18 @@ test("MCP exposes the household calendar and chore tools with scoped OAuth metad
   assert.deepEqual(byName.get("create_chore")?.["securitySchemes"], [
     { type: "oauth2", scopes: ["household:read", "chores:write"] },
   ]);
+  assert.deepEqual(byName.get("delete_chore_template")?.["securitySchemes"], [
+    { type: "oauth2", scopes: ["chores:write"] },
+  ]);
+  assert.equal(
+    (
+      byName.get("delete_chore_template")?.["annotations"] as Record<
+        string,
+        unknown
+      >
+    )?.["destructiveHint"],
+    true,
+  );
   assert.deepEqual(byName.get("read_lunamhub_api")?.["securitySchemes"], [
     { type: "oauth2", scopes: ["api:read"] },
   ]);

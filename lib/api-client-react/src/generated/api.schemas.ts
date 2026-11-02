@@ -295,6 +295,7 @@ export const ChoreRepeatType = {
   once: 'once',
   daily: 'daily',
   weekly: 'weekly',
+  fortnightly: 'fortnightly',
 } as const;
 
 /**
@@ -336,6 +337,11 @@ export interface Chore {
   dueDate?: string | null;
   repeatType: ChoreRepeatType;
   daysOfWeek?: number[];
+  /**
+     * Original due-date anchor for fortnightly recurrence.
+     * @nullable
+     */
+  startDate?: string | null;
   /** @nullable */
   duePeriod?: ChoreDuePeriod;
   pointsValue: number;
@@ -397,6 +403,7 @@ export const ChoreInputRepeatType = {
   once: 'once',
   daily: 'daily',
   weekly: 'weekly',
+  fortnightly: 'fortnightly',
 } as const;
 
 /**
@@ -417,6 +424,7 @@ export interface ChoreInput {
   assignedTo?: number;
   /** Assign to multiple children at once (creates one chore per child) */
   assignedToMany?: number[];
+  /** Required recurrence anchor when repeatType is fortnightly. */
   dueDate?: string;
   repeatType: ChoreInputRepeatType;
   pointsValue: number;
@@ -433,6 +441,7 @@ export const ChoreUpdateRepeatType = {
   once: 'once',
   daily: 'daily',
   weekly: 'weekly',
+  fortnightly: 'fortnightly',
 } as const;
 
 /**
@@ -468,6 +477,11 @@ export interface ChoreUpdate {
   repeatType?: ChoreUpdateRepeatType;
   pointsValue?: number;
   daysOfWeek?: number[];
+  /**
+     * Update the recurrence anchor for a fortnightly chore.
+     * @nullable
+     */
+  startDate?: string | null;
   /** @nullable */
   duePeriod?: ChoreUpdateDuePeriod;
   status?: ChoreUpdateStatus;

@@ -431,7 +431,27 @@ paths:
             type: integer
       responses:
         "204":
-          description: Deleted
+          description: Chore instance deleted
+        "404":
+          description: Not found
+
+  /chore-templates/{id}:
+    delete:
+      operationId: deleteChoreTemplate
+      tags: [chores]
+      summary: Deactivate a recurring chore template and remove untouched instances
+      description: Preserves completed and other historical instances.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Chore template deactivated
+        "404":
+          description: Not found
 
   /chores/away-day:
     post:
@@ -2195,11 +2215,15 @@ components:
           type: ["string", "null"]
         repeatType:
           type: string
-          enum: [once, daily, weekly]
+          enum: [once, daily, weekly, fortnightly]
         daysOfWeek:
           type: array
           items:
             type: integer
+        startDate:
+          type: ["string", "null"]
+          format: date
+          description: Original due-date anchor for fortnightly recurrence.
         duePeriod:
           type: [string, "null"]
           enum: [morning, afternoon, evening]
@@ -2207,7 +2231,8 @@ components:
           type: integer
         status:
           type: string
-          enum: [todo, pending_approval, done, missed, rejected, excused, skipped]
+          enum:
+            [todo, pending_approval, done, missed, rejected, excused, skipped]
         pointsAwarded:
           type: boolean
         completedAt:
@@ -2304,9 +2329,10 @@ components:
           description: Assign to multiple children at once (creates one chore per child)
         dueDate:
           type: string
+          description: Required recurrence anchor when repeatType is fortnightly.
         repeatType:
           type: string
-          enum: [once, daily, weekly]
+          enum: [once, daily, weekly, fortnightly]
         pointsValue:
           type: integer
         daysOfWeek:
@@ -2335,13 +2361,17 @@ components:
           type: ["string", "null"]
         repeatType:
           type: string
-          enum: [once, daily, weekly]
+          enum: [once, daily, weekly, fortnightly]
         pointsValue:
           type: integer
         daysOfWeek:
           type: array
           items:
             type: integer
+        startDate:
+          type: ["string", "null"]
+          format: date
+          description: Update the recurrence anchor for a fortnightly chore.
         duePeriod:
           type: [string, "null"]
           enum: [morning, afternoon, evening]
