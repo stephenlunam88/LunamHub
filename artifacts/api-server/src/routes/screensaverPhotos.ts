@@ -235,7 +235,7 @@ router.post("/google/session/:sessionId/import", requireParentVerification, asyn
         url,
         filename: file.filename?.slice(0, 500) || "Google Photos image",
         googlePhotosMediaId: mediaId,
-      }).onConflictDoNothing({ target: screensaverPhotosTable.googlePhotosMediaId }).returning({ id: screensaverPhotosTable.id });
+      }).onConflictDoNothing().returning({ id: screensaverPhotosTable.id });
       if (inserted.length > 0) imported++;
       else duplicates++;
     }
