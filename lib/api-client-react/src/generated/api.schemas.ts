@@ -1129,6 +1129,23 @@ export interface ScreensaverPhotoInput {
   filename?: string;
 }
 
+export interface GooglePhotosPickerSession {
+  sessionId: string;
+  pickerUri: string;
+  expiresAt: number;
+}
+
+export interface GooglePhotosPickerStatus {
+  ready: boolean;
+}
+
+export interface GooglePhotosImportResult {
+  imported: number;
+  duplicates: number;
+  skipped: number;
+  selected: number;
+}
+
 export interface PinInput {
   pin: string;
 }

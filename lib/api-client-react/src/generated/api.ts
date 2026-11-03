@@ -52,6 +52,9 @@ import type {
   GoogleCalendarStatus,
   GoogleCalendarSyncInput,
   GoogleCalendarSyncResult,
+  GooglePhotosImportResult,
+  GooglePhotosPickerSession,
+  GooglePhotosPickerStatus,
   HealthStatus,
   LeaderboardEntry,
   ListBadgesParams,
@@ -6066,6 +6069,223 @@ export const useDeleteScreensaverPhoto = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteScreensaverPhotoMutationOptions(options));
+    }
+
+export const getCreateGooglePhotosPickerSessionUrl = () => {
+
+
+
+
+  return `/api/screensaver-photos/google/session`
+}
+
+/**
+ * @summary Start a Google Photos Picker session
+ */
+export const createGooglePhotosPickerSession = async ( options?: RequestInit): Promise<GooglePhotosPickerSession> => {
+
+  return customFetch<GooglePhotosPickerSession>(getCreateGooglePhotosPickerSessionUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getCreateGooglePhotosPickerSessionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createGooglePhotosPickerSession>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createGooglePhotosPickerSession>>, TError,void, TContext> => {
+
+const mutationKey = ['createGooglePhotosPickerSession'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createGooglePhotosPickerSession>>, void> = () => {
+
+
+          return  createGooglePhotosPickerSession(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateGooglePhotosPickerSessionMutationResult = NonNullable<Awaited<ReturnType<typeof createGooglePhotosPickerSession>>>
+
+    export type CreateGooglePhotosPickerSessionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Start a Google Photos Picker session
+ */
+export const useCreateGooglePhotosPickerSession = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createGooglePhotosPickerSession>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createGooglePhotosPickerSession>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getCreateGooglePhotosPickerSessionMutationOptions(options));
+    }
+
+export const getGetGooglePhotosPickerSessionUrl = (sessionId: string,) => {
+
+
+
+
+  return `/api/screensaver-photos/google/session/${sessionId}`
+}
+
+/**
+ * @summary Check whether Google Photos selection is complete
+ */
+export const getGooglePhotosPickerSession = async (sessionId: string, options?: RequestInit): Promise<GooglePhotosPickerStatus> => {
+
+  return customFetch<GooglePhotosPickerStatus>(getGetGooglePhotosPickerSessionUrl(sessionId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGooglePhotosPickerSessionQueryKey = (sessionId: string,) => {
+    return [
+    `/api/screensaver-photos/google/session/${sessionId}`
+    ] as const;
+    }
+
+
+export const getGetGooglePhotosPickerSessionQueryOptions = <TData = Awaited<ReturnType<typeof getGooglePhotosPickerSession>>, TError = ErrorType<unknown>>(sessionId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGooglePhotosPickerSession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGooglePhotosPickerSessionQueryKey(sessionId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGooglePhotosPickerSession>>> = ({ signal }) => getGooglePhotosPickerSession(sessionId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(sessionId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGooglePhotosPickerSession>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGooglePhotosPickerSessionQueryResult = NonNullable<Awaited<ReturnType<typeof getGooglePhotosPickerSession>>>
+export type GetGooglePhotosPickerSessionQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Check whether Google Photos selection is complete
+ */
+
+export function useGetGooglePhotosPickerSession<TData = Awaited<ReturnType<typeof getGooglePhotosPickerSession>>, TError = ErrorType<unknown>>(
+ sessionId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGooglePhotosPickerSession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGooglePhotosPickerSessionQueryOptions(sessionId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getImportGooglePhotosPickerSessionUrl = (sessionId: string,) => {
+
+
+
+
+  return `/api/screensaver-photos/google/session/${sessionId}/import`
+}
+
+/**
+ * @summary Copy selected Google photos into screensaver storage
+ */
+export const importGooglePhotosPickerSession = async (sessionId: string, options?: RequestInit): Promise<GooglePhotosImportResult> => {
+
+  return customFetch<GooglePhotosImportResult>(getImportGooglePhotosPickerSessionUrl(sessionId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getImportGooglePhotosPickerSessionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importGooglePhotosPickerSession>>, TError,{sessionId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importGooglePhotosPickerSession>>, TError,{sessionId: string}, TContext> => {
+
+const mutationKey = ['importGooglePhotosPickerSession'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importGooglePhotosPickerSession>>, {sessionId: string}> = (props) => {
+          const {sessionId} = props ?? {};
+
+          return  importGooglePhotosPickerSession(sessionId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportGooglePhotosPickerSessionMutationResult = NonNullable<Awaited<ReturnType<typeof importGooglePhotosPickerSession>>>
+
+    export type ImportGooglePhotosPickerSessionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Copy selected Google photos into screensaver storage
+ */
+export const useImportGooglePhotosPickerSession = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importGooglePhotosPickerSession>>, TError,{sessionId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importGooglePhotosPickerSession>>,
+        TError,
+        {sessionId: string},
+        TContext
+      > => {
+      return useMutation(getImportGooglePhotosPickerSessionMutationOptions(options));
     }
 
 export const getListPointMilestonesUrl = () => {

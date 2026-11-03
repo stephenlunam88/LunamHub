@@ -319,5 +319,6 @@ CREATE TABLE screensaver_photos (
     id SERIAL PRIMARY KEY,
     url TEXT NOT NULL,
     filename TEXT,
+    google_photos_media_id TEXT UNIQUE,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );

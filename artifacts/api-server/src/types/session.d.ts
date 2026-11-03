@@ -4,7 +4,12 @@ declare module "express-session" {
   interface SessionData {
     authenticated?: boolean;
     parentVerifiedUntil?: number;
-    googleCalendarOAuth?: { state: string; expiresAt: number };
+    googleCalendarOAuth?: {
+      state: string;
+      expiresAt: number;
+      returnTo?: "calendar" | "photos";
+    };
+    googlePhotosPickerSessions?: Record<string, number>;
     assistantPending?: {
       id: string;
       expiresAt: number;

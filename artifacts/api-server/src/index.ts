@@ -6,6 +6,7 @@ import { startCalendarPolling } from "./lib/calendarPolling";
 import { ensureMcpOAuthSchema } from "./lib/mcpOAuth";
 import { ensureAssistantConfigSchema } from "./lib/assistantConfig";
 import { ensureChoreSchema } from "./lib/choreSchema";
+import { ensureScreensaverPhotoSchema } from "./lib/screensaverPhotoSchema";
 
 const rawPort = process.env["PORT"];
 
@@ -27,6 +28,7 @@ Promise.all([
   ensureMcpOAuthSchema(),
   ensureAssistantConfigSchema(),
   ensureChoreSchema(),
+  ensureScreensaverPhotoSchema(),
 ])
   .then(() => {
     app.listen(port, (err) => {

@@ -46,7 +46,7 @@ async function getStoredRefreshToken(): Promise<string | null> {
   }
 }
 
-async function getAccessToken(): Promise<string | null> {
+export async function getGoogleAccessToken(): Promise<string | null> {
   const now = Date.now();
   if (_accessToken && now < _tokenExpiresAt - TOKEN_BUFFER_MS) {
     return _accessToken;
@@ -91,7 +91,7 @@ async function directGCal(
   path: string,
   options?: { method?: string; body?: unknown },
 ): Promise<Response | null> {
-  const token = await getAccessToken();
+  const token = await getGoogleAccessToken();
   if (!token) return null;
   try {
     const res = await fetch(`${GCAL_BASE}${path}`, {
@@ -258,7 +258,7 @@ export async function checkOAuthAvailable(): Promise<boolean> {
 }
 
 export async function isGCalConnected(): Promise<boolean> {
-  const token = await getAccessToken();
+  const token = await getGoogleAccessToken();
   if (!token) return false;
   const resp = await directGCal("/users/me/calendarList");
   return resp !== null && resp.status >= 200 && resp.status < 300;

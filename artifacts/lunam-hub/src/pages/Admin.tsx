@@ -31,7 +31,7 @@ import { MemberOption } from "@/components/MemberAvatar";
 import { PageHeader } from "@/components/PageHeader";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { useToast } from "@/hooks/use-toast";
-import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload, CalendarDays, Flame, ImagePlay, Star, ListChecks, History, TrendingUp, TrendingDown, Minus, LogOut, UserRound, Monitor, Plug, Camera } from "lucide-react";
+import { Lock, Plus, Trash2, Pencil, Eye, EyeOff, Shield, Users, Settings as SettingsIcon, Key, Gift, Upload, CalendarDays, Flame, ImagePlay, Images, Star, ListChecks, History, TrendingUp, TrendingDown, Minus, LogOut, UserRound, Monitor, Plug, Camera } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useGetGoogleCalendarStatus,
@@ -802,6 +802,7 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
   const { data: choreMilestones = [] } = useListChoreMilestones();
   const [newPin, setNewPin] = useState("");
   const [ssUploading, setSsUploading] = useState(false);
+  const [ssGoogleImporting, setSsGoogleImporting] = useState(false);
   const ssFileRef = useRef<HTMLInputElement>(null);
   const [memberForm, setMemberForm] = useState<FamilyMemberInput>({ name: "", emoji: "😊", color: "#6366f1", role: "child" });
   const [newMemberPhoto, setNewMemberPhoto] = useState<File | null>(null);
@@ -849,6 +850,15 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
     });
   }, [settings]);
 
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    if (query.get("section") === "display") setAdminSection("display");
+    if (query.get("gphotos") === "connected") {
+      toast({ title: "Google Photos connected", description: "Tap Import from Google Photos again to choose photos." });
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [toast]);
+
   const invalidateRewards = () => qc.invalidateQueries({ queryKey: getListRewardsQueryKey() });
   const invalidateMilestones = () => qc.invalidateQueries({ queryKey: getListStreakMilestonesQueryKey() });
   const invalidatePhotos = () => qc.invalidateQueries({ queryKey: getListScreensaverPhotosQueryKey() });
@@ -873,6 +883,53 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
     } catch { /* ignore */ } finally {
       setSsUploading(false);
       if (ssFileRef.current) ssFileRef.current.value = "";
+    }
+  };
+
+  const importFromGooglePhotos = async () => {
+    const pickerWindow = window.open("", "lunamhub-google-photos");
+    if (!pickerWindow) {
+      toast({ title: "Pop-up blocked", description: "Allow pop-ups for LunamHub and try again.", variant: "destructive" });
+      return;
+    }
+    pickerWindow.document.title = "Opening Google Photos…";
+    setSsGoogleImporting(true);
+    try {
+      const start = await fetch("/api/screensaver-photos/google/session", { method: "POST" });
+      const startData = await start.json() as { sessionId?: string; pickerUri?: string; expiresAt?: number; reconnectRequired?: boolean; connectUrl?: string; error?: string };
+      if (startData.reconnectRequired && startData.connectUrl) {
+        pickerWindow.location.href = startData.connectUrl;
+        toast({ title: "Google Photos permission needed", description: "Complete the Google connection, then return here to import." });
+        return;
+      }
+      if (!start.ok || !startData.sessionId || !startData.pickerUri) throw new Error(startData.error || "Could not start Google Photos");
+      pickerWindow.location.href = startData.pickerUri;
+
+      const expiresAt = startData.expiresAt ?? Date.now() + 30 * 60_000;
+      let ready = false;
+      while (!ready && Date.now() < expiresAt) {
+        await new Promise(resolve => window.setTimeout(resolve, 2000));
+        const status = await fetch(`/api/screensaver-photos/google/session/${encodeURIComponent(startData.sessionId)}`);
+        if (!status.ok) throw new Error("The Google Photos selection expired");
+        const statusData = await status.json() as { ready?: boolean };
+        ready = statusData.ready === true;
+      }
+      if (!ready) throw new Error("The Google Photos selection expired");
+
+      const imported = await fetch(`/api/screensaver-photos/google/session/${encodeURIComponent(startData.sessionId)}/import`, { method: "POST" });
+      const result = await imported.json() as { imported?: number; duplicates?: number; skipped?: number; error?: string };
+      if (!imported.ok) throw new Error(result.error || "Could not import the selected photos");
+      await invalidatePhotos();
+      if (!pickerWindow.closed) pickerWindow.close();
+      toast({
+        title: `${result.imported ?? 0} photo${result.imported === 1 ? "" : "s"} imported`,
+        description: result.duplicates ? `${result.duplicates} already in your screensaver were skipped.` : undefined,
+      });
+    } catch (error) {
+      if (!pickerWindow.closed) pickerWindow.close();
+      toast({ title: "Google Photos import failed", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+    } finally {
+      setSsGoogleImporting(false);
     }
   };
 
@@ -1329,16 +1386,24 @@ function AdminPanel({ onLock }: { onLock: () => void }) {
       {/* ── Screensaver Photos ───────────────────────────────────────── */}
       <Card className={`${adminSection === "display" ? "" : "hidden"} rounded-3xl border-0 shadow-sm`}>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2"><ImagePlay className="w-5 h-5" /> Screensaver Photos</CardTitle>
-            <Button size="sm" className="rounded-xl gap-1.5" disabled={ssUploading} onClick={() => ssFileRef.current?.click()}>
-              <Upload className="w-4 h-4" />{ssUploading ? "Uploading…" : "Add Photo"}
-            </Button>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button size="sm" variant="outline" className="rounded-xl gap-1.5" disabled={ssGoogleImporting || ssUploading} onClick={importFromGooglePhotos}>
+                <Images className="w-4 h-4" />{ssGoogleImporting ? "Importing…" : "Import from Google Photos"}
+              </Button>
+              <Button size="sm" className="rounded-xl gap-1.5" disabled={ssUploading || ssGoogleImporting} onClick={() => ssFileRef.current?.click()}>
+                <Upload className="w-4 h-4" />{ssUploading ? "Uploading…" : "Add Photo"}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
             Photos rotate on the screensaver/display screen. If no photos are uploaded, a gradient background is shown instead.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Google Photos selections are copied to LunamHub so the screensaver keeps working without an internet connection. Import again whenever you want to add more; duplicates are skipped.
           </p>
           <input ref={ssFileRef} type="file" accept="image/*" className="hidden" onChange={handleSsPhotoUpload} />
           {ssPhotos.length === 0 && !ssUploading && (

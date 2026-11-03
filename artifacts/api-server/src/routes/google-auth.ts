@@ -12,7 +12,10 @@ import { requireParentVerification } from "../middleware/requireParentVerificati
 
 const router = Router();
 
-const SCOPES = "https://www.googleapis.com/auth/calendar";
+const SCOPES = [
+  "https://www.googleapis.com/auth/calendar",
+  "https://www.googleapis.com/auth/photospicker.mediaitems.readonly",
+].join(" ");
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 
 function getOAuthConfig(): {
@@ -48,6 +51,7 @@ router.get("/auth/google/init", requireParentVerification, (req, res): void => {
   req.session.googleCalendarOAuth = {
     state,
     expiresAt: Date.now() + 10 * 60_000,
+    returnTo: req.query.returnTo === "photos" ? "photos" : "calendar",
   };
   url.searchParams.set("state", state);
   req.session.save((error) => {
@@ -140,7 +144,11 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
 
     resetCalendarCaches();
     logger.info("gcal: OAuth refresh token stored successfully");
-    res.redirect("/admin?gcal=connected");
+    res.redirect(
+      pending.returnTo === "photos"
+        ? "/admin?section=display&gphotos=connected"
+        : "/admin?gcal=connected",
+    );
   } catch (err) {
     logger.error({ err }, "gcal: token exchange threw an error");
     res.redirect("/admin?gcal=error");

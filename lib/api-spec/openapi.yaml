@@ -1645,6 +1645,57 @@ paths:
         "204":
           description: Deleted
 
+  /screensaver-photos/google/session:
+    post:
+      operationId: createGooglePhotosPickerSession
+      tags: [screensaverPhotos]
+      summary: Start a Google Photos Picker session
+      responses:
+        "201":
+          description: Picker session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GooglePhotosPickerSession"
+
+  /screensaver-photos/google/session/{sessionId}:
+    get:
+      operationId: getGooglePhotosPickerSession
+      tags: [screensaverPhotos]
+      summary: Check whether Google Photos selection is complete
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Picker status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GooglePhotosPickerStatus"
+
+  /screensaver-photos/google/session/{sessionId}/import:
+    post:
+      operationId: importGooglePhotosPickerSession
+      tags: [screensaverPhotos]
+      summary: Copy selected Google photos into screensaver storage
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Import summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GooglePhotosImportResult"
+
   # ── Point Milestones ─────────────────────────────────────────────────────────
   /point-milestones:
     get:
@@ -3367,6 +3418,37 @@ components:
           type: string
       required:
         - url
+
+    GooglePhotosPickerSession:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        pickerUri:
+          type: string
+        expiresAt:
+          type: integer
+      required: [sessionId, pickerUri, expiresAt]
+
+    GooglePhotosPickerStatus:
+      type: object
+      properties:
+        ready:
+          type: boolean
+      required: [ready]
+
+    GooglePhotosImportResult:
+      type: object
+      properties:
+        imported:
+          type: integer
+        duplicates:
+          type: integer
+        skipped:
+          type: integer
+        selected:
+          type: integer
+      required: [imported, duplicates, skipped, selected]
 
     PinInput:
       type: object

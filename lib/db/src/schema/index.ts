@@ -700,6 +700,7 @@ export const screensaverPhotosTable = pgTable("screensaver_photos", {
   id: serial("id").primaryKey(),
   url: text("url").notNull(),
   filename: text("filename"),
+  googlePhotosMediaId: text("google_photos_media_id").unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

@@ -2033,6 +2033,33 @@ export const DeleteScreensaverPhotoParams = zod.object({
 
 
 /**
+ * @summary Check whether Google Photos selection is complete
+ */
+export const GetGooglePhotosPickerSessionParams = zod.object({
+  "sessionId": zod.coerce.string()
+})
+
+export const GetGooglePhotosPickerSessionResponse = zod.object({
+  "ready": zod.boolean()
+})
+
+
+/**
+ * @summary Copy selected Google photos into screensaver storage
+ */
+export const ImportGooglePhotosPickerSessionParams = zod.object({
+  "sessionId": zod.coerce.string()
+})
+
+export const ImportGooglePhotosPickerSessionResponse = zod.object({
+  "imported": zod.number(),
+  "duplicates": zod.number(),
+  "skipped": zod.number(),
+  "selected": zod.number()
+})
+
+
+/**
  * @summary List all point milestones
  */
 export const ListPointMilestonesResponseItem = zod.object({
